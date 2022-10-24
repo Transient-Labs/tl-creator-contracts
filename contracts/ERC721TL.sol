@@ -53,7 +53,7 @@ contract ERC721TL is ERC721UpgradeableTL, EIP2981TL, OwnableUpgradeable {
 
     //================= Init =================//
 
-    function initialize(string memory name, string memory symbol, address owner, address royaltyRecipient, uint256 royaltyPercentage) external onlyInitializing {
+    function initialize(string memory name, string memory symbol, address owner, address royaltyRecipient, uint256 royaltyPercentage) external initializer {
         __ERC721_init(name, symbol);
         __EIP2981_init(royaltyRecipient, royaltyPercentage);
         __Ownable_init();
@@ -182,7 +182,8 @@ contract ERC721TL is ERC721UpgradeableTL, EIP2981TL, OwnableUpgradeable {
     }
 
     function _exists(uint256 tokenId) internal view override returns (bool) {
-        return ownerOf(tokenId) != address(0);
+        (address owner, ) = _getBatchInfo(tokenId);
+        return _ownerOf(tokenId) != address(0) || owner != address(0);
     }
     
     //================= Needed Overrides =================//
