@@ -24,11 +24,21 @@ contract ERC721StoryTL is IStory, ERC721TL {
 
     /// @notice Allows creator to add a story.
     /// @dev requires owner
+    /// @dev emits a CreatorStory event
+    /// @param tokenId The token id a creator is adding a story to
+    /// @param creatorName The name of the creator/artist
+    /// @param story The story to be attached to the token
     function addCreatorStory(uint256 tokenId, string calldata creatorName, string calldata story) external onlyOwner {
         require(_exists(tokenId), "ERC721TERC721TLStory: token must exist");
         emit CreatorStory(tokenId, msg.sender, creatorName, story);
     }
 
+    /// @notice Allows creator to add a story.
+    /// @dev requires token owner
+    /// @dev emits a Story event
+    /// @param tokenId The token id a creator is adding a story to
+    /// @param collectorName The name of the collector
+    /// @param story The story to be attached to the token
     function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {
         require(ownerOf(tokenId) == msg.sender, "ERC721TLStory: must be token owner");
         emit Story(tokenId, msg.sender, collectorName, story);
