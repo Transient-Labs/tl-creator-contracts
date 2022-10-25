@@ -31,7 +31,6 @@ contract ERC721StoryTL is IStory, ERC721TL {
 
     function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {
         require(ownerOf(tokenId) == msg.sender, "ERC721TLStory: must be token owner");
-        require(_exists(tokenId), "ERC721TERC721TLStory: token must exist");
         emit Story(tokenId, msg.sender, collectorName, story);
     }
 }
