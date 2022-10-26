@@ -218,10 +218,14 @@ contract ERC721TL is IStory, ERC721UpgradeableTL, EIP2981TL, OwnableUpgradeable 
 
     //================= Functions for IStory =================//
 
+    /// @notice Allows owner to enable/disable stories
+    /// @dev requires owner
     function setStoryEnabled(bool storyEnabled) external onlyOwner {
         _storyEnabled = storyEnabled;
     }
 
+    /// @notice Shows if story feature is enabled
+    /// @return bool True if enabled, False otherwise
     function storyEnabled() external view returns (bool) {
         return _storyEnabled;
     }
