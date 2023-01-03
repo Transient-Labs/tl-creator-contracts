@@ -17,9 +17,10 @@ pragma solidity ^0.8.14;
 
 import "./ERC721UpgradeableTL.sol";
 import "./EIP2981TL.sol";
+import "./IStory.sol";
 import "OpenZeppelin/openzeppelin-contracts-upgradeable@4.7.3/contracts/access/OwnableUpgradeable.sol";
 
-contract ERC721TL is ERC721UpgradeableTL, EIP2981TL, OwnableUpgradeable {
+contract ERC721TL is IStory, ERC721UpgradeableTL, EIP2981TL, OwnableUpgradeable {
 
     //================= State Variables =================//
     struct BatchMint {
@@ -33,6 +34,8 @@ contract ERC721TL is ERC721UpgradeableTL, EIP2981TL, OwnableUpgradeable {
     mapping(address => bool) private _blockList;
     mapping(uint256 => string) private _tokenUris;
     BatchMint[] private _batchMints;
+
+    bool private _storyEnabled;
 
     //================= Events =================//
 
@@ -53,11 +56,19 @@ contract ERC721TL is ERC721UpgradeableTL, EIP2981TL, OwnableUpgradeable {
 
     //================= Init =================//
 
-    function initialize(string memory name, string memory symbol, address owner, address royaltyRecipient, uint256 royaltyPercentage) external onlyInitializing {
+    function initialize(
+        string memory name, 
+        string memory symbol, 
+        address owner, 
+        address royaltyRecipient, 
+        uint256 royaltyPercentage, 
+        bool storyEnabled
+    ) external initializer {
         __ERC721_init(name, symbol);
         __EIP2981_init(royaltyRecipient, royaltyPercentage);
         __Ownable_init();
         _transferOwnership(owner);
+        _storyEnabled = storyEnabled;
     }
 
     //================= Custom Functions =================//
@@ -182,7 +193,8 @@ contract ERC721TL is ERC721UpgradeableTL, EIP2981TL, OwnableUpgradeable {
     }
 
     function _exists(uint256 tokenId) internal view override returns (bool) {
-        return ownerOf(tokenId) != address(0);
+        (address owner, ) = _getBatchInfo(tokenId);
+        return _ownerOf(tokenId) != address(0) || owner != address(0);
     }
     
     //================= Needed Overrides =================//
@@ -202,5 +214,43 @@ contract ERC721TL is ERC721UpgradeableTL, EIP2981TL, OwnableUpgradeable {
     /// @notice function to override ERC165 supportsInterface
     function supportsInterface(bytes4 interfaceId) public view override(ERC721UpgradeableTL, EIP2981TL) returns (bool) {
         return ERC721UpgradeableTL.supportsInterface(interfaceId) || EIP2981TL.supportsInterface(interfaceId);
+    }
+
+    //================= Functions for IStory =================//
+
+    /// @notice Allows owner to enable/disable stories
+    /// @dev requires owner
+    function setStoryEnabled(bool storyEnabled) external onlyOwner {
+        _storyEnabled = storyEnabled;
+    }
+
+    /// @notice Shows if story feature is enabled
+    /// @return bool True if enabled, False otherwise
+    function storyEnabled() external view returns (bool) {
+        return _storyEnabled;
+    }
+
+    /// @notice Allows creator to add a story.
+    /// @dev requires owner
+    /// @dev emits a CreatorStory event
+    /// @param tokenId The token id a creator is adding a story to
+    /// @param creatorName The name of the creator/artist
+    /// @param story The story to be attached to the token
+    function addCreatorStory(uint256 tokenId, string calldata creatorName, string calldata story) external onlyOwner {
+        require(_storyEnabled, "ERC721TL: Story must be enabled");
+        require(_exists(tokenId), "ERC721TL: token must exist");
+        emit CreatorStory(tokenId, msg.sender, creatorName, story);
+    }
+
+    /// @notice Allows creator to add a story.
+    /// @dev requires token owner
+    /// @dev emits a Story event
+    /// @param tokenId The token id a creator is adding a story to
+    /// @param collectorName The name of the collector
+    /// @param story The story to be attached to the token
+    function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {
+        require(_storyEnabled, "ERC721TL: Story must be enabled");
+        require(ownerOf(tokenId) == msg.sender, "ERC721TL: must be token owner");
+        emit Story(tokenId, msg.sender, collectorName, story);
     }
 }

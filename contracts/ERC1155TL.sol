@@ -17,9 +17,10 @@ pragma solidity ^0.8.14;
 
 import "OpenZeppelin/openzeppelin-contracts-upgradeable@4.7.3/contracts/token/ERC1155/ERC1155Upgradeable.sol";
 import "./EIP2981TL.sol";
+import "./IStory.sol";
 import "OpenZeppelin/openzeppelin-contracts-upgradeable@4.7.3/contracts/access/OwnableUpgradeable.sol";
 
-contract ERC1155TL is ERC1155Upgradeable, EIP2981TL, OwnableUpgradeable {
+contract ERC1155TL is IStory, ERC1155Upgradeable, EIP2981TL, OwnableUpgradeable {
 
     //================= State Variables =================//
     struct Token {
@@ -32,14 +33,23 @@ contract ERC1155TL is ERC1155Upgradeable, EIP2981TL, OwnableUpgradeable {
     mapping(uint256 => Token) private _tokens;
     mapping(address => bool) private _blockList;
 
+    bool private _storyEnabled;
+
     //================= Init =================//
 
-    function initialize(string memory name_, address owner, address defaultRecipient, uint256 defaultPercentage) external onlyInitializing {
+    function initialize(
+        string memory name_, 
+        address owner, 
+        address defaultRecipient, 
+        uint256 defaultPercentage,
+        bool storyEnabled
+    ) external initializer {
         __ERC1155_init("");
         __EIP2981_init(defaultRecipient, defaultPercentage);
         __Ownable_init();
         _transferOwnership(owner);
         name = name_;
+        _storyEnabled = storyEnabled;
     }
 
     //================= Custom Functions =================//
@@ -64,11 +74,19 @@ contract ERC1155TL is ERC1155Upgradeable, EIP2981TL, OwnableUpgradeable {
 
     /// @notice function to create a token that can be minted to creator or airdropped
     /// @dev requires owner
+    function createToken(string memory uri_, uint256 amount) external onlyOwner {
+        require(bytes(uri_).length != 0, "ERC1155TL: uri cannot be empty");
+        _counter++;
+        _tokens[_counter] = Token(true, uri_);
+        _mint(owner(), _counter, amount, "");
+    }
+
+    /// @notice function to create a token that can be minted to creator or airdropped
+    /// @dev requires owner
     function createToken(string memory uri_, address royaltyRecipient, uint256 royaltyPercentage) external onlyOwner {
         require(bytes(uri_).length != 0, "ERC1155TL: uri cannot be empty");
         _counter++;
-        _tokens[_counter].created = true;
-        _tokens[_counter].uri = uri_;
+        _tokens[_counter] = Token(true, uri_);
         _overrideTokenRoyaltyInfo(_counter, royaltyRecipient, royaltyPercentage);
     }
 
@@ -121,5 +139,43 @@ contract ERC1155TL is ERC1155Upgradeable, EIP2981TL, OwnableUpgradeable {
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155Upgradeable, EIP2981TL) returns (bool) {
         return ERC1155Upgradeable.supportsInterface(interfaceId) || EIP2981TL.supportsInterface(interfaceId);
+    }
+
+    //================= Functions for IStory =================//
+
+    /// @notice Allows owner to enable/disable stories
+    /// @dev requires owner
+    function setStoryEnabled(bool storyEnabled) external onlyOwner {
+        _storyEnabled = storyEnabled;
+    }
+
+    /// @notice Shows if story feature is enabled
+    /// @return bool True if enabled, False otherwise
+    function storyEnabled() external view returns (bool) {
+        return _storyEnabled;
+    }
+
+    /// @notice Allows creator to add a story.
+    /// @dev requires owner
+    /// @dev emits a CreatorStory event
+    /// @param tokenId The token id a creator is adding a story to
+    /// @param creatorName The name of the creator/artist
+    /// @param story The story to be attached to the token
+    function addCreatorStory(uint256 tokenId, string calldata creatorName, string calldata story) external onlyOwner {
+        require(_storyEnabled, "ERC1155TL: Story must be enabled");
+        require(_tokens[tokenId].created, "ERC1155TL: token must exist");
+        emit CreatorStory(tokenId, msg.sender, creatorName, story);
+    }
+
+    /// @notice Allows creator to add a story.
+    /// @dev requires token owner
+    /// @dev emits a Story event
+    /// @param tokenId The token id a creator is adding a story to
+    /// @param collectorName The name of the collector
+    /// @param story The story to be attached to the token
+    function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {
+        require(_storyEnabled, "ERC1155TL: Story must be enabled");
+        require(balanceOf(msg.sender, tokenId) > 0, "ERC1155TL: must at least 1 token");
+        emit Story(tokenId, msg.sender, collectorName, story);
     }
 }
