@@ -1,4 +1,4 @@
-// SPDX-License-Identifer: Apache-2.0
+// SPDX-License-Identifier: Apache-2.0
 
 /// @title TLCoreContractsFactory.sol
 /// @notice registry and contract factory for ERC721TL and ERC1155TL
@@ -26,7 +26,7 @@ interface ERC1155TL {
     function initialize(string memory name_, address owner, address defaultRecipient, uint256 defaultPercentage) external;
 }
 
-contract TLCoreContractsFactory is Ownable {
+contract TLCoreFactory is Ownable {
 
     address public ERC721TLImplementation;
     address public ERC1155TLImplementation;

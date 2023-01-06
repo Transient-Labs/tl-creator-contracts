@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /// @title ERC1155TL.sol
-/// @notice Transient Labs core ERC1155 contract for creators to mint artwork in a series/collection
+/// @notice Transient Labs core ERC1155 contract (v1)
+/// @dev features include
+///      - batch minting
+///      - airdrops
+///      - ability to hook in external mint contracts
+///      - ability to set multiple admins
+///      - ability to enable/disable the Story Contract at creation time
+///      - ability to enable/disable BlockList at creation time
+///      - Synergy metadata protection? - don't know if there is a good way for this
+///      - individual token royalties
 /// @author transientlabs.xyz
 
 /*
@@ -13,168 +22,227 @@
 
 */
 
-pragma solidity ^0.8.14;
+pragma solidity 0.8.17;
+
+///////////////////// IMPORTS /////////////////////
 
 import { ERC1155Upgradeable } from "openzeppelin-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
-import { CoreAuthTL } from "src/access/CoreAuthTL.sol";
-import { EIP2981TL } from "src/royalties/EIP2981TL.sol";
+import { IERC1155Upgradeable } from "openzeppelin-upgradeable/token/ERC1155/IERC1155Upgradeable.sol";
+import { StoryContractUpgradeable } from "tl-story/upgradeable/StoryContractUpgradeable.sol";
+import { CoreAuthTL } from "../access/CoreAuthTL.sol";
+import { EIP2981TL } from "../royalties/EIP2981TL.sol";
 
+///////////////////// CUSTOM ERRORS /////////////////////
 
-contract ERC1155TL is ERC1155Upgradeable, EIP2981TL, CoreAuthTL {
+/// @dev token uri is an empty string
+error EmptyTokenURI();
 
-    //================= State Variables =================//
+/// @dev batch size too small
+error BatchSizeTooSmall();
+
+/// @dev mint to zero addresses
+error MintToZeroAddresses();
+
+/// @dev array length mismatch
+error ArrayLengthMismatch();
+
+/// @dev token not owned by the owner of the contract
+error TokenNotOwnedByOwner();
+
+/// @dev caller is not approved or owner
+error CallerNotApprovedOrOwner();
+
+/// @dev token does not exist
+error TokenDoesNotExist();
+
+/// @dev burning zero tokens
+error BurnZeroTokens();
+
+///////////////////// ERC1155TL CONTRACT /////////////////////
+
+contract ERC1155TL is ERC1155Upgradeable, EIP2981TL, CoreAuthTL, StoryContractUpgradeable {
+
+    ///////////////////// STRUCTS /////////////////////
+
+    /// @dev struct defining a token
     struct Token {
         bool created;
         string uri;
     }
 
+    ///////////////////// STORAGE VARIABLES /////////////////////
+
     uint256 private _counter;
     string public name;
     mapping(uint256 => Token) private _tokens;
-    mapping(address => bool) private _blockList;
 
-    bool private _storyEnabled;
-
-    //================= Init =================//
+    ///////////////////// INITIALIZER /////////////////////
 
     function initialize(
         string memory name_, 
-        address owner, 
-        address defaultRecipient, 
-        uint256 defaultPercentage,
-        bool storyEnabled
+        address initOwner,
+        address[] memory admins,
+        address[] memory mintContracts,
+        address defaultRoyaltyRecipient, 
+        uint256 defaultRoyaltyPercentage,
+        bool enableStory,
+        bool enableBlockList,
+        address blockListSubscription
     ) external initializer {
         __ERC1155_init("");
-        __EIP2981_init(defaultRecipient, defaultPercentage);
-        __CoreAuthTL_init(msg.sender, [], []);
+        __EIP2981_init(defaultRoyaltyRecipient, defaultRoyaltyPercentage);
+        __CoreAuthTL_init(initOwner, admins, mintContracts);
+        __StoryContractUpgradeable_init(enableStory);
         name = name_;
-        _storyEnabled = storyEnabled;
     }
 
-    //================= Custom Functions =================//
+    ///////////////////// GENERAL FUNCTIONS /////////////////////
 
-    /// @notice function to set an address either on or off the BlockList
-    /// @dev requires owner
-    function setBlockList(address operator, bool status) external onlyOwner {
-        _blockList[operator] = status;
+    /// @notice function to give back version
+    function version() external pure returns (uint256) {
+        return 1;
     }
 
-    /// @notice function to set default royalty info
-    /// @dev requires owner
-    function setRoyaltyInfo(address newRecipient, uint256 newPercentage) external onlyOwner {
-        _setRoyaltyInfo(newRecipient, newPercentage);
-    }
+    ///////////////////// CREATION FUNCTIONS /////////////////////
 
-    /// @notice function to override a token's royalty info
-    /// @dev requires owner
-    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyOwner {
-        _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
+    /// @notice function to create a token that can be minted to creator or airdropped
+    /// @dev requires owner or admin
+    function createToken(string memory newUri, address[] calldata addresses, uint256[] calldata amounts) external onlyAdminOrOwner {
+        _createToken(newUri, addresses, amounts);
     }
 
     /// @notice function to create a token that can be minted to creator or airdropped
     /// @dev requires owner
-    function createToken(string memory uri_, uint256 amount) external onlyOwner {
-        require(bytes(uri_).length != 0, "ERC1155TL: uri cannot be empty");
-        _counter++;
-        _tokens[_counter] = Token(true, uri_);
-        _mint(owner(), _counter, amount, "");
-    }
-
-    /// @notice function to create a token that can be minted to creator or airdropped
-    /// @dev requires owner
-    function createToken(string memory uri_, address royaltyRecipient, uint256 royaltyPercentage) external onlyOwner {
-        require(bytes(uri_).length != 0, "ERC1155TL: uri cannot be empty");
-        _counter++;
-        _tokens[_counter] = Token(true, uri_);
+    function createToken(string memory newUri, address[] calldata addresses, uint256[] calldata amounts, address royaltyRecipient, uint256 royaltyPercentage) external onlyAdminOrOwner {
         _overrideTokenRoyaltyInfo(_counter, royaltyRecipient, royaltyPercentage);
+        _createToken(newUri, addresses, amounts);
     }
 
-    /// @notice function to mint tokens to owner wallet
-    /// @dev requires owner
-    function mint(uint256 tokenId, uint256 numTokens) external onlyOwner {
-        require(_tokens[tokenId].created, "ERC1155TL: nonexistent token");
-        _mint(owner(), tokenId, numTokens, "");
-    }
-
-    /// @notice function to airdrop tokens to addresses
-    /// @dev rquires owner
-    function airdrop(uint256 tokenId, address[] calldata addresses) external onlyOwner {
-        require(_tokens[tokenId].created, "ERC1155TL: nonexistent token");
-        for (uint256 i; i < addresses.length; i++) {
-            _mint(addresses[i], tokenId, 1, "");
+    /// @notice private helper function
+    function _createToken(string memory newUri, address[] calldata addresses, uint256[] calldata amounts) private {
+        if (bytes(newUri).length == 0) {
+            revert EmptyTokenURI();
+        }
+        if (addresses.length == 0) {
+            revert MintToZeroAddresses();
+        }
+        if (addresses.length != amounts.length) {
+            revert ArrayLengthMismatch();
+        }
+        _counter++;
+        _tokens[_counter] = Token(true, newUri);
+        for (uint256 i = 0; i < addresses.length; i++) {
+            _mint(addresses[i], _counter, amounts[i], "");
         }
     }
 
-    /// @notice function to set token uri
-    /// @dev requires owner
-    function setUri(uint256 tokenId, string calldata newUri) external onlyOwner {
-        require(_tokens[tokenId].created, "ERC1155TL: nonexistent token");
-        _tokens[tokenId].uri = newUri;
+    /// @notice private helper function to verify a token exists
+    function _exists(uint256 tokenId) private view returns(bool) {
+        return _tokens[tokenId].created;
     }
 
-    /// @notice function to burn a token from an account
+    ///////////////////// MINT FUNCTIONS /////////////////////
+
+    /// @notice function to mint existing token to recipients
+    /// @dev requires owner or admin
+    function mintToken(uint256 tokenId, address[] calldata addresses, uint256[] calldata amounts) external onlyAdminOrOwner {
+        _mintToken(tokenId, addresses, amounts);
+    }
+
+    /// @notice external mint function
+    /// @dev requires caller to be an approved mint contract
+    function externalMint(uint256 tokenId, address[] calldata addresses, uint256[] calldata amounts) external onlyApprovedMintContract {
+        _mintToken(tokenId, addresses, amounts);
+    }
+
+    /// @notice private helper function
+    function _mintToken(uint256 tokenId, address[] calldata addresses, uint256[] calldata amounts) private {
+        if (!_exists(tokenId)) {
+            revert TokenDoesNotExist();
+        }
+        if (addresses.length == 0) {
+            revert MintToZeroAddresses();
+        }
+        if (addresses.length != amounts.length) {
+            revert ArrayLengthMismatch();
+        }
+
+        for (uint256 i = 0; i < addresses.length; i++) {
+            _mint(addresses[i], tokenId, amounts[i], "");
+        }
+    }
+
+    ///////////////////// BURN FUNCTIONS /////////////////////
+
+    /// @notice function to burn tokens from an account
     /// @dev msg.sender must be owner or operator
-    function burn(address from, uint256 tokenId, uint256 amount) external {
-        require(msg.sender == from || isApprovedForAll(from, msg.sender), "ERC1155: not approved to burn tokens for this address");
-        _burn(from, tokenId, amount);
+    function burn(address from, uint256[] calldata tokenIds, uint256[] calldata amounts) external {
+        if (tokenIds.length == 0) {
+            revert BurnZeroTokens();
+        }
+        if (msg.sender != from && !isApprovedForAll(from, msg.sender)) {
+            revert CallerNotApprovedOrOwner();
+        }
+        _burnBatch(from, tokenIds, amounts);
     }
 
-    //================= Override for BlockList =================//
+    ///////////////////// TOKEN URI FUNCTIONS /////////////////////
 
-    /// @notice function override to implement BlockList
-    /// @dev lets any removal of approval through regardless of operator
-    function setApprovalForAll(address operator, bool approved) public virtual override {
-        require(!_blockList[operator] || !approved, "ERC1155TL: operator cannot be approved... is on BlockList");
-        ERC1155Upgradeable.setApprovalForAll(operator, approved);
+    /// @notice function to set token Uri for a token
+    /// @dev requires owner or admin
+    function setTokenUri(uint256 tokenId, string calldata newUri) external onlyAdminOrOwner {
+        if (!_exists(tokenId)) {
+            revert TokenDoesNotExist();
+        }
+        if (bytes(newUri).length == 0) {
+            revert EmptyTokenURI();
+        }
+        _tokens[tokenId].uri = newUri;
+        emit IERC1155Upgradeable.URI(newUri, tokenId);
     }
 
-    //================= Needed Overrides =================//
+    /// @notice function for token uris
+    function uri(uint256 tokenId) public view override(ERC1155Upgradeable) returns (string memory) {
+        if (!_exists(tokenId)) {
+            revert TokenDoesNotExist();
+        }
 
-    /// @notice override function for token uri
-    function uri(uint256 tokenId) public view override returns (string memory) {
-        require(_tokens[tokenId].created, "ERC1155TL: nonexistent token");
         return _tokens[tokenId].uri;
-    }   
-
-    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155Upgradeable, EIP2981TL) returns (bool) {
-        return ERC1155Upgradeable.supportsInterface(interfaceId) || EIP2981TL.supportsInterface(interfaceId);
     }
 
-    //================= Functions for IStory =================//
+    ///////////////////// STORY CONTRACT HOOKS /////////////////////
 
-    /// @notice Allows owner to enable/disable stories
-    /// @dev requires owner
-    function setStoryEnabled(bool storyEnabled) external onlyOwner {
-        _storyEnabled = storyEnabled;
+    /// @dev function to check if a token exists on the token contract
+    function _tokenExists(uint256 tokenId) internal view override(StoryContractUpgradeable) returns (bool) {
+        return _exists(tokenId);
     }
 
-    /// @notice Shows if story feature is enabled
-    /// @return bool True if enabled, False otherwise
-    function storyEnabled() external view returns (bool) {
-        return _storyEnabled;
+    /// @dev function to check ownership of a token
+    function _isTokenOwner(address potentialOwner, uint256 tokenId) internal view override(StoryContractUpgradeable) returns (bool) {
+        uint256 tokenBalance = balanceOf(potentialOwner, tokenId);
+        return tokenBalance > 0;
     }
 
-    /// @notice Allows creator to add a story.
-    /// @dev requires owner
-    /// @dev emits a CreatorStory event
-    /// @param tokenId The token id a creator is adding a story to
-    /// @param creatorName The name of the creator/artist
-    /// @param story The story to be attached to the token
-    function addCreatorStory(uint256 tokenId, string calldata creatorName, string calldata story) external onlyOwner {
-        require(_storyEnabled, "ERC1155TL: Story must be enabled");
-        require(_tokens[tokenId].created, "ERC1155TL: token must exist");
-        emit CreatorStory(tokenId, msg.sender, creatorName, story);
+    /// @dev function to check creatorship of a token
+    /// @dev currently restricted to the owner of the contract although a case could be made for admins too
+    function _isCreator(address potentialCreator, uint256 /* tokenId */) internal view override(StoryContractUpgradeable) returns (bool) {
+        return getIfOwner(potentialCreator);
     }
 
-    /// @notice Allows creator to add a story.
-    /// @dev requires token owner
-    /// @dev emits a Story event
-    /// @param tokenId The token id a creator is adding a story to
-    /// @param collectorName The name of the collector
-    /// @param story The story to be attached to the token
-    function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {
-        require(_storyEnabled, "ERC1155TL: Story must be enabled");
-        require(balanceOf(msg.sender, tokenId) > 0, "ERC1155TL: must at least 1 token");
-        emit Story(tokenId, msg.sender, collectorName, story);
+    ///////////////////// BLOCKLIST FUNCTIONS /////////////////////
+
+
+
+    ///////////////////// ERC-165 OVERRIDE /////////////////////
+
+    /// @notice function to override ERC165 supportsInterface
+    function supportsInterface(bytes4 interfaceId) public view override(ERC1155Upgradeable, EIP2981TL, CoreAuthTL, StoryContractUpgradeable) returns (bool) {
+        return (
+            ERC1155Upgradeable.supportsInterface(interfaceId) ||
+            EIP2981TL.supportsInterface(interfaceId) ||
+            CoreAuthTL.supportsInterface(interfaceId) ||
+            StoryContractUpgradeable.supportsInterface(interfaceId)
+        );
     }
+
 }

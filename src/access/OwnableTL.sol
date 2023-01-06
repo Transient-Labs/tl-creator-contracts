@@ -19,20 +19,25 @@ pragma solidity 0.8.17;
 
 import { Initializable } from "openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 import { ERC165Upgradeable } from "openzeppelin-upgradeable/utils/introspection/ERC165Upgradeable.sol";
-import { IERC173 } from "src/access/IERC173.sol";
+import { IERC173 } from "./IERC173.sol";
 
 ///////////////////// CUSTOM ERRORS /////////////////////
+
 /// @dev is not the owner
 error NotOwner();
+
+///////////////////// OWNABLE TL CONTRACT /////////////////////
 
 abstract contract OwnableTL is Initializable, ERC165Upgradeable, IERC173 {
 
     ///////////////////// STORAGE VARIABLES /////////////////////
+
     address private _owner;
 
     ///////////////////// MODIFIERS /////////////////////
+
     modifier onlyOwner {
-        if (!_isOwner()) {
+        if (!getIfOwner(msg.sender)) {
             revert NotOwner();
         }
         _;
@@ -64,6 +69,11 @@ abstract contract OwnableTL is Initializable, ERC165Upgradeable, IERC173 {
         return _owner;
     }
 
+    /// @notice function to see if an address is the owner
+    function getIfOwner(address potentialOwner) public view returns(bool) {
+        return potentialOwner == _owner;
+    }
+
     ///////////////////// INTERNAL FUNCTIONS /////////////////////
 
     /// @notice helper function for ownership transfer
@@ -71,11 +81,6 @@ abstract contract OwnableTL is Initializable, ERC165Upgradeable, IERC173 {
         address oldOwner = _owner;
         _owner = newOwner;
         emit OwnershipTransferred(oldOwner, newOwner);
-    }
-
-    /// @notice function to check ownership easily
-    function _isOwner() internal view returns(bool) {
-        return msg.sender == _owner;
     }
 
     ///////////////////// ERC-165 OVERRIDE /////////////////////

@@ -23,12 +23,14 @@ import { ERC165Upgradeable } from "openzeppelin-upgradeable/utils/introspection/
 import { IEIP2981 } from "src/royalties/IEIP2981.sol";
 
 ///////////////////// CUSTOM ERRORS /////////////////////
+
 /// @dev error if the recipient is set to address(0)
 error ZeroAddressError();
+
 /// @dev error if the royalty percentage is greater than to 100%
 error MaxRoyaltyError();
 
-contract EIP2981TL is IEIP2981, Initializable, ERC165Upgradeable {
+abstract contract EIP2981TL is IEIP2981, Initializable, ERC165Upgradeable {
 
     ///////////////////// ROYALTY SPEC /////////////////////
 
@@ -47,38 +49,33 @@ contract EIP2981TL is IEIP2981, Initializable, ERC165Upgradeable {
 
     /// @notice function to initialize the contract
     function __EIP2981_init(address defaultRecipient, uint256 defaultPercentage) internal onlyInitializing {
-        _setRoyaltyInfo(defaultRecipient, defaultPercentage);
+        __EIP2981_init_unchained(defaultRecipient, defaultPercentage);
+    }
+
+    function __EIP2981_init_unchained(address defaultRecipient, uint256 defaultPercentage) internal onlyInitializing {
+        _setDefaultRoyaltyInfo(defaultRecipient, defaultPercentage);
     }
 
     ///////////////////// ROYALTY FUNCTIONS /////////////////////
 
     /// @notice function to set default royalty info
-    /// @dev visibility set to private so it can't be overwritten
-    function _setRoyaltyInfo(address newRecipient, uint256 newPercentage) private {
-        if (newRecipient == address(0)) {
-            revert ZeroAddressError();
-        }
-        if (newPercentage > 10_000) {
-            revert MaxRoyaltyError();
-        }
+    /// @dev visibility set to private so it can only be used at initialization
+    function _setDefaultRoyaltyInfo(address newRecipient, uint256 newPercentage) private {
+        if (newRecipient == address(0)) { revert ZeroAddressError(); }
+        if (newPercentage > 10_000) { revert MaxRoyaltyError(); }
         _defaultRecipient = newRecipient;
         _defaultPercentage = newPercentage;
     }
 
     /// @notice function to override royalty spec on a specific token
-    /// @dev set to private so it can't be overwritten
     function _overrideTokenRoyaltyInfo(uint256 tokenId, address newRecipient, uint256 newPercentage) internal {
-        if (newRecipient == address(0)) {
-            revert ZeroAddressError();
-        }
-        if (newPercentage > 10_000) {
-            revert MaxRoyaltyError();
-        }
+        if (newRecipient == address(0)) { revert ZeroAddressError(); }
+        if (newPercentage > 10_000) { revert MaxRoyaltyError(); }
         _tokenOverrides[tokenId].recipient = newRecipient;
         _tokenOverrides[tokenId].percentage = newPercentage;
     }
 
-    /// @notice EIP 2981 royalty support
+    /// @notice see { IEIP291.royaltyInfo }
     function royaltyInfo(uint256 tokenId, uint256 salePrice) external view returns (address receiver, uint256 royaltyAmount) {
         address recipient = _defaultRecipient;
         uint256 percentage = _defaultPercentage;
@@ -91,7 +88,7 @@ contract EIP2981TL is IEIP2981, Initializable, ERC165Upgradeable {
 
     ///////////////////// ERC-165 OVERRIDE /////////////////////
 
-    /// @notice override ERC-165 implementation of this function
+    /// @notice see { ERC165Upgradeable.supportsInterface }
     /// @dev if using this contract with another contract that suppports ERC-165, will have to override in the inheriting contract
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC165Upgradeable) returns (bool) {
         return interfaceId == type(IEIP2981).interfaceId || ERC165Upgradeable.supportsInterface(interfaceId);

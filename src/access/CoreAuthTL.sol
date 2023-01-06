@@ -17,14 +17,18 @@ pragma solidity 0.8.17;
 
 ///////////////////// IMPORTS /////////////////////
 
-import { OwnableTL } from "src/access/OwnableTL.sol";
 import { EnumerableSetUpgradeable} from "openzeppelin-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
+import { OwnableTL } from "./OwnableTL.sol";
 
 ///////////////////// CUSTOM ERRORS /////////////////////
+
 /// @dev error if is not admin or owner
 error NotAdminOrOwner();
+
 /// @dev error if is not a mint contract
 error NotApprovedMintContract();
+
+///////////////////// CORE AUTH CONTRACT /////////////////////
 
 abstract contract CoreAuthTL is OwnableTL {
 
@@ -45,7 +49,7 @@ abstract contract CoreAuthTL is OwnableTL {
 
     /// @notice modifer for functions restricted to owner or admin
     modifier onlyAdminOrOwner {
-        if (!_isOwner() && !_isAdmin()) {
+        if (!getIfOwner(msg.sender) && !getIfAdmin(msg.sender)) {
             revert NotAdminOrOwner();
         }
         _;
@@ -53,7 +57,7 @@ abstract contract CoreAuthTL is OwnableTL {
 
     /// @notice modifier for functions restricted to approved mint contracts
     modifier onlyApprovedMintContract {
-        if (!_isApprovedMintContract()) {
+        if (!getIfMintContract(msg.sender)) {
             revert NotApprovedMintContract();
         }
         _;
@@ -81,13 +85,26 @@ abstract contract CoreAuthTL is OwnableTL {
 
     /// @notice function to remove admin addresses
     /// @dev can only be called by the owner
-    function removeAdmins(address[] calldata newAdmins) external onlyOwner {
-        _setAdmins(newAdmins, false);
+    function removeAdmins(address[] calldata admins) external onlyOwner {
+        _setAdmins(admins, false);
+    }
+
+    /// @notice function to let an admin renounce their admin status
+    /// @dev helpful if they know their wallet is compromised
+    function renounceAdmin() external {
+        address[] memory admins = new address[](1);
+        admins[0] = msg.sender;
+        _setAdmins(admins, false);
     }
 
     /// @notice function to get all admins
     function getAdmins() external view returns(address[] memory) {
         return _roleMembers[ADMIN_ROLE].values();
+    }
+
+    /// @notice function to get if address is an admin
+    function getIfAdmin(address potentialAdmin) public view returns(bool) {
+        return _hasRole[ADMIN_ROLE][potentialAdmin];
     }
 
     /// @notice private helper function to add admin addresses
@@ -103,28 +120,28 @@ abstract contract CoreAuthTL is OwnableTL {
         }
     }
 
-    /// @notice internal helper function to see if an address is an admin
-    function _isAdmin() internal view returns(bool) {
-        return _hasRole[ADMIN_ROLE][msg.sender];
-    }
-
     ///////////////////// APPROVED MINT CONTRACT FUNCTIONS /////////////////////
 
     /// @notice function to add mint contract addresses
-    /// @dev can only be called by the owner
-    function addMintContracts(address[] calldata newMinters) external onlyOwner {
-        _setAdmins(newMinters, true);
+    /// @dev can only be called by the owner or admins
+    function addMintContracts(address[] calldata newMinters) external onlyAdminOrOwner {
+        _setMintContracts(newMinters, true);
     }
 
     /// @notice function to remove mint contract addresses
-    /// @dev can only be called by the owner
-    function removeMintContracts(address[] calldata newMinters) external onlyOwner {
-        _setMintContracts(newMinters, false);
+    /// @dev can only be called by the owner or admins
+    function removeMintContracts(address[] calldata minters) external onlyAdminOrOwner {
+        _setMintContracts(minters, false);
     }
 
     /// @notice function to get all mint contracts
     function getMintContracts() external view returns(address[] memory) {
         return _roleMembers[APPROVED_MINT_CONTRACT].values();
+    }
+
+    /// @notice function to get if address is a mint contract
+    function getIfMintContract(address potentialMintContract) public view returns(bool) {
+        return _hasRole[APPROVED_MINT_CONTRACT][potentialMintContract];
     }
 
     /// @notice private helper function to add mint contract addresses
@@ -143,8 +160,11 @@ abstract contract CoreAuthTL is OwnableTL {
         }
     }
 
-    /// @notice internal helper function to see if an address is an approved mint contract
-    function _isApprovedMintContract() internal view returns(bool) {
-        return _hasRole[APPROVED_MINT_CONTRACT][msg.sender];
+    ///////////////////// ERC-165 OVERRIDE /////////////////////
+
+    /// @notice override ERC-165 implementation of this function
+    /// @dev if using this contract with another contract that suppports ERC-165, will have to override in the inheriting contract
+    function supportsInterface(bytes4 interfaceId) public view virtual override(OwnableTL) returns (bool) {
+        return OwnableTL.supportsInterface(interfaceId);
     }
 }
