@@ -1,4 +1,7 @@
+ds-test/=lib/forge-std/lib/ds-test/src/
 forge-std/=lib/forge-std/src/
-openzeppelin/=lib/openzeppelin-contracts/contracts/
 openzeppelin-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
+openzeppelin/=lib/openzeppelin-contracts/contracts/
+story-contract/=lib/story-contract/src/
+tl-sol-tools/=lib/tl-sol-tools/src/
 tl-story/=lib/story-contract/src/

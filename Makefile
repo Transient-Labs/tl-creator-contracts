@@ -15,7 +15,8 @@ install:
 	forge install foundry-rs/forge-std
 	forge install OpenZeppelin/openzeppelin-contracts@v4.8.0
 	forge install OpenZeppelin/openzeppelin-contracts-upgradeable@v4.8.0
-	forge install Transient-Labs/story-contract@2.1.0
+	forge install Transient-Labs/story-contract@2.2.0
+	forge install Transient-Labs/tl-sol-tools@1.0.0
 
 # Builds
 build:
