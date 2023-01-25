@@ -390,28 +390,32 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
                                 Story Contract Hooks
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev function to check if a token exists on the token contract
+    /// @inheritdoc StoryContractUpgradeable
     function _tokenExists(uint256 tokenId) internal view override(StoryContractUpgradeable) returns (bool) {
         return _exists(tokenId);
     }
 
-    /// @dev function to check ownership of a token
+    /// @inheritdoc StoryContractUpgradeable
     function _isTokenOwner(address potentialOwner, uint256 tokenId) internal view override(StoryContractUpgradeable) returns (bool) {
         address tokenOwner = ownerOf(tokenId);
         return tokenOwner == potentialOwner;
     }
 
-    /// @dev function to check creatorship of a token
-    /// @dev currently restricted to the owner of the contract although a case could be made for admins too
+    /// @inheritdoc StoryContractUpgradeable
+    /// @dev restricted to the owner of the contract
     function _isCreator(address potentialCreator, uint256 /* tokenId */) internal view override(StoryContractUpgradeable) returns (bool) {
         return potentialCreator == owner();
     }
 
-    ///////////////////// BLOCKLIST FUNCTIONS /////////////////////
+    /*//////////////////////////////////////////////////////////////////////////
+                                BlockList Functions & Overrides
+    //////////////////////////////////////////////////////////////////////////*/
 
 
 
-    ///////////////////// ERC-165 OVERRIDE /////////////////////
+    /*//////////////////////////////////////////////////////////////////////////
+                                ERC-165 Support
+    //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice function to override ERC165 supportsInterface
     function supportsInterface(bytes4 interfaceId) public view override(ERC721Upgradeable, EIP2981TLUpgradeable, StoryContractUpgradeable) returns (bool) {
