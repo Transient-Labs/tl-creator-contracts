@@ -10,3 +10,7 @@
 	path = lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
 	branch = v4.8.0
+[submodule "lib/story-contract"]
+	path = lib/story-contract
+	url = https://github.com/Transient-Labs/story-contract
+	branch = 3.0.0
