@@ -14,3 +14,7 @@
 	path = lib/story-contract
 	url = https://github.com/Transient-Labs/story-contract
 	branch = 3.0.0
+[submodule "lib/tl-sol-tools"]
+	path = lib/tl-sol-tools
+	url = https://github.com/Transient-Labs/tl-sol-tools
+	branch = 1.0.0
