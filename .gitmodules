@@ -18,3 +18,7 @@
 	path = lib/tl-sol-tools
 	url = https://github.com/Transient-Labs/tl-sol-tools
 	branch = 1.0.0
+[submodule "lib/blocklist"]
+	path = lib/blocklist
+	url = https://github.com/Transient-Labs/blocklist
+	branch = 3.1.0
