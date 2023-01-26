@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /// @title ERC721TL.sol
-/// @notice Transient Labs core ERC721 contract (v1)
+/// @notice Transient Labs Core ERC721 Contract
 /// @dev features include
 ///      - ultra efficient batch minting (market leading?)
 ///      - airdrops (market leading?)
 ///      - ability to hook in external mint contracts
 ///      - ability to set multiple admins
-///      - ability to enable/disable the Story Contract at creation time
-///      - ability to enable/disable BlockList at creation time
+///      - Story Contract
+///      - BlockList
 ///      - Synergy metadata protection
-///      - individual token royalty overrides (only if owner is the owner of the token)
+///      - individual token royalty overrides
 /// @author transientlabs.xyz
 
 /*
@@ -18,18 +18,17 @@
    / __ )__  __(_) /___/ /  / __ \(_) __/ __/__  ________  ____  / /_
   / __  / / / / / / __  /  / / / / / /_/ /_/ _ \/ ___/ _ \/ __ \/ __/
  / /_/ / /_/ / / / /_/ /  / /_/ / / __/ __/  __/ /  /  __/ / / / /__ 
-/_____/\__,_/_/_/\__,_/  /_____/_/_/ /_/  \___/_/   \___/_/ /_/\__(_)
-
-*/
+/_____/\__,_/_/_/\__,_/  /_____/_/_/ /_/  \___/_/   \___/_/ /_/\__(_)*/
 
 pragma solidity 0.8.17;
 
-import { Initializable } from "openzeppelin-upgradeable/proxy/utils/Initializable.sol";
-import { ERC721Upgradeable } from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import { StringsUpgradeable } from "openzeppelin-upgradeable/utils/StringsUpgradeable.sol";
-import { StoryContractUpgradeable } from "tl-story/upgradeable/StoryContractUpgradeable.sol";
-import { EIP2981TLUpgradeable } from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
-import { OwnableAccessControlUpgradeable } from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {Initializable} from "openzeppelin-upgradeable/proxy/utils/Initializable.sol";
+import {ERC721Upgradeable, ERC165Upgradeable} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {StringsUpgradeable} from "openzeppelin-upgradeable/utils/StringsUpgradeable.sol";
+import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
+import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {StoryContractUpgradeable} from "tl-story/upgradeable/StoryContractUpgradeable.sol";
+import {BlockListUpgradeable} from "tl-blocklist/BlockListUpgradeable.sol";
 
 /*//////////////////////////////////////////////////////////////////////////
                             Custom Errors
@@ -63,8 +62,14 @@ error NoTokenUriUpdateAvailable();
                             ERC721TL
 //////////////////////////////////////////////////////////////////////////*/
 
-contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, OwnableAccessControlUpgradeable, StoryContractUpgradeable {
-
+contract ERC721TL is
+    Initializable,
+    ERC721Upgradeable,
+    EIP2981TLUpgradeable,
+    OwnableAccessControlUpgradeable,
+    StoryContractUpgradeable,
+    BlockListUpgradeable
+{
     /*//////////////////////////////////////////////////////////////////////////
                                 Custom Types
     //////////////////////////////////////////////////////////////////////////*/
@@ -78,7 +83,11 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
     }
 
     /// @dev enum defining Synergy actions
-    enum SynergyAction { Created, Accepted, Rejected }
+    enum SynergyAction {
+        Created,
+        Accepted,
+        Rejected
+    }
 
     /// @dev string representation of uint256
     using StringsUpgradeable for uint256;
@@ -100,7 +109,9 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @dev This event is for consecutive transfers per EIP-2309
-    event ConsecutiveTransfer(uint256 indexed fromTokenId, uint256 toTokenId, address indexed fromAddress, address indexed toAddress);
+    event ConsecutiveTransfer(
+        uint256 indexed fromTokenId, uint256 toTokenId, address indexed fromAddress, address indexed toAddress
+    );
 
     /// @dev This event emits when the metadata of a token is changed
     ///      so that the third-party platforms such as NFT market can
@@ -110,8 +121,8 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
 
     /// @dev This event emits when the metadata of a range of tokens is changed
     ///      so that the third-party platforms such as NFT market could
-    ///      timely update the images and related attributes of the NFTs.   
-    /// @dev see EIP-4906 
+    ///      timely update the images and related attributes of the NFTs.
+    /// @dev see EIP-4906
     event BatchMetadataUpdate(uint256 fromTokenId, uint256 toTokenId);
 
     /// @dev This event is for changing the status of a proposed metadata update.
@@ -131,9 +142,9 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
     /// @param enableStory: a bool deciding whether to add story fuctionality or not
     /// @param blockListRegistry: address of the blocklist registry to use
     function initialize(
-        string memory name, 
-        string memory symbol, 
-        address defaultRoyaltyRecipient, 
+        string memory name,
+        string memory symbol,
+        address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
         address[] memory admins,
@@ -145,6 +156,7 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
         __EIP2981TL_init(defaultRoyaltyRecipient, defaultRoyaltyPercentage);
         __OwnableAccessControl_init(initOwner);
         __StoryContractUpgradeable_init(enableStory);
+        __BlockList_init(blockListRegistry);
 
         // add admins
         _setRole(ADMIN_ROLE, admins, true);
@@ -167,7 +179,10 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
     /// @dev requires admin or owner
     /// @param mintContracts: an array of mint contracts to add or remove
     /// @param status: boolean whether to add or remove
-    function setApprovedMintContracts(address[] calldata mintContracts, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function setApprovedMintContracts(address[] calldata mintContracts, bool status)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
         _setRole(APPROVED_MINT_CONTRACT, mintContracts, status);
     }
 
@@ -191,15 +206,16 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
     /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
     /// @param numTokens: number of tokens in the batch mint
     /// @param baseUri: the base uri for the batch, expecting json to be in order and starting at 0
-    function batchMint(address recipient, uint256 numTokens, string calldata baseUri) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function batchMint(address recipient, uint256 numTokens, string calldata baseUri)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
         if (bytes(baseUri).length == 0) revert EmptyTokenURI();
         if (numTokens < 2) revert BatchSizeTooSmall();
         uint256 start = _counter + 1;
         uint256 end = start + numTokens;
         _counter += numTokens;
-        _batchMints.push(
-            BatchMint(recipient, start, end, baseUri)
-        );
+        _batchMints.push(BatchMint(recipient, start, end, baseUri));
 
         _beforeTokenTransfer(address(0), recipient, start, numTokens); // this hook adds the number of tokens to the owner address
 
@@ -208,7 +224,7 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
 
     /// @notice function to airdrop tokens to addresses
     /// @dev requires owner or admin
-    /// @dev utilizes batch mint token uri values to save some gas 
+    /// @dev utilizes batch mint token uri values to save some gas
     ///      but still ultimately mints individual tokens to people
     /// @param addresses: dynamic array of addresses to mint to
     /// @param baseUri: the base uri for the batch, expecting json to be in order and starting at 0
@@ -219,9 +235,7 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
 
         uint256 start = _counter + 1;
         _counter += addresses.length;
-        _batchMints.push(
-            BatchMint(address(0), start, start + addresses.length, baseUri)
-        );
+        _batchMints.push(BatchMint(address(0), start, start + addresses.length, baseUri));
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], start + i);
         }
@@ -256,12 +270,8 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
         if (i >= _batchMints.length) {
             return (address(0), "");
         }
-        string memory tokenUri = string(
-            abi.encodePacked(
-                _batchMints[i].baseUri,
-                (tokenId - _batchMints[i].fromTokenId).toString()
-            )
-        );
+        string memory tokenUri =
+            string(abi.encodePacked(_batchMints[i].baseUri, (tokenId - _batchMints[i].fromTokenId).toString()));
         return (_batchMints[i].creator, tokenUri);
     }
 
@@ -272,13 +282,12 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
             address owner = ERC721Upgradeable._ownerOf(tokenId);
             if (owner == address(0)) {
                 // see if can find token in a batch mint
-                (owner, ) = _getBatchInfo(tokenId);
+                (owner,) = _getBatchInfo(tokenId);
             }
             return owner;
         } else {
             return address(0);
         }
-        
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -314,7 +323,6 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
     function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyOwner {
         _setDefaultRoyaltyInfo(newRecipient, newPercentage);
     }
-    
 
     /// @notice function to override a token's royalty info
     /// @dev requires owner
@@ -391,19 +399,35 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc StoryContractUpgradeable
+    /// @dev restricted to the owner of the contract
+    function _isStoryAdmin(address potentialAdmin) internal view override(StoryContractUpgradeable) returns (bool) {
+        return potentialAdmin == owner();
+    }
+
+    /// @inheritdoc StoryContractUpgradeable
     function _tokenExists(uint256 tokenId) internal view override(StoryContractUpgradeable) returns (bool) {
         return _exists(tokenId);
     }
 
     /// @inheritdoc StoryContractUpgradeable
-    function _isTokenOwner(address potentialOwner, uint256 tokenId) internal view override(StoryContractUpgradeable) returns (bool) {
+    function _isTokenOwner(address potentialOwner, uint256 tokenId)
+        internal
+        view
+        override(StoryContractUpgradeable)
+        returns (bool)
+    {
         address tokenOwner = ownerOf(tokenId);
         return tokenOwner == potentialOwner;
     }
 
     /// @inheritdoc StoryContractUpgradeable
     /// @dev restricted to the owner of the contract
-    function _isCreator(address potentialCreator, uint256 /* tokenId */) internal view override(StoryContractUpgradeable) returns (bool) {
+    function _isCreator(address potentialCreator, uint256 /* tokenId */ )
+        internal
+        view
+        override(StoryContractUpgradeable)
+        returns (bool)
+    {
         return potentialCreator == owner();
     }
 
@@ -411,19 +435,42 @@ contract ERC721TL is Initializable, ERC721Upgradeable, EIP2981TLUpgradeable, Own
                                 BlockList Functions & Overrides
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc BlockListUpgradeable
+    /// @dev restricted to the owner of the contract
+    function isBlockListAdmin(address potentialAdmin) public view override(BlockListUpgradeable) returns (bool) {
+        return potentialAdmin == owner();
+    }
 
+    /// @inheritdoc ERC721Upgradeable
+    /// @dev added the `notBlocked` modifier for blocklist
+    function approve(address to, uint256 tokenId) public override(ERC721Upgradeable) notBlocked(to) {
+        ERC721Upgradeable.approve(to, tokenId);
+    }
+
+    /// @inheritdoc ERC721Upgradeable
+    /// @dev added the `notBlocked` modifier for blocklist
+    function setApprovalForAll(address operator, bool approved)
+        public
+        override(ERC721Upgradeable)
+        notBlocked(operator)
+    {
+        ERC721Upgradeable.setApprovalForAll(operator, approved);
+    }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 ERC-165 Support
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice function to override ERC165 supportsInterface
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721Upgradeable, EIP2981TLUpgradeable, StoryContractUpgradeable) returns (bool) {
+    /// @inheritdoc ERC165Upgradeable
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721Upgradeable, EIP2981TLUpgradeable, StoryContractUpgradeable)
+        returns (bool)
+    {
         return (
-            ERC721Upgradeable.supportsInterface(interfaceId) ||
-            EIP2981TLUpgradeable.supportsInterface(interfaceId) ||
-            StoryContractUpgradeable.supportsInterface(interfaceId) ||
-            interfaceId == bytes4(0x49064906) // EIP-4906 support
-        );
+            ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
+                || StoryContractUpgradeable.supportsInterface(interfaceId) || interfaceId == bytes4(0x49064906)
+        ); // EIP-4906 support
     }
 }
