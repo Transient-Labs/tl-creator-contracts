@@ -37,6 +37,9 @@ import {BlockListUpgradeable} from "tl-blocklist/BlockListUpgradeable.sol";
 /// @dev token uri is an empty string
 error EmptyTokenURI();
 
+/// @dev batch mint to zero address
+error MintToZeroAddress();
+
 /// @dev batch size too small
 error BatchSizeTooSmall();
 
@@ -100,6 +103,7 @@ contract ERC721TL is
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
+    mapping(uint256 => bool) private _burned; // flag to see if a token is burned or not -- needed for burning batch mints
     mapping(uint256 => string) private _proposedTokenUris; // Synergy proposed token uri
     mapping(uint256 => string) private _tokenUris; // established token uris
     BatchMint[] private _batchMints; // dynamic array for batch mints
@@ -172,21 +176,6 @@ contract ERC721TL is
     }
 
     /*//////////////////////////////////////////////////////////////////////////
-                                Access Control Functions
-    //////////////////////////////////////////////////////////////////////////*/
-
-    /// @notice function to add/remove approved mint contracts
-    /// @dev requires admin or owner
-    /// @param mintContracts: an array of mint contracts to add or remove
-    /// @param status: boolean whether to add or remove
-    function setApprovedMintContracts(address[] calldata mintContracts, bool status)
-        external
-        onlyRoleOrOwner(ADMIN_ROLE)
-    {
-        _setRole(APPROVED_MINT_CONTRACT, mintContracts, status);
-    }
-
-    /*//////////////////////////////////////////////////////////////////////////
                                 Mint Functions
     //////////////////////////////////////////////////////////////////////////*/
 
@@ -210,14 +199,15 @@ contract ERC721TL is
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
+        if (recipient == address(0)) revert MintToZeroAddress();
         if (bytes(baseUri).length == 0) revert EmptyTokenURI();
         if (numTokens < 2) revert BatchSizeTooSmall();
         uint256 start = _counter + 1;
-        uint256 end = start + numTokens;
+        uint256 end = start + numTokens - 1;
         _counter += numTokens;
         _batchMints.push(BatchMint(recipient, start, end, baseUri));
 
-        _beforeTokenTransfer(address(0), recipient, start, numTokens); // this hook adds the number of tokens to the owner address
+        _beforeTokenTransfer(address(0), recipient, start, numTokens); // this hook adds the number of tokens to the recipient address
 
         emit ConsecutiveTransfer(start, end, address(0), recipient);
     }
@@ -271,22 +261,26 @@ contract ERC721TL is
             return (address(0), "");
         }
         string memory tokenUri =
-            string(abi.encodePacked(_batchMints[i].baseUri, (tokenId - _batchMints[i].fromTokenId).toString()));
+            string(abi.encodePacked(_batchMints[i].baseUri, "/", (tokenId - _batchMints[i].fromTokenId).toString()));
         return (_batchMints[i].creator, tokenUri);
     }
 
     /// @notice function to override { ERC721Upgradeable._ownerOf } to allow for batch minting
     /// @inheritdoc ERC721Upgradeable
     function _ownerOf(uint256 tokenId) internal view override(ERC721Upgradeable) returns (address) {
-        if (tokenId > 1 && tokenId <= _counter) {
-            address owner = ERC721Upgradeable._ownerOf(tokenId);
-            if (owner == address(0)) {
-                // see if can find token in a batch mint
-                (owner,) = _getBatchInfo(tokenId);
-            }
-            return owner;
-        } else {
+        if (_burned[tokenId]) {
             return address(0);
+        } else {
+            if (tokenId > 0 && tokenId <= _counter) {
+                address owner = ERC721Upgradeable._ownerOf(tokenId);
+                if (owner == address(0)) {
+                    // see if can find token in a batch mint
+                    (owner,) = _getBatchInfo(tokenId);
+                }
+                return owner;
+            } else {
+                return address(0);
+            }
         }
     }
 
@@ -300,16 +294,7 @@ contract ERC721TL is
     function burn(uint256 tokenId) external {
         if (!_isApprovedOrOwner(msg.sender, tokenId)) revert CallerNotApprovedOrOwner();
         _burn(tokenId);
-    }
-
-    /// @notice function to burn a batch of tokens
-    /// @dev caller must be approved or owner for each token
-    /// @param tokenIds: dynamic array of token ids to burn
-    function burnBatch(uint256[] calldata tokenIds) external {
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            if (!_isApprovedOrOwner(msg.sender, tokenIds[i])) revert CallerNotApprovedOrOwner();
-            _burn(tokenIds[i]);
-        }
+        _burned[tokenId] = true;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -342,7 +327,7 @@ contract ERC721TL is
     /// @dev if the owner of the contract is the owner of the token, the change takes hold right away
     /// @param tokenId: the token to propose new metadata for
     /// @param newUri: the new token uri proposed
-    function proposeNewTokenUri(uint256 tokenId, string calldata newUri) external onlyOwner {
+    function proposeNewTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (!_exists(tokenId)) revert TokenDoesNotExist();
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
         if (ownerOf(tokenId) == owner()) {

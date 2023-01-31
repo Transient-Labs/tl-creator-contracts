@@ -135,7 +135,7 @@ contract ERC1155TL is
     /// @param newUri: the uri for the token to create
     /// @param addresses: the addresses to mint the new token to
     /// @param amounts: the amount of the new token to mint to each address
-    function createToken(string memory newUri, address[] calldata addresses, uint256[] calldata amounts)
+    function createToken(string calldata newUri, address[] calldata addresses, uint256[] calldata amounts)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -147,10 +147,11 @@ contract ERC1155TL is
     /// @param newUris: the uris for the tokens to create
     /// @param addresses: 2d dynamic array holding the addresses to mint the new tokens to
     /// @param amounts: 2d dynamic array holding the amounts of the new tokens to mint to each address
-    function batchCreateToken(string[] memory newUris, address[][] calldata addresses, uint256[][] calldata amounts)
+    function batchCreateToken(string[] calldata newUris, address[][] calldata addresses, uint256[][] calldata amounts)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
-    {
+    {   
+        if (newUris.length == 0) revert EmptyTokenURI();
         for (uint256 i = 0; i < newUris.length; i++) {
             _createToken(newUris[i], addresses[i], amounts[i]);
         }
@@ -160,7 +161,7 @@ contract ERC1155TL is
     /// @param newUri: the uri for the token to create
     /// @param addresses: the addresses to mint the new token to
     /// @param amounts: the amount of the new token to mint to each address
-    function _createToken(string memory newUri, address[] calldata addresses, uint256[] calldata amounts) private {
+    function _createToken(string memory newUri, address[] memory addresses, uint256[] memory amounts) private {
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
         if (addresses.length == 0) revert MintToZeroAddresses();
         if (addresses.length != amounts.length) revert ArrayLengthMismatch();
