@@ -16,7 +16,7 @@ install:
 	forge install OpenZeppelin/openzeppelin-contracts@v4.8.0
 	forge install OpenZeppelin/openzeppelin-contracts-upgradeable@v4.8.0
 	forge install Transient-Labs/story-contract@3.0.0
-	forge install Transient-Labs/tl-sol-tools@1.0.0
+	forge install Transient-Labs/tl-sol-tools@1.1.0
 	forge install Transient-Labs/blocklist@3.1.0
 
 # Builds
