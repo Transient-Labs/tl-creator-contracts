@@ -110,6 +110,38 @@ contract ERC721TLUnitTest is Test {
         );
     }
 
+    /// @notice test mint contract access approvals
+    function testSetApprovedMintContracts() public {
+        address[] memory minters = new address[](1);
+        minters[0] = address(1);
+        address[] memory admins = new address[](1);
+        admins[0] = address(2);
+
+        // verify rando can't access
+        vm.startPrank(address(3), address(3));
+        vm.expectRevert();
+        tokenContract.setApprovedMintContracts(minters, true);
+        vm.stopPrank();
+
+        // verify admin can access
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
+        vm.startPrank(address(2), address(2));
+        tokenContract.setApprovedMintContracts(minters, true);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
+        assertTrue(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(),address(1)));
+
+        // verify minters can't access
+        vm.startPrank(address(1), address(1));
+        vm.expectRevert();
+        tokenContract.setApprovedMintContracts(minters, true);
+        vm.stopPrank();
+
+        // verify owner can access
+        tokenContract.setApprovedMintContracts(minters, false);
+        assertFalse (tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(),address(1)));
+    }
+
     /// @notice test non-existent token ownership
     function testNonExistentTokens(uint8 mintNum, uint8 numTokens) public {
         for (uint256 i = 0; i < mintNum; i++) {
@@ -1325,11 +1357,11 @@ contract ERC721TLUnitTest is Test {
         vm.expectRevert();
         tokenContract.proposeNewTokenUri(1, "newUri");
         vm.stopPrank();
-        // verify that admin can't propose
+        // verify that admin can propose
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
         vm.startPrank(address(1), address(1));
-        vm.expectRevert();
         tokenContract.proposeNewTokenUri(1, "newUri");
+        assertEq(tokenContract.tokenURI(1), "newUri");
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
         // verify that minters can't propose
@@ -1339,6 +1371,9 @@ contract ERC721TLUnitTest is Test {
         tokenContract.proposeNewTokenUri(1, "newUri");
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+        // verify owner can propose
+        tokenContract.proposeNewTokenUri(1, "newUriAgain");
+        assertEq(tokenContract.tokenURI(1), "newUriAgain");
     }
 
     function testProposeCreatorIsOwner() public {
@@ -1996,12 +2031,12 @@ contract ERC721TLUnitTest is Test {
     }
 
     /// @notice test ERC-165 support
-    // - EIP-721
-    // - EIP-721 Metadata
-    // - EIP-4906
-    // - EIP-2981
-    // - Story
-    // - EIP-165
+    // - EIP-721 ✅
+    // - EIP-721 Metadata ✅
+    // - EIP-4906 ✅
+    // - EIP-2981 ✅
+    // - Story ✅
+    // - EIP-165 ✅
     function testSupportsInterface() public {
         assertTrue(tokenContract.supportsInterface(0x80ac58cd)); // 721
         assertTrue(tokenContract.supportsInterface(0x5b5e139f)); // 721 metadata

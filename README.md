@@ -5,36 +5,62 @@ A repository with core creator contracts that have the following features:
     - EIP4906
     - Batch Minting
     - Royalty override per token
-    - Block List
+    - BlockList
     - Story
     - Synergy
     - Airdrops
 
-## Ownership & Access
-We have implemented a gas optimized version of OpenZeppelin's `OwnableUpgradeable.sol` contract. We combine this with custom, specific role-based access control mechanishms in `CoreAuthTL.sol`. 
+## Deployments
+### Mainnet
+| Contract               | Version | Address                                    |
+| ---------------------- | ------- | ------------------------------------------ |
+| ERC721TL               | 1       |  |
+| ERC1155TL              | 1       |  |
+| TLCoreContractsFactory | 1       |  |
 
-## Creator Royalties
+### Goerli
+| Contract               | Version | Address                                    |
+| ---------------------- | ------- | ------------------------------------------ |
+| ERC721TL               | 1       |  |
+| ERC1155TL              | 1       |  |
+| TLCoreContractsFactory | 1       |  |
+
+## Features
+### Ownership & Access
+We have implemented the `OwnableAccessControlUpgradeable` contract from [tl-sol-tools](https://github.com/Transient-Labs/tl-sol-tools) and have created custom admin and mint contract priviledges. Admins are able to mint tokens, add approved mint contracts, and propose token uri updates. Approved mint contracts are allowed to mint NFTs.
+
+### Creator Royalties
 EIP-2981 is used as it is the on-chain royalty specification used to return a royalty payout address and the royalty amount to pay based on the sale price. 
 
-For each contract, there is a default royalty specification set that cannot be altered. There are individual token overrides but should only be called if the creator owns the token.
+For each contract, there is a default royalty specification set that can be altered if needed. There are also individual token overrides in case of collaboration or anything like that.
 
-## EIP-4906
-This EIP specifies two events for metadata updates as an extension of EIP-721. We are allowing creators to update their metadata as it has been a useful feature for artists. 
+### EIP-4906
+This EIP specifies two events for metadata updates as an extension of EIP-721. We are allowing creators to update their metadata as it has been a useful feature for artists. More on this later, as Synergy protects collectors.
 
-## Block List
+### Synergy
+This mechanism on the `ERC721TL` contract protects collectors from getting token metadata changed on them unexpectedly. Artists need to be able to update metadata in certain situations, but collectors should have a right to review these changes after they have bought the piece. This is what Synergy allows; the collector must sign a transaction allowing the metadata to be updated.
+
+### BlockList
 A feature that allows creators to block operators, such as marketplaces, from getting approved on the contract. `setApprovalForAll` and `approve` will fail for any blocked addresses.
 
-## Airdrops
+### Airdrops
 Allows creators to airdrop tokens to a list of addresses.
 
-## Batch Minting
+### Batch Minting
 Allows creators to cheaply batch mint tokens to their wallet. Uses the `ConsecutiveTransfer` event to mint these tokens. Still needs to be tested on OpenSea, LR, etc. 
 
-In order to achieve this, we had to remove all `ERC721Upgradeable.ownerOf` calls in `ERC721UpgradeableTL.sol` - a forked OpenZeppelin upgradeable contract. Those calls now are just `ownerOf` calls so that we can implement custom logic in our `ERC721TL.sol` contract. We need to test that all aspects of ERC721 still function with this forked contract.
-- I believe the latest version of OpenZeppelin (4.8.0) allows us to override `_ownerOf` instead of modifying core contract but still investigating
-
-## Contract Factory
+### Contract Factory
 We use a contract factory approach to enable cheap minimal proxy contract creation and work in a more decentralized way.
 
+## Running Tests
+1. Install [foundry](getfoundry.sh)
+2. Run `forge install`
+3. Run `forge test` (optionally can adjust the fuzz runs in `foundry.toml`)
+
+## Disclaimer
+This codebase is provided on an "as is" and "as available" basis.
+
+We do not give any warranties and will not be liable for any loss incurred through any use of this codebase.
+
 ## License
-Apache-2.0
+This code is copyright Transient Labs, Inc 2022 and is licensed under the Apache-2.0 license.

@@ -176,6 +176,18 @@ contract ERC721TL is
     }
 
     /*//////////////////////////////////////////////////////////////////////////
+                                Access Control Functions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice function to set approved mint contracts
+    /// @dev access to owner or admin
+    /// @param minters: array of minters to grant approval to
+    /// @param status: status for the minters
+    function setApprovedMintContracts(address[] calldata minters, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
+        _setRole(APPROVED_MINT_CONTRACT, minters, status);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
                                 Mint Functions
     //////////////////////////////////////////////////////////////////////////*/
 

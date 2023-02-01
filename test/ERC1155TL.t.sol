@@ -33,6 +33,8 @@ contract ERC1155TLUnitTest is Test {
         uint256[] ids,
         uint256[] values
     );
+    event CreatorStory(uint256 indexed tokenId, address indexed creatorAddress, string creatorName, string story);
+    event Story(uint256 indexed tokenId, address indexed collectorAddress, string collectorName, string story);
 
     function setUp() public {
         address[] memory admins = new address[](0);
@@ -88,6 +90,38 @@ contract ERC1155TLUnitTest is Test {
         tokenContract.initialize(
             name, defaultRoyaltyRecipient, defaultRoyaltyPercentage, initOwner, admins, enableStory, blockListRegistry
         );
+    }
+
+    /// @notice test mint contract access approvals
+    function testSetApprovedMintContracts() public {
+        address[] memory minters = new address[](1);
+        minters[0] = address(1);
+        address[] memory admins = new address[](1);
+        admins[0] = address(2);
+
+        // verify rando can't access
+        vm.startPrank(address(3), address(3));
+        vm.expectRevert();
+        tokenContract.setApprovedMintContracts(minters, true);
+        vm.stopPrank();
+
+        // verify admin can access
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
+        vm.startPrank(address(2), address(2));
+        tokenContract.setApprovedMintContracts(minters, true);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
+        assertTrue(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(),address(1)));
+
+        // verify minters can't access
+        vm.startPrank(address(1), address(1));
+        vm.expectRevert();
+        tokenContract.setApprovedMintContracts(minters, true);
+        vm.stopPrank();
+
+        // verify owner can access
+        tokenContract.setApprovedMintContracts(minters, false);
+        assertFalse (tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(),address(1)));
     }
 
     /// @notice test createToken
@@ -606,31 +640,375 @@ contract ERC1155TLUnitTest is Test {
     }
 
     /// @notice test royalty functions
-    // - set default royalty
-    // - override token royalty
-    // - access control
+    // - set default royalty ✅
+    // - override token royalty ✅
+    // - access control ✅
+    function testDefaultRoyalty(address newRecipient, uint256 newPercentage, address user) public {
+        vm.assume(newRecipient != address(0));
+        vm.assume(user != address(0));
+        if (newPercentage >= 10_000) {
+            newPercentage = newPercentage % 10_000;
+        }
+        address[] memory users = new address[](1);
+        users[0] = user;
+        // verify that user can't set royalty
+        vm.startPrank(user, user);
+        vm.expectRevert();
+        tokenContract.setDefaultRoyalty(newRecipient, newPercentage);
+        vm.stopPrank();
+        // verify that admin can't set royalty
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert();
+        tokenContract.setDefaultRoyalty(newRecipient, newPercentage);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+        // verify that minters can't set royalty
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert();
+        tokenContract.setDefaultRoyalty(newRecipient, newPercentage);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+        // verify owner of the contract can set royalty
+        tokenContract.setDefaultRoyalty(newRecipient, newPercentage);
+        (address recp, uint256 amt) = tokenContract.royaltyInfo(1, 10_000);
+        assertEq(recp, newRecipient);
+        assertEq(amt, newPercentage);
+    }
+
+    function testTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage, address user) public {
+        vm.assume(newRecipient != address(0));
+        vm.assume(user != address(0));
+        if (newPercentage >= 10_000) {
+            newPercentage = newPercentage % 10_000;
+        }
+        address[] memory users = new address[](1);
+        users[0] = user;
+        // verify that user can't set royalty
+        vm.startPrank(user, user);
+        vm.expectRevert();
+        tokenContract.setTokenRoyalty(tokenId, newRecipient, newPercentage);
+        vm.stopPrank();
+        // verify that admin can't set royalty
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert();
+        tokenContract.setTokenRoyalty(tokenId, newRecipient, newPercentage);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+        // verify that minters can't set royalty
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert();
+        tokenContract.setTokenRoyalty(tokenId, newRecipient, newPercentage);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+        // verify owner of the contract can set royalty
+        tokenContract.setTokenRoyalty(tokenId, newRecipient, newPercentage);
+        (address recp, uint256 amt) = tokenContract.royaltyInfo(tokenId, 10_000);
+        assertEq(recp, newRecipient);
+        assertEq(amt, newPercentage);
+    }
 
     /// @notice test token uri update
-    // - access control
-    // - proper events
+    // - access control ✅
+    // - proper events ✅
+    function testSetTokenUriCustomErrors() public {
+        vm.expectRevert(TokenDoesNotExist.selector);
+        tokenContract.setTokenUri(1, "newURI");
+
+        address[] memory collectors = new address[](1);
+        collectors[0] = address(1);
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+        tokenContract.createToken("uri", collectors, amounts);
+
+        vm.expectRevert(EmptyTokenURI.selector);
+        tokenContract.setTokenUri(1, "");
+
+        vm.expectRevert(TokenDoesNotExist.selector);
+        tokenContract.uri(2);
+    }
+
+    function testSetTokenUri(address user) public {
+        vm.assume(user != address(0));
+        vm.assume(user != address(this));
+        address[] memory users = new address[](1);
+        users[0] = user;
+
+        address[] memory collectors = new address[](1);
+        collectors[0] = address(1);
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 1;
+        tokenContract.createToken("uri", collectors, amounts);
+
+        // verify user can't access
+        vm.startPrank(user, user);
+        vm.expectRevert(abi.encodeWithSelector(NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        tokenContract.setTokenUri(1, "newUri");
+        vm.stopPrank();
+
+        // verify minter can't access
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert(abi.encodeWithSelector(NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        tokenContract.setTokenUri(1, "newUri");
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+
+        // verify admin can access
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.startPrank(user, user);
+        vm.expectEmit(true, false, false, true);
+        emit URI("newUri", 1);
+        tokenContract.setTokenUri(1, "newUri");
+        assertEq(tokenContract.uri(1), "newUri");
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+
+        // verify owner can access
+        vm.expectEmit(true, false, false, true);
+        emit URI("newUris", 1);
+        tokenContract.setTokenUri(1, "newUris");
+        assertEq(tokenContract.uri(1), "newUris");
+    }
 
     /// @notice test story functions
-    // - enable/disable story access control
-    // - write creator story to existing token w/ proper acccess
-    // - write collector story to existing token w/ proper access
-    // - write creator story to non-existent token (reverts)
-    // - write collector story to non-existent token (reverts)
+    // - enable/disable story access control ✅
+    // - write creator story to existing token w/ proper acccess ✅
+    // - write collector story to existing token w/ proper access ✅
+    // - write creator story to non-existent token (reverts) ✅
+    // - write collector story to non-existent token (reverts) ✅
+    function testStoryAccessControl(address user) public {
+        vm.assume(user != address(this));
+        address[] memory users = new address[](1);
+        users[0] = user;
+
+        // verify user can't enable/disable
+        vm.startPrank(user, user);
+        vm.expectRevert();
+        tokenContract.setStoryEnabled(false);
+        vm.stopPrank();
+
+        // verify admin can't enable/disable
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert();
+        tokenContract.setStoryEnabled(false);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+
+        // verify minter can't enable/disable
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert();
+        tokenContract.setStoryEnabled(false);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+
+        // verify owner can enable/disable
+        tokenContract.setStoryEnabled(false);
+        assertFalse(tokenContract.storyEnabled());
+        tokenContract.setStoryEnabled(true);
+        assertTrue(tokenContract.storyEnabled());
+    }
+
+    function testStoryNonExistentTokens() public {
+        vm.expectRevert();
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+        vm.expectRevert();
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+    }
+
+    function testStory(uint16 numAddresses, uint16 amount) public {
+        vm.assume(numAddresses > 0);
+        // limit num addresses to 300
+        if (numAddresses > 300) {
+            numAddresses = numAddresses % 300 + 1;
+        }
+        vm.assume(amount != 0);
+        address[] memory recipients = new address[](numAddresses);
+        uint256[] memory amounts = new uint256[](numAddresses);
+        for (uint256 i = 0; i < numAddresses; i++) {
+            recipients[i] = makeAddr(i.toString());
+            amounts[i] = amount;
+        }
+        // create token
+        tokenContract.createToken("uri", recipients, amounts);
+
+        // test creator can add story
+        vm.expectEmit(true, true, true, true);
+        emit CreatorStory(1, address(this), "XCOPY", "I AM XCOPY");
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+
+        // test collectors can't add creator story
+        for (uint256 i = 0; i < numAddresses; i++) {
+            vm.startPrank(recipients[i], recipients[i]);
+            vm.expectRevert();
+            tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+            vm.stopPrank();
+        }
+
+        // test collectors story
+        for (uint256 i = 0; i < numAddresses; i++) {
+            vm.startPrank(recipients[i], recipients[i]);
+            vm.expectEmit(true, true, true, true);
+            emit Story(1, recipients[i], "NOT XCOPY", "I AM NOT XCOPY");
+            tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+            vm.stopPrank();
+        }        
+
+        // test that owner can't add collector story
+        vm.expectRevert();
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+    }
 
     /// @notice test blocklist functions
-    // - mock calls as registry will be introduced in integration tests
-    // - test blocked
-    // - test not blocked
-    // - test access control for changing the registry
+    // - test blocked ✅
+    // - test not blocked ✅
+    // - test access control for changing the registry ✅
+    function testBlockListAccessControl(address user) public {
+        vm.assume(user != address(this));
+        address[] memory users = new address[](1);
+        users[0] = user;
+
+        // verify user can't access
+        vm.startPrank(user, user);
+        vm.expectRevert();
+        tokenContract.updateBlockListRegistry(address(1));
+        vm.stopPrank();
+
+        // verify admin can't access
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert();
+        tokenContract.updateBlockListRegistry(address(1));
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+
+        // verify minter can't access
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert();
+        tokenContract.updateBlockListRegistry(address(1));
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+
+        // verify owner can access
+        tokenContract.updateBlockListRegistry(address(1));
+        assertEq(address(tokenContract.blockListRegistry()), address(1));
+    }
+
+    function testBlockListSingleToken(uint16 numAddresses, uint16 amount) public {
+        vm.assume(numAddresses > 0);
+        // limit num addresses to 300
+        if (numAddresses > 300) {
+            numAddresses = numAddresses % 300 + 1;
+        }
+        vm.assume(amount != 0);
+        address operator = makeAddr(uint256(numAddresses).toString());
+        address[] memory recipients = new address[](numAddresses);
+        uint256[] memory amounts = new uint256[](numAddresses);
+        for (uint256 i = 0; i < numAddresses; i++) {
+            recipients[i] = makeAddr(i.toString());
+            amounts[i] = amount;
+        }
+
+        // create blocklist
+        address[] memory blocked = new address[](1);
+        blocked[0] = operator;
+        BlockListRegistry registry = new BlockListRegistry();
+        registry.initialize(address(this), blocked);
+        tokenContract.updateBlockListRegistry(address(registry));
+
+        // create token
+        tokenContract.createToken("uri", recipients, amounts);
+
+        // verify blocked operator
+        for (uint256 i = 0; i < numAddresses; i++) {
+            vm.startPrank(recipients[i], recipients[i]);
+            vm.expectRevert();
+            tokenContract.setApprovalForAll(operator, true);
+            vm.stopPrank();
+        }
+
+        // unblock operator and test approvals
+        registry.clearBlockList();
+        for (uint256 i = 0; i < numAddresses; i++) {
+            vm.startPrank(recipients[i], recipients[i]);
+            tokenContract.setApprovalForAll(operator, true);
+            assertTrue(tokenContract.isApprovedForAll(recipients[i], operator));
+            vm.stopPrank();
+        }
+    }
+
+    function testBlockListBatchTokens(uint16 numTokens, uint16 numAddresses, uint16 amount) public {
+        vm.assume(numTokens > 0);
+        if (numTokens > 10) {
+            numTokens = numTokens % 10 + 1;
+        }
+        vm.assume(numAddresses > 0);
+        // limit num addresses to 300
+        if (numAddresses > 300) {
+            numAddresses = numAddresses % 300 + 1;
+        }
+        vm.assume(amount != 0);
+        address operator = makeAddr(uint256(numAddresses).toString());
+        string[] memory uris = new string[](numTokens);
+        address[][] memory recipients = new address[][](numTokens);
+        uint256[][] memory amounts = new uint256[][](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            uris[i] = "uri";
+            recipients[i] = new address[](numAddresses);
+            amounts[i] = new uint256[](numAddresses);
+            for (uint256 j = 0; j < numAddresses; j++) {
+                recipients[i][j] = makeAddr(j.toString());
+                amounts[i][j] = amount;
+            }
+        }
+
+        // create blocklist
+        address[] memory blocked = new address[](1);
+        blocked[0] = operator;
+        BlockListRegistry registry = new BlockListRegistry();
+        registry.initialize(address(this), blocked);
+        tokenContract.updateBlockListRegistry(address(registry));
+
+        // create tokens
+        tokenContract.batchCreateToken(uris, recipients, amounts);
+
+        // verify blocked operator
+        for (uint256 i = 0; i < numTokens; i++) {
+            for (uint256 j = 0; j < numAddresses; j++) {
+                vm.startPrank(recipients[i][j], recipients[i][j]);
+                vm.expectRevert();
+                tokenContract.setApprovalForAll(operator, true);
+                vm.stopPrank();
+            }
+        }
+
+        // unblock operator and test approvals
+        registry.clearBlockList();
+        for (uint256 i = 0; i < numTokens; i++) {
+            for (uint256 j = 0; j < numAddresses; j++) {
+                vm.startPrank(recipients[i][j], recipients[i][j]);
+                tokenContract.setApprovalForAll(operator, true);
+                assertTrue(tokenContract.isApprovedForAll(recipients[i][j], operator));
+                vm.stopPrank();
+            }
+        }
+    }
 
     /// @notice test ERC-165 support
-    // - EIP-1155
-    // - EIP-1155 Metadata
-    // - EIP-2981
-    // - Story
-    // - EIP-165
+    // - EIP-1155 ✅
+    // - EIP-2981 ✅
+    // - Story ✅
+    // - EIP-165 ✅
+    function testSupportsInterface() public {
+        assertTrue(tokenContract.supportsInterface(0xd9b67a26)); // 1155
+        assertTrue(tokenContract.supportsInterface(0x2a55205a)); // 2981
+        assertTrue(tokenContract.supportsInterface(0x0d23ecb9)); // Story
+        assertTrue(tokenContract.supportsInterface(0x01ffc9a7)); // 165
+    }
 }

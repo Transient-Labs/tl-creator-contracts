@@ -18,7 +18,7 @@ import {Ownable} from "openzeppelin/access/Ownable.sol";
 import {ERC721TL} from "./ERC721TL.sol";
 import {ERC1155TL} from "./ERC1155TL.sol";
 
-contract TLCoreFactory is Ownable {
+contract TLCoreContractsFactory is Ownable {
     address public ERC721TLImplementation;
     address public ERC1155TLImplementation;
 
@@ -40,7 +40,7 @@ contract TLCoreFactory is Ownable {
     /// @notice function to set ERC1155TL implementation address
     /// @dev requires owner
     /// @param newImplementation: the new implementation address
-    function setERC115TLImplementation(address newImplementation) external onlyOwner {
+    function setERC1155TLImplementation(address newImplementation) external onlyOwner {
         ERC1155TLImplementation = newImplementation;
     }
 
@@ -84,9 +84,9 @@ contract TLCoreFactory is Ownable {
     /// @param blockListRegistry: address of the blocklist registry to use
     function createERC1155TL(
         string memory name_,
-        address[] memory admins,
         address royaltyRecipient,
         uint256 royaltyPercentage,
+        address[] memory admins,
         bool enableStory,
         address blockListRegistry
     ) external returns (address) {
