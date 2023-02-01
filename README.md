@@ -54,7 +54,7 @@ We use a contract factory approach to enable cheap minimal proxy contract creati
 
 ## Running Tests
 1. Install [foundry](getfoundry.sh)
-2. Run `forge install`
+2. Run `make install`
 3. Run `forge test` (optionally can adjust the fuzz runs in `foundry.toml`)
 
 ## Disclaimer
