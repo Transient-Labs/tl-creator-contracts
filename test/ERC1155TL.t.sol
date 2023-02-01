@@ -178,12 +178,16 @@ contract ERC1155TLUnitTest is Test {
         vm.expectEmit(true, true, true, true);
         emit TransferSingle(user, address(0), collectors[0], 1, amounts[0]);
         tokenContract.createToken("uri", collectors, amounts);
+        assertTrue(tokenContract.getTokenDetails(1).created);
+        assertEq(tokenContract.getTokenDetails(1).uri, "uri");
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
         // verify owner can access
         vm.expectEmit(true, true, true, true);
         emit TransferSingle(address(this), address(0), collectors[0], 2, amounts[0]);
         tokenContract.createToken("uri", collectors, amounts);
+        assertTrue(tokenContract.getTokenDetails(2).created);
+        assertEq(tokenContract.getTokenDetails(2).uri, "uri");
     }
 
     function testCreateToken(uint16 numAddresses, uint16 amount) public {
