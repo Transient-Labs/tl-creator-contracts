@@ -38,7 +38,7 @@ contract ERC1155TLUnitTest is Test {
 
     function setUp() public {
         address[] memory admins = new address[](0);
-        tokenContract = new ERC1155TL();
+        tokenContract = new ERC1155TL(false);
         tokenContract.initialize("Test1155", royaltyRecipient, 1000, address(this), admins, true, address(0));
     }
 
@@ -59,7 +59,7 @@ contract ERC1155TLUnitTest is Test {
         }
 
         // create contract
-        tokenContract = new ERC1155TL();
+        tokenContract = new ERC1155TL(false);
         // initialize and verify events thrown (order matters)
         vm.expectEmit(true, true, false, false);
         emit OwnershipTransferred(address(0), address(this));

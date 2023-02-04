@@ -18,8 +18,8 @@ contract TLCoreContractsFactoryUnitTest is Test {
     event ERC1155TLCreated(address indexed creator, address indexed implementation, address indexed contractAddress);
 
     function setUp() public {
-        erc721 = new ERC721TL();
-        erc1155 = new ERC1155TL();
+        erc721 = new ERC721TL(true);
+        erc1155 = new ERC1155TL(true);
         factory = new TLCoreContractsFactory(address(erc721), address(erc1155));
     }
 
@@ -28,6 +28,16 @@ contract TLCoreContractsFactoryUnitTest is Test {
         assertEq(factory.ERC721TLImplementation(), address(erc721));
         assertEq(factory.ERC1155TLImplementation(), address(erc1155));
         assertEq(factory.owner(), address(this));
+    }
+
+    /// @notice test disabled initialization on implementation contracts
+    function testDisbaledInitializers() public {
+        address[] memory admins = new address[](0);
+        vm.expectRevert(abi.encodePacked("Initializable: contract is already initialized"));
+        erc721.initialize("Test721", "T721", address(1), 1000, address(this), admins, true, address(0));
+
+        vm.expectRevert(abi.encodePacked("Initializable: contract is already initialized"));
+        erc1155.initialize("Test1155", address(1), 1000, address(this), admins, true, address(0));
     }
 
     /// @notice test access control

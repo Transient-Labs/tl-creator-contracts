@@ -134,6 +134,15 @@ contract ERC721TL is
     event SynergyStatusChange(address indexed from, uint256 indexed tokenId, SynergyAction indexed action, string uri);
 
     /*//////////////////////////////////////////////////////////////////////////
+                                Constructor
+    //////////////////////////////////////////////////////////////////////////*/
+    
+    /// @param disable: boolean to disable initialization for the implementation contract
+    constructor(bool disable) {
+        if (disable) _disableInitializers();
+    }
+    
+    /*//////////////////////////////////////////////////////////////////////////
                                 Initializer
     //////////////////////////////////////////////////////////////////////////*/
 

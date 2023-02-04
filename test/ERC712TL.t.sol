@@ -40,7 +40,7 @@ contract ERC721TLUnitTest is Test {
 
     function setUp() public {
         address[] memory admins = new address[](0);
-        tokenContract = new ERC721TL();
+        tokenContract = new ERC721TL(false);
         tokenContract.initialize("Test721", "T721", royaltyRecipient, 1000, address(this), admins, true, address(0));
     }
 
@@ -62,7 +62,7 @@ contract ERC721TLUnitTest is Test {
         }
 
         // create contract
-        tokenContract = new ERC721TL();
+        tokenContract = new ERC721TL(false);
         // initialize and verify events thrown (order matters)
         vm.expectEmit(true, true, false, false);
         emit OwnershipTransferred(address(0), address(this));
