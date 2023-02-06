@@ -3,8 +3,8 @@
 /// @title ERC721TL.sol
 /// @notice Transient Labs Core ERC721 Contract
 /// @dev features include
-///      - ultra efficient batch minting (market leading?)
-///      - airdrops (market leading?)
+///      - ultra efficient batch minting
+///      - airdrops
 ///      - ability to hook in external mint contracts
 ///      - ability to set multiple admins
 ///      - Story Contract
