@@ -95,7 +95,7 @@ contract ERC1155TL is
     /*//////////////////////////////////////////////////////////////////////////
                                 Constructor
     //////////////////////////////////////////////////////////////////////////*/
-    
+
     /// @param disable: boolean to disable initialization for the implementation contract
     constructor(bool disable) {
         if (disable) _disableInitializers();
@@ -105,7 +105,7 @@ contract ERC1155TL is
                                 Initializer
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @param name_: the name of the 721 contract
+    /// @param name_: the name of the 1155 contract
     /// @param defaultRoyaltyRecipient: the default address for royalty payments
     /// @param defaultRoyaltyPercentage: the default royalty percentage of basis points (out of 10,000)
     /// @param initOwner: the owner of the contract
@@ -181,7 +181,7 @@ contract ERC1155TL is
     function batchCreateToken(string[] calldata newUris, address[][] calldata addresses, uint256[][] calldata amounts)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
-    {   
+    {
         if (newUris.length == 0) revert EmptyTokenURI();
         for (uint256 i = 0; i < newUris.length; i++) {
             _createToken(newUris[i], addresses[i], amounts[i]);

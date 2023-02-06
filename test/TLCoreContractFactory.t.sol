@@ -61,7 +61,16 @@ contract TLCoreContractsFactoryUnitTest is Test {
     }
 
     /// @notice test creating erc721 contracts
-    function testCreateERC721(address user, string memory name, string memory symbol, address royaltyRecipient, uint16 royaltyPercentage, uint16 numAdmins, bool enableStory, address blocklistRegistry) public {
+    function testCreateERC721(
+        address user,
+        string memory name,
+        string memory symbol,
+        address royaltyRecipient,
+        uint16 royaltyPercentage,
+        uint16 numAdmins,
+        bool enableStory,
+        address blocklistRegistry
+    ) public {
         vm.assume(user != address(0));
         vm.assume(bytes(name).length > 0);
         vm.assume(bytes(symbol).length > 0);
@@ -78,7 +87,11 @@ contract TLCoreContractsFactoryUnitTest is Test {
         }
 
         vm.startPrank(user, user);
-        ERC721TL c = ERC721TL(factory.createERC721TL(name, symbol, royaltyRecipient, royaltyPercentage, admins, enableStory, blocklistRegistry));
+        ERC721TL c = ERC721TL(
+            factory.createERC721TL(
+                name, symbol, royaltyRecipient, royaltyPercentage, admins, enableStory, blocklistRegistry
+            )
+        );
         vm.stopPrank();
         assertEq(c.name(), name);
         assertEq(c.symbol(), symbol);
@@ -91,7 +104,15 @@ contract TLCoreContractsFactoryUnitTest is Test {
     }
 
     /// @notice test creating erc1155 contracts
-    function testCreateERC1155(address user, string memory name, address royaltyRecipient, uint16 royaltyPercentage, uint16 numAdmins, bool enableStory, address blocklistRegistry) public {
+    function testCreateERC1155(
+        address user,
+        string memory name,
+        address royaltyRecipient,
+        uint16 royaltyPercentage,
+        uint16 numAdmins,
+        bool enableStory,
+        address blocklistRegistry
+    ) public {
         vm.assume(user != address(0));
         vm.assume(bytes(name).length > 0);
         vm.assume(royaltyRecipient != address(0));
@@ -107,7 +128,9 @@ contract TLCoreContractsFactoryUnitTest is Test {
         }
 
         vm.startPrank(user, user);
-        ERC1155TL c = ERC1155TL(factory.createERC1155TL(name, royaltyRecipient, royaltyPercentage, admins, enableStory, blocklistRegistry));
+        ERC1155TL c = ERC1155TL(
+            factory.createERC1155TL(name, royaltyRecipient, royaltyPercentage, admins, enableStory, blocklistRegistry)
+        );
         vm.stopPrank();
         assertEq(c.name(), name);
         assertEq(c.getRoleMembers(c.ADMIN_ROLE()), admins);

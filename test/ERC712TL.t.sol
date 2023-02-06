@@ -129,7 +129,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.setApprovedMintContracts(minters, true);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
-        assertTrue(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(),address(1)));
+        assertTrue(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(), address(1)));
 
         // verify minters can't access
         vm.startPrank(address(1), address(1));
@@ -139,7 +139,7 @@ contract ERC721TLUnitTest is Test {
 
         // verify owner can access
         tokenContract.setApprovedMintContracts(minters, false);
-        assertFalse (tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(),address(1)));
+        assertFalse(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(), address(1)));
     }
 
     /// @notice test non-existent token ownership

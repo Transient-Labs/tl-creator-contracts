@@ -18,6 +18,7 @@ import {BlockListRegistry} from "tl-blocklist/BlockListRegistry.sol";
 
 contract ERC1155TLUnitTest is Test {
     using Strings for uint256;
+
     ERC1155TL public tokenContract;
     address public royaltyRecipient = makeAddr("royaltyRecipient");
 
@@ -27,11 +28,7 @@ contract ERC1155TLUnitTest is Test {
     event URI(string value, uint256 indexed id);
     event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value);
     event TransferBatch(
-        address indexed operator,
-        address indexed from,
-        address indexed to,
-        uint256[] ids,
-        uint256[] values
+        address indexed operator, address indexed from, address indexed to, uint256[] ids, uint256[] values
     );
     event CreatorStory(uint256 indexed tokenId, address indexed creatorAddress, string creatorName, string story);
     event Story(uint256 indexed tokenId, address indexed collectorAddress, string collectorName, string story);
@@ -111,7 +108,7 @@ contract ERC1155TLUnitTest is Test {
         tokenContract.setApprovedMintContracts(minters, true);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
-        assertTrue(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(),address(1)));
+        assertTrue(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(), address(1)));
 
         // verify minters can't access
         vm.startPrank(address(1), address(1));
@@ -121,7 +118,7 @@ contract ERC1155TLUnitTest is Test {
 
         // verify owner can access
         tokenContract.setApprovedMintContracts(minters, false);
-        assertFalse (tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(),address(1)));
+        assertFalse(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(), address(1)));
     }
 
     /// @notice test createToken
@@ -216,7 +213,7 @@ contract ERC1155TLUnitTest is Test {
         assertEq(tokenContract.uri(1), "uri");
         for (uint256 i = 0; i < numAddresses; i++) {
             assertEq(tokenContract.balanceOf(recipients[i], 1), amounts[i]);
-        } 
+        }
         // transfer
         uint256 bal = 0;
         for (uint256 i = 0; i < numAddresses; i++) {
@@ -330,23 +327,23 @@ contract ERC1155TLUnitTest is Test {
             amounts[i] = new uint256[](numAddresses);
             for (uint256 j = 0; j < numAddresses; j++) {
                 recipients[i][j] = makeAddr(j.toString());
-                amounts[i][j] = amount;   
+                amounts[i][j] = amount;
             }
         }
         // create token
         for (uint256 i = 0; i < numTokens; i++) {
             for (uint256 j = 0; j < numAddresses; j++) {
                 vm.expectEmit(true, true, true, true);
-                emit TransferSingle(address(this), address(0), recipients[i][j], i+1, amounts[i][j]);
+                emit TransferSingle(address(this), address(0), recipients[i][j], i + 1, amounts[i][j]);
             }
         }
         tokenContract.batchCreateToken(strings, recipients, amounts);
         for (uint256 i = 0; i < numTokens; i++) {
-            assertEq(tokenContract.uri(i+1), i.toString());
+            assertEq(tokenContract.uri(i + 1), i.toString());
             for (uint256 j = 0; j < numAddresses; j++) {
-                assertEq(tokenContract.balanceOf(recipients[i][j], i+1), amounts[i][j]);
+                assertEq(tokenContract.balanceOf(recipients[i][j], i + 1), amounts[i][j]);
             }
-        } 
+        }
         // transfer
         for (uint256 i = 0; i < numTokens; i++) {
             uint256 bal = 0;
@@ -354,10 +351,10 @@ contract ERC1155TLUnitTest is Test {
                 bal += amount;
                 vm.startPrank(recipients[i][j], recipients[i][j]);
                 vm.expectEmit(true, true, true, true);
-                emit TransferSingle(recipients[i][j], recipients[i][j], recipient, i+1, amounts[i][j]);
-                tokenContract.safeTransferFrom(recipients[i][j], recipient, i+1, amounts[i][j], "");
+                emit TransferSingle(recipients[i][j], recipients[i][j], recipient, i + 1, amounts[i][j]);
+                tokenContract.safeTransferFrom(recipients[i][j], recipient, i + 1, amounts[i][j], "");
                 vm.stopPrank();
-                assertEq(tokenContract.balanceOf(recipient, i+1), bal);
+                assertEq(tokenContract.balanceOf(recipient, i + 1), bal);
             }
         }
     }
@@ -453,7 +450,7 @@ contract ERC1155TLUnitTest is Test {
         assertEq(tokenContract.uri(1), "uri");
         for (uint256 i = 0; i < numAddresses; i++) {
             assertEq(tokenContract.balanceOf(recipients[i], 1), amounts[i]);
-        } 
+        }
         // transfer
         uint256 bal = 0;
         for (uint256 i = 0; i < numAddresses; i++) {
@@ -563,7 +560,7 @@ contract ERC1155TLUnitTest is Test {
         assertEq(tokenContract.uri(1), "uri");
         for (uint256 i = 0; i < numAddresses; i++) {
             assertEq(tokenContract.balanceOf(recipients[i], 1), amounts[i]);
-        } 
+        }
         // transfer
         uint256 bal = 0;
         for (uint256 i = 0; i < numAddresses; i++) {
@@ -861,7 +858,7 @@ contract ERC1155TLUnitTest is Test {
             emit Story(1, recipients[i], "NOT XCOPY", "I AM NOT XCOPY");
             tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
             vm.stopPrank();
-        }        
+        }
 
         // test that owner can't add collector story
         vm.expectRevert();
