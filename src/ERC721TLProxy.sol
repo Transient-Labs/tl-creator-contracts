@@ -25,6 +25,7 @@ contract ERC721TLProxy is ERC1967Proxy {
     /// @param symbol: the symbol of the 721 contract
     /// @param defaultRoyaltyRecipient: the default address for royalty payments
     /// @param defaultRoyaltyPercentage: the default royalty percentage of basis points (out of 10,000)
+    /// @param initOwner: initial owner of the contract
     /// @param admins: array of admin addresses to add to the contract
     /// @param enableStory: a bool deciding whether to add story fuctionality or not
     /// @param blockListRegistry: address of the blocklist registry to use
@@ -34,6 +35,7 @@ contract ERC721TLProxy is ERC1967Proxy {
         string memory symbol,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
+        address initOwner,
         address[] memory admins,
         bool enableStory,
         address blockListRegistry

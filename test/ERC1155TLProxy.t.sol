@@ -17,6 +17,7 @@ contract ERC1155TLProxyUnitTest is Test {
             "Test",
             address(1),
             1000,
+            address(this),
             new address[](0),
             true,
             address(0)
@@ -31,6 +32,7 @@ contract ERC1155TLProxyUnitTest is Test {
         assertEq(recp, address(1));
         assertEq(amt, 1000);
         assertEq(address(proxy.blockListRegistry()), address(0));
+        assertEq(proxy.owner(), address(this));
     }
 
     function testInitImplementation() public {
