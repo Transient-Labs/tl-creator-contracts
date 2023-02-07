@@ -200,7 +200,7 @@ contract ERC721TL is
                                 Mint Functions
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice function to mint a single token to contract owner
+    /// @notice function to mint a single token
     /// @dev requires owner or admin
     /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
     /// @param uri: the token uri to mint
@@ -211,11 +211,14 @@ contract ERC721TL is
         _mint(recipient, _counter);
     }
 
-    /// @notice function to batch mint tokens to contract owner
+    /// @notice function to batch mint tokens
     /// @dev requires owner or admin
     /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
     /// @param numTokens: number of tokens in the batch mint
     /// @param baseUri: the base uri for the batch, expecting json to be in order and starting at 0
+    ///                 NOTE: this folder should have the same number of json files in it as numTokens
+    ///                 NOTE: files should be named without any file extension
+    ///                 NOTE: baseUri should not have a trailing `/`
     function batchMint(address recipient, uint256 numTokens, string calldata baseUri)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
@@ -240,6 +243,8 @@ contract ERC721TL is
     /// @param addresses: dynamic array of addresses to mint to
     /// @param baseUri: the base uri for the batch, expecting json to be in order and starting at 0
     ///                 NOTE: the number of json files in this folder should be equal to the number of addresses
+    ///                 NOTE: files should be named without any file extension
+    ///                 NOTE: baseUri should not have a trailing `/`
     function airdrop(address[] calldata addresses, string calldata baseUri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (bytes(baseUri).length == 0) revert EmptyTokenURI();
         if (addresses.length < 2) revert AirdropTooFewAddresses();
