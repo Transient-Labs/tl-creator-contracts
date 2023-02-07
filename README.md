@@ -20,8 +20,8 @@ A repository with core creator contracts that have the following features:
 ### Goerli
 | Contract               | Version | Address                                    |
 | ---------------------- | ------- | ------------------------------------------ |
-| ERC721TL               | 1       |  |
-| ERC1155TL              | 1       |  |
+| ERC721TL               | 1       | 0xa31DCBe2dF53bd70CaB02e25eDca1cB1a771890A |
+| ERC1155TL              | 1       | 0xf1d8C4acb1B983f231AC60DF57692dB9747a7133 |
 
 ## Features
 ### Ownership & Access
