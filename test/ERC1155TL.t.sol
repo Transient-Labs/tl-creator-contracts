@@ -36,12 +36,13 @@ contract ERC1155TLUnitTest is Test {
     function setUp() public {
         address[] memory admins = new address[](0);
         tokenContract = new ERC1155TL(false);
-        tokenContract.initialize("Test1155", royaltyRecipient, 1000, address(this), admins, true, address(0));
+        tokenContract.initialize("Test1155", "TEST", royaltyRecipient, 1000, address(this), admins, true, address(0));
     }
 
     /// @notice Initialization Tests
     function testInitialization(
         string memory name,
+        string memory symbol,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
@@ -69,9 +70,10 @@ contract ERC1155TLUnitTest is Test {
             emit RoleChange(address(this), admins[i], true, tokenContract.ADMIN_ROLE());
         }
         tokenContract.initialize(
-            name, defaultRoyaltyRecipient, defaultRoyaltyPercentage, initOwner, admins, enableStory, blockListRegistry
+            name, symbol, defaultRoyaltyRecipient, defaultRoyaltyPercentage, initOwner, admins, enableStory, blockListRegistry
         );
         assertEq(tokenContract.name(), name);
+        assertEq(tokenContract.symbol(), symbol);
         (address recp, uint256 amt) = tokenContract.royaltyInfo(1, 10000);
         assertEq(recp, defaultRoyaltyRecipient);
         assertEq(amt, defaultRoyaltyPercentage);
@@ -85,7 +87,7 @@ contract ERC1155TLUnitTest is Test {
         // can't initialize again
         vm.expectRevert(bytes("Initializable: contract is already initialized"));
         tokenContract.initialize(
-            name, defaultRoyaltyRecipient, defaultRoyaltyPercentage, initOwner, admins, enableStory, blockListRegistry
+            name, symbol, defaultRoyaltyRecipient, defaultRoyaltyPercentage, initOwner, admins, enableStory, blockListRegistry
         );
     }
 

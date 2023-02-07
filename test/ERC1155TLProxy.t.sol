@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 
 import "forge-std/Test.sol";
 import {ERC1155TL} from "../src/ERC1155TL.sol";
-import {ERC1155TLProxy} from "../src/ERC1155TLProxy.sol";
+import {TLCoreCreator} from "../src/TLCoreCreator.sol";
 
 contract ERC1155TLProxyUnitTest is Test {
 
@@ -12,9 +12,10 @@ contract ERC1155TLProxyUnitTest is Test {
 
     function setUp() public {
         erc1155 = new ERC1155TL(true);
-        ERC1155TLProxy depProxy = new ERC1155TLProxy(
+        TLCoreCreator depProxy = new TLCoreCreator(
             address(erc1155),
             "Test",
+            "TEST",
             address(1),
             1000,
             address(this),
@@ -27,6 +28,7 @@ contract ERC1155TLProxyUnitTest is Test {
 
     function testDeployment() public {
         assertEq(proxy.name(), "Test");
+        assertEq(proxy.symbol(), "TEST");
         assertTrue(proxy.storyEnabled());
         (address recp, uint256 amt) = proxy.royaltyInfo(1, 10000);
         assertEq(recp, address(1));
@@ -37,6 +39,6 @@ contract ERC1155TLProxyUnitTest is Test {
 
     function testInitImplementation() public {
         vm.expectRevert(abi.encodePacked("Initializable: contract is already initialized"));
-        erc1155.initialize("Test721", address(1), 1000, address(this), new address[](0), true, address(0));
+        erc1155.initialize("Test1155", "TEST", address(1), 1000, address(this), new address[](0), true, address(0));
     }
 }

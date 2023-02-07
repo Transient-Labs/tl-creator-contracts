@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
-/// @title ERC721TLProxy.sol
-/// @notice Transient Labs Core ERC721 Contract Proxy
+/// @title TLCoreCreator.sol
+/// @notice Transient Labs Core Creator Contract
+/// @dev this works for either ERC721TL or ERC1155TL contracts, just need to change the implementation
 /// @author transientlabs.xyz
 
 /*
@@ -16,13 +17,13 @@ pragma solidity 0.8.17;
 import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 
 /*//////////////////////////////////////////////////////////////////////////
-                            ERC721TLProxy
+                            TLCoreCreator
 //////////////////////////////////////////////////////////////////////////*/
 
-contract ERC721TLProxy is ERC1967Proxy {
+contract TLCoreCreator is ERC1967Proxy {
 
-    /// @param name: the name of the 721 contract
-    /// @param symbol: the symbol of the 721 contract
+    /// @param name: the name of the contract
+    /// @param symbol: the symbol of the contract
     /// @param defaultRoyaltyRecipient: the default address for royalty payments
     /// @param defaultRoyaltyPercentage: the default royalty percentage of basis points (out of 10,000)
     /// @param initOwner: initial owner of the contract
@@ -42,8 +43,8 @@ contract ERC721TLProxy is ERC1967Proxy {
     )
         ERC1967Proxy(
             implementation,
-            abi.encodeWithSignature(
-                "initialize(string,string,address,uint256,address,address[],bool,address)",
+            abi.encodeWithSelector(
+                0x1fbd2402, // selector for "initialize(string,string,address,uint256,address,address[],bool,address)"
                 name,
                 symbol,
                 defaultRoyaltyRecipient,

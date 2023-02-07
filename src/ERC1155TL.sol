@@ -90,6 +90,7 @@ contract ERC1155TL is
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter;
     string public name;
+    string public symbol;
     mapping(uint256 => Token) private _tokens;
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -106,6 +107,7 @@ contract ERC1155TL is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @param name_: the name of the 1155 contract
+    /// @param symbol_: the symbol for the 1155 contract
     /// @param defaultRoyaltyRecipient: the default address for royalty payments
     /// @param defaultRoyaltyPercentage: the default royalty percentage of basis points (out of 10,000)
     /// @param initOwner: the owner of the contract
@@ -114,6 +116,7 @@ contract ERC1155TL is
     /// @param blockListRegistry: address of the blocklist registry to use
     function initialize(
         string memory name_,
+        string memory symbol_,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
@@ -131,8 +134,9 @@ contract ERC1155TL is
         // add admins
         _setRole(ADMIN_ROLE, admins, true);
 
-        // set name
+        // set name & symbol
         name = name_;
+        symbol = symbol_;
     }
 
     /*//////////////////////////////////////////////////////////////////////////

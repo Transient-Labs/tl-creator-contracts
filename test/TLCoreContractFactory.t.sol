@@ -37,7 +37,7 @@ contract TLCoreContractsFactoryUnitTest is Test {
         erc721.initialize("Test721", "T721", address(1), 1000, address(this), admins, true, address(0));
 
         vm.expectRevert(abi.encodePacked("Initializable: contract is already initialized"));
-        erc1155.initialize("Test1155", address(1), 1000, address(this), admins, true, address(0));
+        erc1155.initialize("Test1155", "TEST", address(1), 1000, address(this), admins, true, address(0));
     }
 
     /// @notice test access control
@@ -107,6 +107,7 @@ contract TLCoreContractsFactoryUnitTest is Test {
     function testCreateERC1155(
         address user,
         string memory name,
+        string memory symbol,
         address royaltyRecipient,
         uint16 royaltyPercentage,
         uint16 numAdmins,
@@ -129,7 +130,7 @@ contract TLCoreContractsFactoryUnitTest is Test {
 
         vm.startPrank(user, user);
         ERC1155TL c = ERC1155TL(
-            factory.createERC1155TL(name, royaltyRecipient, royaltyPercentage, admins, enableStory, blocklistRegistry)
+            factory.createERC1155TL(name, symbol, royaltyRecipient, royaltyPercentage, admins, enableStory, blocklistRegistry)
         );
         vm.stopPrank();
         assertEq(c.name(), name);

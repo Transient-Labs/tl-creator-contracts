@@ -84,6 +84,7 @@ contract TLCoreContractsFactory is Ownable {
     /// @param blockListRegistry: address of the blocklist registry to use
     function createERC1155TL(
         string memory name_,
+        string memory symbol_,
         address royaltyRecipient,
         uint256 royaltyPercentage,
         address[] memory admins,
@@ -92,7 +93,7 @@ contract TLCoreContractsFactory is Ownable {
     ) external returns (address) {
         address newContract = Clones.clone(ERC1155TLImplementation);
         ERC1155TL(newContract).initialize(
-            name_, royaltyRecipient, royaltyPercentage, msg.sender, admins, enableStory, blockListRegistry
+            name_, symbol_, royaltyRecipient, royaltyPercentage, msg.sender, admins, enableStory, blockListRegistry
         );
 
         emit ERC1155TLCreated(msg.sender, ERC1155TLImplementation, newContract);
