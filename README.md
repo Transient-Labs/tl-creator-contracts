@@ -16,14 +16,12 @@ A repository with core creator contracts that have the following features:
 | ---------------------- | ------- | ------------------------------------------ |
 | ERC721TL               | 1       |  |
 | ERC1155TL              | 1       |  |
-| TLCoreContractsFactory | 1       |  |
 
 ### Goerli
 | Contract               | Version | Address                                    |
 | ---------------------- | ------- | ------------------------------------------ |
 | ERC721TL               | 1       |  |
 | ERC1155TL              | 1       |  |
-| TLCoreContractsFactory | 1       |  |
 
 ## Features
 ### Ownership & Access
