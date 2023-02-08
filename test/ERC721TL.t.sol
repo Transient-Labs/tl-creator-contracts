@@ -233,6 +233,29 @@ contract ERC721TLUnitTest is Test {
         }
     }
 
+    function testMintTokenRoyalty(uint16 tokenId, address recipient, address royaltyAddress, uint16 royaltyPercent) public {
+        vm.assume(tokenId != 0);
+        vm.assume(recipient != address(0));
+        vm.assume(royaltyAddress != royaltyRecipient);
+        vm.assume(royaltyAddress != address(0));
+        if (royaltyPercent >= 10_000) royaltyPercent = royaltyPercent % 10_000;
+        if (tokenId > 1000) {
+            tokenId = tokenId % 1000 + 1; // map to 1000
+        }
+        for (uint256 i = 1; i <= tokenId; i++) {
+            string memory uri = string(abi.encodePacked("uri_", i.toString()));
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(address(0), recipient, i);
+            tokenContract.mint(recipient, uri, royaltyAddress, royaltyPercent);
+            assertEq(tokenContract.balanceOf(recipient), i);
+            assertEq(tokenContract.ownerOf(i), recipient);
+            assertEq(tokenContract.tokenURI(i), uri);
+            (address recp, uint256 amt) = tokenContract.royaltyInfo(i, 10_000);
+            assertEq(recp, royaltyAddress);
+            assertEq(amt, royaltyPercent);
+        }
+    }
+
     function testMintTransfers(uint16 tokenId, address recipient, address secondRecipient) public {
         vm.assume(recipient != address(0));
         vm.assume(secondRecipient != address(0));
@@ -1902,7 +1925,7 @@ contract ERC721TLUnitTest is Test {
         vm.assume(operator != address(0));
         address[] memory blocked = new address[](1);
         blocked[0] = operator;
-        BlockListRegistry registry = new BlockListRegistry();
+        BlockListRegistry registry = new BlockListRegistry(false);
         registry.initialize(address(this), blocked);
         tokenContract.updateBlockListRegistry(address(registry));
 
@@ -1931,7 +1954,7 @@ contract ERC721TLUnitTest is Test {
         vm.assume(operator != address(0));
         address[] memory blocked = new address[](1);
         blocked[0] = operator;
-        BlockListRegistry registry = new BlockListRegistry();
+        BlockListRegistry registry = new BlockListRegistry(false);
         registry.initialize(address(this), blocked);
         tokenContract.updateBlockListRegistry(address(registry));
 
@@ -1967,7 +1990,7 @@ contract ERC721TLUnitTest is Test {
         addresses[1] = collector;
         address[] memory blocked = new address[](1);
         blocked[0] = operator;
-        BlockListRegistry registry = new BlockListRegistry();
+        BlockListRegistry registry = new BlockListRegistry(false);
         registry.initialize(address(this), blocked);
         tokenContract.updateBlockListRegistry(address(registry));
 
@@ -2005,7 +2028,7 @@ contract ERC721TLUnitTest is Test {
 
         address[] memory blocked = new address[](1);
         blocked[0] = operator;
-        BlockListRegistry registry = new BlockListRegistry();
+        BlockListRegistry registry = new BlockListRegistry(false);
         registry.initialize(address(this), blocked);
         tokenContract.updateBlockListRegistry(address(registry));
 
