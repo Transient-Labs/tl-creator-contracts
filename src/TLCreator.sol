@@ -20,7 +20,7 @@ import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
                             TLCoreCreator
 //////////////////////////////////////////////////////////////////////////*/
 
-contract TLCoreCreator is ERC1967Proxy {
+contract TLCreator is ERC1967Proxy {
 
     /// @param name: the name of the contract
     /// @param symbol: the symbol of the contract

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /// @title ERC721TL.sol
-/// @notice Transient Labs Core ERC721 Contract
+/// @notice Transient Labs ERC-721 Creator Contract
 /// @dev features include
 ///      - ultra efficient batch minting
 ///      - airdrops
@@ -208,6 +208,20 @@ contract ERC721TL is
         if (bytes(uri).length == 0) revert EmptyTokenURI();
         _counter++;
         _tokenUris[_counter] = uri;
+        _mint(recipient, _counter);
+    }
+
+    /// @notice function to mint a single token with specific token royalty
+    /// @dev requires owner or admin
+    /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
+    /// @param uri: the token uri to mint
+    /// @param royaltyAddress: royalty payout address for this new token
+    /// @param royaltyPercent: royalty percentage for this new token
+    function mint(address recipient, string calldata uri, address royaltyAddress, uint256 royaltyPercent) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (bytes(uri).length == 0) revert EmptyTokenURI();
+        _counter++;
+        _tokenUris[_counter] = uri;
+        _overrideTokenRoyaltyInfo(_counter, royaltyAddress, royaltyPercent);
         _mint(recipient, _counter);
     }
 

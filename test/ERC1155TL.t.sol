@@ -229,6 +229,52 @@ contract ERC1155TLUnitTest is Test {
         }
     }
 
+    function testCreateTokenWithRoyalty(uint16 numAddresses, uint16 amount, address royaltyAddress, uint16 royaltyPercent) public {
+        vm.assume(numAddresses > 0);
+        // limit num addresses to 300
+        if (numAddresses > 300) {
+            numAddresses = numAddresses % 300 + 1;
+        }
+        vm.assume(royaltyAddress != royaltyRecipient);
+        vm.assume(royaltyAddress != address(0));
+        if (royaltyPercent >= 10_000) royaltyPercent = royaltyPercent % 10_000;
+        // if (amount > 1000) {
+        //     amount = amount % 1000 + 1;
+        // }
+        vm.assume(amount != 0);
+        address recipient = makeAddr(uint256(numAddresses).toString());
+        address[] memory recipients = new address[](numAddresses);
+        uint256[] memory amounts = new uint256[](numAddresses);
+        for (uint256 i = 0; i < numAddresses; i++) {
+            recipients[i] = makeAddr(i.toString());
+            amounts[i] = amount;
+        }
+        // create token
+        for (uint256 i = 0; i < numAddresses; i++) {
+            vm.expectEmit(true, true, true, true);
+            emit TransferSingle(address(this), address(0), recipients[i], 1, amounts[i]);
+        }
+        tokenContract.createToken("uri", recipients, amounts, royaltyAddress, royaltyPercent);
+        assertEq(tokenContract.uri(1), "uri");
+        (address recp, uint256 amt) = tokenContract.royaltyInfo(1, 10_000);
+        assertEq(recp, royaltyAddress);
+        assertEq(amt, royaltyPercent);
+        for (uint256 i = 0; i < numAddresses; i++) {
+            assertEq(tokenContract.balanceOf(recipients[i], 1), amounts[i]);
+        }
+        // transfer
+        uint256 bal = 0;
+        for (uint256 i = 0; i < numAddresses; i++) {
+            bal += amount;
+            vm.startPrank(recipients[i], recipients[i]);
+            vm.expectEmit(true, true, true, true);
+            emit TransferSingle(recipients[i], recipients[i], recipient, 1, amounts[i]);
+            tokenContract.safeTransferFrom(recipients[i], recipient, 1, amounts[i], "");
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(recipient, 1), bal);
+        }
+    }
+
     /// @notice test batchCreateToken
     // - access control ✅
     // - proper recipients ✅
@@ -342,6 +388,70 @@ contract ERC1155TLUnitTest is Test {
         tokenContract.batchCreateToken(strings, recipients, amounts);
         for (uint256 i = 0; i < numTokens; i++) {
             assertEq(tokenContract.uri(i + 1), i.toString());
+            for (uint256 j = 0; j < numAddresses; j++) {
+                assertEq(tokenContract.balanceOf(recipients[i][j], i + 1), amounts[i][j]);
+            }
+        }
+        // transfer
+        for (uint256 i = 0; i < numTokens; i++) {
+            uint256 bal = 0;
+            for (uint256 j = 0; j < numAddresses; j++) {
+                bal += amount;
+                vm.startPrank(recipients[i][j], recipients[i][j]);
+                vm.expectEmit(true, true, true, true);
+                emit TransferSingle(recipients[i][j], recipients[i][j], recipient, i + 1, amounts[i][j]);
+                tokenContract.safeTransferFrom(recipients[i][j], recipient, i + 1, amounts[i][j], "");
+                vm.stopPrank();
+                assertEq(tokenContract.balanceOf(recipient, i + 1), bal);
+            }
+        }
+    }
+
+    function testBatchCreateTokenWithTokenRoyalty(uint16 numTokens, uint16 numAddresses, uint16 amount, address royaltyAddress, uint16 royaltyPercent) public {
+        vm.assume(numAddresses > 0);
+        // limit num addresses to 300
+        if (numAddresses > 300) {
+            numAddresses = numAddresses % 300 + 1;
+        }
+        vm.assume(royaltyAddress != royaltyRecipient);
+        vm.assume(royaltyAddress != address(0));
+        if (royaltyPercent >= 10_000) royaltyPercent = royaltyPercent % 10_000;
+        vm.assume(numTokens > 0);
+        // limit number of tokens to 10
+        if (numTokens > 10) {
+            numTokens = numTokens % 10 + 1;
+        }
+        vm.assume(amount != 0);
+        address recipient = makeAddr(uint256(numAddresses).toString());
+        string[] memory strings = new string[](numTokens);
+        address[][] memory recipients = new address[][](numTokens);
+        uint256[][] memory amounts = new uint256[][](numTokens);
+        address[] memory royaltyAddresses = new address[](numTokens);
+        uint256[] memory royaltyPercents = new uint256[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            strings[i] = i.toString();
+            royaltyAddresses[i] = royaltyAddress;
+            royaltyPercents[i] = royaltyPercent;
+            recipients[i] = new address[](numAddresses);
+            amounts[i] = new uint256[](numAddresses);
+            for (uint256 j = 0; j < numAddresses; j++) {
+                recipients[i][j] = makeAddr(j.toString());
+                amounts[i][j] = amount;
+            }
+        }
+        // create token
+        for (uint256 i = 0; i < numTokens; i++) {
+            for (uint256 j = 0; j < numAddresses; j++) {
+                vm.expectEmit(true, true, true, true);
+                emit TransferSingle(address(this), address(0), recipients[i][j], i + 1, amounts[i][j]);
+            }
+        }
+        tokenContract.batchCreateToken(strings, recipients, amounts, royaltyAddresses, royaltyPercents);
+        for (uint256 i = 0; i < numTokens; i++) {
+            assertEq(tokenContract.uri(i + 1), i.toString());
+            (address recp, uint256 amt) = tokenContract.royaltyInfo(i+1, 10_000);
+            assertEq(recp, royaltyAddress);
+            assertEq(amt, royaltyPercent);
             for (uint256 j = 0; j < numAddresses; j++) {
                 assertEq(tokenContract.balanceOf(recipients[i][j], i + 1), amounts[i][j]);
             }
@@ -921,7 +1031,7 @@ contract ERC1155TLUnitTest is Test {
         // create blocklist
         address[] memory blocked = new address[](1);
         blocked[0] = operator;
-        BlockListRegistry registry = new BlockListRegistry();
+        BlockListRegistry registry = new BlockListRegistry(false);
         registry.initialize(address(this), blocked);
         tokenContract.updateBlockListRegistry(address(registry));
 
@@ -974,7 +1084,7 @@ contract ERC1155TLUnitTest is Test {
         // create blocklist
         address[] memory blocked = new address[](1);
         blocked[0] = operator;
-        BlockListRegistry registry = new BlockListRegistry();
+        BlockListRegistry registry = new BlockListRegistry(false);
         registry.initialize(address(this), blocked);
         tokenContract.updateBlockListRegistry(address(registry));
 

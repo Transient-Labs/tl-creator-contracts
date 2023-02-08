@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /// @title ERC1155TL.sol
-/// @notice Transient Labs Core ERC1155 Contract
+/// @notice Transient Labs ERC-1155 Creator Contract
 /// @dev features include
 ///      - batch minting
 ///      - airdrops
@@ -177,6 +177,22 @@ contract ERC1155TL is
         _createToken(newUri, addresses, amounts);
     }
 
+    /// @notice function to create a token that can be minted to creator or airdropped
+    /// @dev overloaded function where you can set the token royalty config in this tx
+    /// @dev requires owner or admin
+    /// @param newUri: the uri for the token to create
+    /// @param addresses: the addresses to mint the new token to
+    /// @param amounts: the amount of the new token to mint to each address
+    /// @param royaltyAddress: royalty payout address for the created token
+    /// @param royaltyPercent: royalty percentage for this token
+    function createToken(string calldata newUri, address[] calldata addresses, uint256[] calldata amounts, address royaltyAddress, uint256 royaltyPercent)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
+       uint256 tokenId =  _createToken(newUri, addresses, amounts);
+       _overrideTokenRoyaltyInfo(tokenId, royaltyAddress, royaltyPercent);
+    }
+
     /// @notice function to batch create tokens that can be minted to creator or airdropped
     /// @dev requires owner or admin
     /// @param newUris: the uris for the tokens to create
@@ -192,11 +208,31 @@ contract ERC1155TL is
         }
     }
 
+    /// @notice function to batch create tokens that can be minted to creator or airdropped
+    /// @dev overloaded function where you can set the token royalty config in this tx
+    /// @dev requires owner or admin
+    /// @param newUris: the uris for the tokens to create
+    /// @param addresses: 2d dynamic array holding the addresses to mint the new tokens to
+    /// @param amounts: 2d dynamic array holding the amounts of the new tokens to mint to each address
+    /// @param royaltyAddresses: royalty payout addresses for the tokens
+    /// @param royaltyPercents: royalty payout percents for the tokens
+    function batchCreateToken(string[] calldata newUris, address[][] calldata addresses, uint256[][] calldata amounts, address[] calldata royaltyAddresses, uint256[] calldata royaltyPercents)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
+        if (newUris.length == 0) revert EmptyTokenURI();
+        for (uint256 i = 0; i < newUris.length; i++) {
+            uint256 tokenId = _createToken(newUris[i], addresses[i], amounts[i]);
+            _overrideTokenRoyaltyInfo(tokenId, royaltyAddresses[i], royaltyPercents[i]);
+        }
+    }
+
     /// @notice private helper function to create a new token
     /// @param newUri: the uri for the token to create
     /// @param addresses: the addresses to mint the new token to
     /// @param amounts: the amount of the new token to mint to each address
-    function _createToken(string memory newUri, address[] memory addresses, uint256[] memory amounts) private {
+    /// @return _counter: token id created
+    function _createToken(string memory newUri, address[] memory addresses, uint256[] memory amounts) private returns(uint256) {
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
         if (addresses.length == 0) revert MintToZeroAddresses();
         if (addresses.length != amounts.length) revert ArrayLengthMismatch();
@@ -205,6 +241,8 @@ contract ERC1155TL is
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], _counter, amounts[i], "");
         }
+
+        return _counter;
     }
 
     /// @notice private helper function to verify a token exists

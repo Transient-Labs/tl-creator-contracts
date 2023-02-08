@@ -3,7 +3,7 @@ pragma solidity 0.8.17;
 
 import "forge-std/Test.sol";
 import {ERC721TL} from "../src/ERC721TL.sol";
-import {TLCoreCreator} from "../src/TLCoreCreator.sol";
+import {TLCreator} from "../src/TLCreator.sol";
 
 contract ERC721TLProxyUnitTest is Test {
 
@@ -12,7 +12,7 @@ contract ERC721TLProxyUnitTest is Test {
 
     function setUp() public {
         erc721 = new ERC721TL(true);
-        TLCoreCreator depProxy = new TLCoreCreator(
+        TLCreator depProxy = new TLCreator(
             address(erc721),
             "Test",
             "TST",
