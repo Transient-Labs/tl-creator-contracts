@@ -14,8 +14,8 @@ A repository with core creator contracts that have the following features:
 ### Mainnet
 | Contract               | Version | Address                                    |
 | ---------------------- | ------- | ------------------------------------------ |
-| ERC721TL               | 1       |  |
-| ERC1155TL              | 1       |  |
+| ERC721TL               | 1       | 0x2De0972Fcd8ab0788697f92984b0D578F4c9ECA3 |
+| ERC1155TL              | 1       | 0x00059878282ec217c761F20e668932D1A7f3bb97 |
 
 ### Goerli
 | Contract               | Version | Address                                    |
