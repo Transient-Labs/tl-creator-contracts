@@ -49,7 +49,7 @@ contract TLCreator is ERC1967Proxy {
                 symbol,
                 defaultRoyaltyRecipient,
                 defaultRoyaltyPercentage,
-                msg.sender,
+                initOwner,
                 admins,
                 enableStory,
                 blockListRegistry
