@@ -9,7 +9,7 @@ import {
     EmptyTokenURI,
     MintToZeroAddress,
     BatchSizeTooSmall,
-    TokenDoesNotExist,
+    TokenDoesntExist,
     AirdropTooFewAddresses,
     CallerNotApprovedOrOwner,
     CallerNotTokenOwner,
@@ -153,7 +153,7 @@ contract ERC721TLUnitTest is Test {
         uint256 nonexistentTokenId = uint256(mintNum) + uint256(numTokens) + 1;
         vm.expectRevert(abi.encodePacked("ERC721: invalid token ID"));
         tokenContract.ownerOf(nonexistentTokenId);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(nonexistentTokenId);
     }
 
@@ -838,7 +838,7 @@ contract ERC721TLUnitTest is Test {
         vm.startPrank(collector, collector);
         tokenContract.burn(tokenId);
         vm.stopPrank();
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
@@ -872,7 +872,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 2);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
@@ -891,7 +891,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 1);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 1);
@@ -905,7 +905,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 0);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 2);
@@ -929,7 +929,7 @@ contract ERC721TLUnitTest is Test {
             tokenContract.burn(i);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(collector), batchSize - i);
-            vm.expectRevert(TokenDoesNotExist.selector);
+            vm.expectRevert(TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
             vm.expectRevert();
             tokenContract.ownerOf(i);
@@ -954,7 +954,7 @@ contract ERC721TLUnitTest is Test {
             tokenContract.burn(i);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(collector), 2 * batchSize - i);
-            vm.expectRevert(TokenDoesNotExist.selector);
+            vm.expectRevert(TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
             vm.expectRevert();
             tokenContract.ownerOf(i);
@@ -972,7 +972,7 @@ contract ERC721TLUnitTest is Test {
             tokenContract.burn(i);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(collector), 3 * batchSize - i);
-            vm.expectRevert(TokenDoesNotExist.selector);
+            vm.expectRevert(TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
             vm.expectRevert();
             tokenContract.ownerOf(i);
@@ -1002,7 +1002,7 @@ contract ERC721TLUnitTest is Test {
             tokenContract.burn(id);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
-            vm.expectRevert(TokenDoesNotExist.selector);
+            vm.expectRevert(TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
             vm.expectRevert();
             tokenContract.ownerOf(id);
@@ -1031,7 +1031,7 @@ contract ERC721TLUnitTest is Test {
             tokenContract.burn(id);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
-            vm.expectRevert(TokenDoesNotExist.selector);
+            vm.expectRevert(TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
             vm.expectRevert();
             tokenContract.ownerOf(id);
@@ -1052,7 +1052,7 @@ contract ERC721TLUnitTest is Test {
             tokenContract.burn(id);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
-            vm.expectRevert(TokenDoesNotExist.selector);
+            vm.expectRevert(TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
             vm.expectRevert();
             tokenContract.ownerOf(id);
@@ -1091,7 +1091,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 2);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
@@ -1110,7 +1110,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 1);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 1);
@@ -1124,7 +1124,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 0);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 2);
@@ -1161,7 +1161,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 2);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
@@ -1180,7 +1180,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 1);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 1);
@@ -1194,7 +1194,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 0);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 2);
@@ -1231,7 +1231,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 2);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
@@ -1250,7 +1250,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 1);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 1);
@@ -1264,7 +1264,7 @@ contract ERC721TLUnitTest is Test {
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 0);
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 2);
@@ -1354,7 +1354,7 @@ contract ERC721TLUnitTest is Test {
     // - accept update with proper event & access ✅
     // - reject update with proper event & access ✅
     function testCustomErrors() public {
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.proposeNewTokenUri(1, "uri");
         tokenContract.mint(address(this), "uri");
         vm.expectRevert(EmptyTokenURI.selector);

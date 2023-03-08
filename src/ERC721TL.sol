@@ -56,7 +56,7 @@ error CallerNotTokenOwner();
 error CallerNotApprovedOrOwner();
 
 /// @dev token does not exist
-error TokenDoesNotExist();
+error TokenDoesntExist();
 
 /// @dev no proposed token uri to change to
 error NoTokenUriUpdateAvailable();
@@ -368,7 +368,7 @@ contract ERC721TL is
     /// @param tokenId: the token to propose new metadata for
     /// @param newUri: the new token uri proposed
     function proposeNewTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
-        if (!_exists(tokenId)) revert TokenDoesNotExist();
+        if (!_exists(tokenId)) revert TokenDoesntExist();
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
         if (ownerOf(tokenId) == owner()) {
             // creator owns the token
@@ -411,7 +411,7 @@ contract ERC721TL is
 
     /// @inheritdoc ERC721Upgradeable
     function tokenURI(uint256 tokenId) public view override(ERC721Upgradeable) returns (string memory) {
-        if (!_exists(tokenId)) revert TokenDoesNotExist();
+        if (!_exists(tokenId)) revert TokenDoesntExist();
         string memory uri = _tokenUris[tokenId];
         if (bytes(uri).length == 0) {
             (, uri) = _getBatchInfo(tokenId);
