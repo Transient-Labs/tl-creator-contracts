@@ -55,7 +55,7 @@ error TokenNotOwnedByOwner();
 error CallerNotApprovedOrOwner();
 
 /// @dev token does not exist
-error TokenDoesNotExist();
+error TokenDoesntExist();
 
 /// @dev burning zero tokens
 error BurnZeroTokens();
@@ -284,7 +284,7 @@ contract ERC1155TL is
     /// @param addresses: the addresses to mint to
     /// @param amounts: amounts of the token to mint to each address
     function _mintToken(uint256 tokenId, address[] calldata addresses, uint256[] calldata amounts) private {
-        if (!_exists(tokenId)) revert TokenDoesNotExist();
+        if (!_exists(tokenId)) revert TokenDoesntExist();
         if (addresses.length == 0) revert MintToZeroAddresses();
         if (addresses.length != amounts.length) revert ArrayLengthMismatch();
         for (uint256 i = 0; i < addresses.length; i++) {
@@ -339,7 +339,7 @@ contract ERC1155TL is
     /// @param tokenId: token to set a uri for
     /// @param newUri: the new uri for the token
     function setTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
-        if (!_exists(tokenId)) revert TokenDoesNotExist();
+        if (!_exists(tokenId)) revert TokenDoesntExist();
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
         _tokens[tokenId].uri = newUri;
         emit IERC1155Upgradeable.URI(newUri, tokenId);
@@ -348,7 +348,7 @@ contract ERC1155TL is
     /// @notice function for token uris
     /// @param tokenId: token for which to get the uri
     function uri(uint256 tokenId) public view override(ERC1155Upgradeable) returns (string memory) {
-        if (!_exists(tokenId)) revert TokenDoesNotExist();
+        if (!_exists(tokenId)) revert TokenDoesntExist();
         return _tokens[tokenId].uri;
     }
 

@@ -9,7 +9,7 @@ import {
     EmptyTokenURI,
     MintToZeroAddresses,
     ArrayLengthMismatch,
-    TokenDoesNotExist,
+    TokenDoesntExist,
     BurnZeroTokens,
     CallerNotApprovedOrOwner
 } from "../src/ERC1155TL.sol";
@@ -487,7 +487,7 @@ contract ERC1155TLUnitTest is Test {
         address[] memory emptyCollectors = new address[](0);
         uint256[] memory emptyAmounts = new uint256[](0);
 
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.mintToken(1, collectors, amounts);
 
         tokenContract.createToken("uri", collectors, amounts);
@@ -595,7 +595,7 @@ contract ERC1155TLUnitTest is Test {
         address[] memory emptyCollectors = new address[](0);
         uint256[] memory emptyAmounts = new uint256[](0);
 
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.externalMint(1, collectors, amounts);
 
         tokenContract.createToken("uri", collectors, amounts);
@@ -828,7 +828,7 @@ contract ERC1155TLUnitTest is Test {
     // - access control ✅
     // - proper events ✅
     function testSetTokenUriCustomErrors() public {
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.setTokenUri(1, "newURI");
 
         address[] memory collectors = new address[](1);
@@ -840,7 +840,7 @@ contract ERC1155TLUnitTest is Test {
         vm.expectRevert(EmptyTokenURI.selector);
         tokenContract.setTokenUri(1, "");
 
-        vm.expectRevert(TokenDoesNotExist.selector);
+        vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.uri(2);
     }
 
