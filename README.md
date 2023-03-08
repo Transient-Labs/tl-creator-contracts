@@ -14,14 +14,18 @@ A repository with core creator contracts that have the following features:
 ### Mainnet
 | Contract               | Version | Address                                    |
 | ---------------------- | ------- | ------------------------------------------ |
-| ERC721TL               | 1       | 0x2De0972Fcd8ab0788697f92984b0D578F4c9ECA3 |
-| ERC1155TL              | 1       | 0x00059878282ec217c761F20e668932D1A7f3bb97 |
+| ERC721TL               | 1.1.0   | 0xFb1647BD77D28d0aCAB0c3632CeEF87E7CD62b04 |
+| ERC1155TL              | 1.1.0   | 0xe6de8cCFE609aef6de78DC6C9F409C6762f58EC5 |
+| ERC721TL               | 1.0.0   | 0x2De0972Fcd8ab0788697f92984b0D578F4c9ECA3 |
+| ERC1155TL              | 1.0.0   | 0x00059878282ec217c761F20e668932D1A7f3bb97 |
 
 ### Goerli
 | Contract               | Version | Address                                    |
 | ---------------------- | ------- | ------------------------------------------ |
-| ERC721TL               | 1       | 0x0E841ae8f9CCDa3bDC14780216B974a477978Fec |
-| ERC1155TL              | 1       | 0xaD5AA880f860a88605c23869bA12428958d7cB3E |
+| ERC721TL               | 1.1.0   | 0xe6de8cCFE609aef6de78DC6C9F409C6762f58EC5 |
+| ERC1155TL              | 1.1.0   | 0x9FCa89F0101F985D65c7442363830485873B2baf |
+| ERC721TL               | 1.0.0   | 0x0E841ae8f9CCDa3bDC14780216B974a477978Fec |
+| ERC1155TL              | 1.0.0   | 0xaD5AA880f860a88605c23869bA12428958d7cB3E |
 
 ## Features
 ### Ownership & Access
