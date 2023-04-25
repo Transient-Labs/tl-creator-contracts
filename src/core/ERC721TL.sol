@@ -418,7 +418,7 @@ contract ERC721TL is
     /// @inheritdoc StoryContractUpgradeable
     /// @dev restricted to the owner of the contract
     function _isStoryAdmin(address potentialAdmin) internal view override(StoryContractUpgradeable) returns (bool) {
-        return potentialAdmin == owner();
+        return potentialAdmin == owner() || hasRole(ADMIN_ROLE, potentialAdmin);
     }
 
     /// @inheritdoc StoryContractUpgradeable
@@ -445,7 +445,7 @@ contract ERC721TL is
         override(StoryContractUpgradeable)
         returns (bool)
     {
-        return potentialCreator == owner();
+        return potentialCreator == owner() || hasRole(ADMIN_ROLE, potentialCreator);
     }
 
     /*//////////////////////////////////////////////////////////////////////////

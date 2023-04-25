@@ -14,7 +14,7 @@ import {
     CallerNotApprovedOrOwner,
     CallerNotTokenOwner,
     NoTokenUriUpdateAvailable
-} from "../src/ERC721TL.sol";
+} from "../src/core/ERC721TL.sol";
 import {NotRoleOrOwner, NotSpecifiedRole} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {BlockListRegistry} from "tl-blocklist/BlockListRegistry.sol";
 
