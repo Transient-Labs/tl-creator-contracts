@@ -12,7 +12,6 @@ auto_detect_solc = true                                       # enable auto-dete
 offline = false                                               # disable downloading of missing solc version(s)
 optimizer = true                                              # enable or disable the solc optimizer
 optimizer_runs = 2000                                         # the number of optimizer runs
-verbosity = 3                                                 # the verbosity of tests
 ignored_error_codes = []                                      # a list of ignored solc error codes
 fuzz-runs = 100000                                            # the number of fuzz runs for tests
 fuzz_max_local_rejects = 65536                                # max number of individual inputs that may be rejected before the test aborts

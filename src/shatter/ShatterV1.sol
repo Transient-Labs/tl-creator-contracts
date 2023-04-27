@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {ERC721ConsecutiveUpgradeable, ERC721Upgradeable, ERC165Upgradeable} from "openzeppelin-upgradeable/token/ERC721/extensions/ERC721ConsecutiveUpgradeable.sol";
+import {ERC721Upgradeable, ERC165Upgradeable} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {IERC2309Upgradeable} from "openzeppelin-upgradeable/interfaces/IERC2309Upgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {StoryContractUpgradeable} from "tl-story/upgradeable/StoryContractUpgradeable.sol";
@@ -12,7 +13,8 @@ import {BlockListUpgradeable} from "tl-blocklist/BlockListUpgradeable.sol";
 /// @author transientlabs.xyz
 /// @custom:version 2.0.0
 contract ShatterV1 is
-    ERC721ConsecutiveUpgradeable,
+    ERC721Upgradeable,
+    IERC2309Upgradeable,
     EIP2981TLUpgradeable,
     OwnableAccessControlUpgradeable,
     StoryContractUpgradeable,
@@ -28,6 +30,7 @@ contract ShatterV1 is
         uint256 indexed numShatters,
         uint256 indexed shatteredTime
     );
+
     event Fused(address indexed user, uint256 indexed fuseTime);
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -216,6 +219,10 @@ contract ShatterV1 is
         }
     }
 
+    /*//////////////////////////////////////////////////////////////////////////
+                            Internal Functions 
+    //////////////////////////////////////////////////////////////////////////*/
+
     /// @notice function to override the _exists function in ERC721S
     /// @dev if is shattered and not fused, checks to see if tokenId is in the range of shatters
     ///     otherwise, returns result from ERC721S
@@ -238,7 +245,8 @@ contract ShatterV1 is
     function _batchMint(address shatterExecutor, uint256 quantity) internal {
         require(uint96(quantity) == quantity);
         _shatterAddress = shatterExecutor;
-        _mintConsecutive(shatterExecutor, uint96(quantity));
+        _beforeTokenTransfer(address(0), _shatterAddress, 0, quantity);
+        emit ConsecutiveTransfer(1, quantity, address(0), _shatterAddress);
     }
 
     /// @notice function to set base uri internally
