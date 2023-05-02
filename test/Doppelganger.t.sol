@@ -76,25 +76,34 @@ contract DoppelgangerTest is Test {
     }
 
     function test_addDoppelganger() external {
+        string[] memory uris = new string[](1);
+        uris[0] = "doppelgangURI1://";
+
         vm.startPrank(alice);
         vm.expectEmit(true, false, false, false);
         emit NewDoppelgangerAdded(alice, "doppelgangURI1://", 1);
-        Doppelganger(payable(address(proxy))).addDoppelganger("doppelgangURI1://");
+        Doppelganger(payable(address(proxy))).addDoppelgangers(uris);
         vm.stopPrank();
         assert(Doppelganger(payable(address(proxy))).numDoppelgangerURIs() == 2);
     }
 
     function test_addDoppelganger_fail_unauthorized() external {
+        string[] memory uris = new string[](1);
+        uris[0] = "doppelgangURI1://";
+
         vm.startPrank(bob);
         vm.expectRevert(Unauthorized.selector);
-        Doppelganger(payable(address(proxy))).addDoppelganger("doppelgangURI1://");
+        Doppelganger(payable(address(proxy))).addDoppelgangers(uris);
         vm.stopPrank();
     }
 
     function test_dopplegang() public {
+        string[] memory uris = new string[](1);
+        uris[0] = "doppelgangURI1://";
+
         vm.startPrank(alice);
         proxy.mint(bob, "berries and cream");
-        Doppelganger(payable(address(proxy))).addDoppelganger("doppelgangURI1://");
+        Doppelganger(payable(address(proxy))).addDoppelgangers(uris);
         vm.stopPrank();
 
         vm.prank(bob);
@@ -107,9 +116,12 @@ contract DoppelgangerTest is Test {
     }
 
     function test_dopplegang_fail_unauthorized() public {
+        string[] memory uris = new string[](1);
+        uris[0] = "doppelgangURI1://";
+        
         vm.startPrank(alice);
         proxy.mint(bob, "berries and cream");
-        Doppelganger(payable(address(proxy))).addDoppelganger("doppelgangURI1://");
+        Doppelganger(payable(address(proxy))).addDoppelgangers(uris);
         vm.stopPrank();
 
         vm.prank(charlie);

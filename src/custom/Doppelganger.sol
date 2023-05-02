@@ -17,8 +17,8 @@ contract Doppelganger is ERC1967Proxy {
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
-    // keccak256('erc721.tl.doppelganger');
-    bytes32 public constant METADATA_STORAGE_SLOT = 0xe8e107277cf2bf4ca5b1c80e072dc96f1981a6e70d5a59566b0c646a780d487c;
+    // bytes32(uint256(keccak256('erc721.tl.doppelganger')) - 1);
+    bytes32 public constant METADATA_STORAGE_SLOT = 0xe8e107277cf2bf4ca5b1c80e072dc96f1981a6e70d5a59566b0c646a780d487b;
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Events
@@ -107,7 +107,7 @@ contract Doppelganger is ERC1967Proxy {
                                 Admin Write Functions
     //////////////////////////////////////////////////////////////////////////*/
 
-    function addDoppelganger(string calldata _newDoppelganger) external {
+    function addDoppelgangers(string[] calldata _newDoppelgangers) external {
         if (msg.sender != OwnableAccessControlUpgradeable(address(this)).owner()) {
             revert Unauthorized();
         }
@@ -118,9 +118,11 @@ contract Doppelganger is ERC1967Proxy {
             store.slot := METADATA_STORAGE_SLOT
         }
 
-        store.uris.push(_newDoppelganger);
+        for (uint256 i = 0; i < _newDoppelgangers.length; i++) {
+            store.uris.push(_newDoppelgangers[i]);
 
-        emit NewDoppelgangerAdded(msg.sender, _newDoppelganger, store.uris.length);
+            emit NewDoppelgangerAdded(msg.sender, _newDoppelgangers[i], store.uris.length);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////
