@@ -7,7 +7,7 @@ import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 
 /// @title Doppelganger.sol
 /// @notice Transient Labs Core Creator Contract
-/// @dev this works for either ERC721TL or ERC1155TL contracts, just need to change the implementation
+/// @dev this works for only ERC721TL contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
 contract Doppelganger is ERC1967Proxy {
 
@@ -108,7 +108,7 @@ contract Doppelganger is ERC1967Proxy {
     //////////////////////////////////////////////////////////////////////////*/
 
     function addDoppelgangers(string[] calldata _newDoppelgangers) external {
-        if (msg.sender != OwnableAccessControlUpgradeable(address(this)).owner()) {
+        if (msg.sender != OwnableAccessControlUpgradeable(address(this)).owner() && !OwnableAccessControlUpgradeable(address(this)).hasRole(ADMIN_ROLE, msg.sender)) {
             revert Unauthorized();
         }
 
