@@ -13,12 +13,12 @@
 [submodule "lib/story-contract"]
 	path = lib/story-contract
 	url = https://github.com/Transient-Labs/story-contract
-	branch = 3.0.0
+	branch = 4.0.0
 [submodule "lib/tl-sol-tools"]
 	path = lib/tl-sol-tools
 	url = https://github.com/Transient-Labs/tl-sol-tools
-	branch = 1.1.0
+	branch = 2.0.0
 [submodule "lib/blocklist"]
 	path = lib/blocklist
 	url = https://github.com/Transient-Labs/blocklist
-	branch = 3.2.0
+	branch = 4.0.0

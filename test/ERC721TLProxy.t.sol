@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-pragma solidity 0.8.17;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import {ERC721TL} from "../src/ERC721TL.sol";

@@ -1,25 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-
-/// @title ERC1155TL.sol
-/// @notice Transient Labs ERC-1155 Creator Contract
-/// @dev features include
-///      - batch minting
-///      - airdrops
-///      - ability to hook in external mint contracts
-///      - ability to set multiple admins
-///      - Story Contract
-///      - BlockList
-///      - individual token royalties
-/// @author transientlabs.xyz
-
-/*
-    ____        _ __    __   ____  _ ________                     __ 
-   / __ )__  __(_) /___/ /  / __ \(_) __/ __/__  ________  ____  / /_
-  / __  / / / / / / __  /  / / / / / /_/ /_/ _ \/ ___/ _ \/ __ \/ __/
- / /_/ / /_/ / / / /_/ /  / /_/ / / __/ __/  __/ /  /  __/ / / / /__ 
-/_____/\__,_/_/_/\__,_/  /_____/_/_/ /_/  \___/_/   \___/_/ /_/\__(_)*/
-
-pragma solidity 0.8.17;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.19;
 
 import {Initializable} from "openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 import {
@@ -64,6 +44,18 @@ error BurnZeroTokens();
                             ERC1155TL
 //////////////////////////////////////////////////////////////////////////*/
 
+/// @title ERC1155TL.sol
+/// @notice Transient Labs ERC-1155 Creator Contract
+/// @dev features include
+///      - batch minting
+///      - airdrops
+///      - ability to hook in external mint contracts
+///      - ability to set multiple admins
+///      - Story Contract
+///      - BlockList
+///      - individual token royalties
+/// @author transientlabs.xyz
+/// @custom:version 2.0.0
 contract ERC1155TL is
     ERC1155Upgradeable,
     EIP2981TLUpgradeable,
@@ -85,7 +77,7 @@ contract ERC1155TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    uint256 public constant VERSION = 1;
+    string public constant VERSION = "2.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter;
