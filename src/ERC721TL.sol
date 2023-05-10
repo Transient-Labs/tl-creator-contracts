@@ -56,7 +56,7 @@ error NoTokenUriUpdateAvailable();
 ///      - Synergy metadata protection
 ///      - individual token royalty overrides
 /// @author transientlabs.xyz
-/// @custom:version 2.0.0
+/// @custom:version 2.1.0
 contract ERC721TL is
     Initializable,
     ERC721Upgradeable,

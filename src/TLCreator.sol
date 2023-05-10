@@ -11,7 +11,7 @@ import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 /// @notice Transient Labs Core Creator Contract
 /// @dev this works for either ERC721TL or ERC1155TL contracts, just need to change the implementation
 /// @author transientlabs.xyz
-/// @custom:version 2.0.0
+/// @custom:version 2.1.0
 contract TLCreator is ERC1967Proxy {
 
     /// @param name: the name of the contract

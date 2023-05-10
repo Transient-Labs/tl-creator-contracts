@@ -55,7 +55,7 @@ error BurnZeroTokens();
 ///      - BlockList
 ///      - individual token royalties
 /// @author transientlabs.xyz
-/// @custom:version 2.0.0
+/// @custom:version 2.1.0
 contract ERC1155TL is
     ERC1155Upgradeable,
     EIP2981TLUpgradeable,
