@@ -172,4 +172,20 @@ contract Doppelganger is ERC1967Proxy {
 
         return store.uris.length;
     }
+
+    function viewDoppelgangerOptions() external view returns (string[] memory) {
+        DoppelgangerStorage storage store;
+
+        assembly {
+            store.slot := METADATA_STORAGE_SLOT
+        }
+
+        string[] memory options = new string[](store.uris.length);
+
+        for (uint256 i = 0; i < store.uris.length; i ++) {
+            options[i] = store.uris[i];
+        }
+
+        return options;
+    }
 }
