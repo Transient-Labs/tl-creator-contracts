@@ -265,7 +265,7 @@ contract Shatter is
 
     function _ownerOf(uint256 tokenId) internal view virtual override returns (address) {
         if (isShattered && !isFused) {
-            if (tokenId > 0 && tokenId <= shatters) {
+            if (tokenId > 0 && ERC721Upgradeable._ownerOf(tokenId) == address(0)) {
                 return _shatterAddress;
             }
         } 

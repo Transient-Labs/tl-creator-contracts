@@ -158,4 +158,39 @@ contract ShatterV1 is IERC2309Upgradeable, Test {
 
         tokenContract.fuse();
      }
+
+     function test_fuse_fail() public {
+        tokenContract.mint(
+            "testURI://",
+            1,
+            100,
+            block.timestamp + 7200
+        );
+        
+        vm.warp(block.timestamp + 7200);
+
+        vm.expectRevert();
+        tokenContract.fuse();
+
+        tokenContract.shatter(100);
+
+        assert(tokenContract.isShattered());
+        assert(!tokenContract.isFused());
+
+        tokenContract.transferFrom(address(this), address(0xbeef), 5);
+        assert(tokenContract.ownerOf(5) == address(0xbeef));
+        assert(tokenContract.balanceOf(address(0xbeef)) == 1);
+
+        vm.expectRevert();
+        tokenContract.fuse();
+
+        vm.prank(address(0xbeef));
+        tokenContract.transferFrom(address(0xbeef), address(this), 5);
+        assert(tokenContract.balanceOf(address(0xbeef)) == 0);
+
+        tokenContract.fuse();
+
+        vm.expectRevert();
+        tokenContract.fuse();
+     }
 }
