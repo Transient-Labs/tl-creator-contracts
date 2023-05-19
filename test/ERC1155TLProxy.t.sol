@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {ERC1155TL} from "../src/ERC1155TL.sol";
+import {ERC1155TL} from "../src/core/ERC1155TL.sol";
 import {TLCreator} from "../src/TLCreator.sol";
 
 contract ERC1155TLProxyUnitTest is Test {

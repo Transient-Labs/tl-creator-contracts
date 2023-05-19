@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {ERC721TL} from "../src/ERC721TL.sol";
+import {ERC721TL} from "../src/core/ERC721TL.sol";
 import {CollectorsChoice} from "../src/doppelganger/CollectorsChoice.sol";
 
 contract CollectorsChoiceTest is Test {

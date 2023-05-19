@@ -12,7 +12,7 @@ import {
     TokenDoesntExist,
     BurnZeroTokens,
     CallerNotApprovedOrOwner
-} from "../src/ERC1155TL.sol";
+} from "../src/core/ERC1155TL.sol";
 import {NotRoleOrOwner, NotSpecifiedRole} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {BlockListRegistry} from "tl-blocklist/BlockListRegistry.sol";
 
@@ -904,10 +904,9 @@ contract ERC1155TLUnitTest is Test {
         tokenContract.setStoryEnabled(false);
         vm.stopPrank();
 
-        // verify admin can't enable/disable
+        // verify admin can enable/disable
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert();
         tokenContract.setStoryEnabled(false);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);

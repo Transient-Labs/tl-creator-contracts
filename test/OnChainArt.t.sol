@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {ERC721TL} from "tl-creator/ERC721TL.sol";
+import {ERC721TL} from "tl-creator/core/ERC721TL.sol";
 import {OnChainArt} from "tl-creator/onchain/OnChainArt.sol";
 
 contract OnChainArtTest is Test {
