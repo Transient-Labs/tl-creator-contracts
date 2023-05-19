@@ -6,4 +6,5 @@ story-contract/=lib/story-contract/src/
 tl-sol-tools/=lib/tl-sol-tools/src/
 tl-story/=lib/story-contract/src/
 tl-blocklist=lib/blocklist/src/
-tl-creator=src/
+sstore2/=lib/sstore2/contracts/
+tl-creator/=src/
