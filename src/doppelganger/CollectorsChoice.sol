@@ -76,6 +76,7 @@ contract CollectorsChoice is ERC1967Proxy {
         uint256 defaultRoyaltyPercentage,
         address initOwner,
         address[] memory admins,
+        string memory defaultUri,
         bool enableStory,
         address blockListRegistry
     )
@@ -93,7 +94,15 @@ contract CollectorsChoice is ERC1967Proxy {
                 blockListRegistry
             )
         )
-    {}
+    {
+        CollectorsChoiceStorage storage store;
+
+        assembly {
+            store.slot := METADATA_STORAGE_SLOT
+        }
+
+        store.uris.push(defaultUri);
+    }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Admin Write Functions

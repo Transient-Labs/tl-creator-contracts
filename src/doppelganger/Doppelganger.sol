@@ -75,6 +75,7 @@ contract Doppelganger is ERC1967Proxy {
         uint256 defaultRoyaltyPercentage,
         address initOwner,
         address[] memory admins,
+        string memory defaultUri,
         bool enableStory,
         address blockListRegistry
     )
@@ -92,7 +93,15 @@ contract Doppelganger is ERC1967Proxy {
                 blockListRegistry
             )
         )
-    {}
+    {
+        DoppelgangerStorage storage store;
+
+        assembly {
+            store.slot := METADATA_STORAGE_SLOT
+        }
+
+        store.uris.push(defaultUri);
+    }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Admin Write Functions

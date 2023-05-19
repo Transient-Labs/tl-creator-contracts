@@ -40,19 +40,11 @@ contract CollectorsChoiceTest is Test {
             1000,
             alice,
             new address[](0),
+            "defaultURI://",
             true,
             address(0)
         );
         proxy = ERC721TL(address(depProxy));
-
-        string[] memory uris = new string[](1);
-        uris[0] = "defaultURI://";
-
-        vm.startPrank(alice);
-        vm.expectEmit(true, false, false, false);
-        emit NewURIAdded(alice, "doppelgangURI1://", 1);
-        CollectorsChoice(payable(address(proxy))).addNewURIs(uris);
-        vm.stopPrank();
     }
 
     function test_setUp() public {
