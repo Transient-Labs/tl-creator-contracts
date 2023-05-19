@@ -30,6 +30,7 @@ block_coinbase = '0x0000000000000000000000000000000000000000' # the address of `
 block_timestamp = 0                                           # the value of `block.timestamp` in tests
 block_difficulty = 0                                          # the value of `block.difficulty` in tests
 gas_reports = ["*"]
+fs_permissions = [{ access = "read", path = "./"}]
 
 [fuzz]
 runs = 256                                                    # change me to 10,000 for full testing - takes 3 hours lol
