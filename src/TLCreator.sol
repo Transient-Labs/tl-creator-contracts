@@ -1,18 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
-
-/// @title TLCoreCreator.sol
-/// @notice Transient Labs Core Creator Contract
-/// @dev this works for either ERC721TL or ERC1155TL contracts, just need to change the implementation
-/// @author transientlabs.xyz
-
-/*
-    ____        _ __    __   ____  _ ________                     __ 
-   / __ )__  __(_) /___/ /  / __ \(_) __/ __/__  ________  ____  / /_
-  / __  / / / / / / __  /  / / / / / /_/ /_/ _ \/ ___/ _ \/ __ \/ __/
- / /_/ / /_/ / / / /_/ /  / /_/ / / __/ __/  __/ /  /  __/ / / / /__ 
-/_____/\__,_/_/_/\__,_/  /_____/_/_/ /_/  \___/_/   \___/_/ /_/\__(_)*/
-
-pragma solidity 0.8.17;
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.19;
 
 import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -20,6 +7,11 @@ import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
                             TLCoreCreator
 //////////////////////////////////////////////////////////////////////////*/
 
+/// @title TLCoreCreator.sol
+/// @notice Transient Labs Core Creator Contract
+/// @dev this works for either ERC721TL or ERC1155TL contracts, just need to change the implementation
+/// @author transientlabs.xyz
+/// @custom:version 2.1.1
 contract TLCreator is ERC1967Proxy {
 
     /// @param name: the name of the contract
