@@ -105,7 +105,7 @@ contract ShatterV1 is IERC2309Upgradeable, Test {
             assert(tokenContract.ownerOf(0) == address(this));
             assert(tokenContract.isFused());
         } else {
-            vm.expectRevert("Invalid token id");
+            vm.expectRevert("ERC721: invalid token ID");
             tokenContract.ownerOf(0);
         }
 

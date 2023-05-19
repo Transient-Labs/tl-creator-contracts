@@ -201,28 +201,6 @@ contract Shatter is
         emit Fused(sender, block.timestamp);
     }
 
-    /// @notice function to override ownerOf in ERC721S
-    /// @dev if is shattered and not fused, checks to see if that token has been transferred or if it belongs to the _shatterAddress.
-    ///     Otherwise, returns result from ERC721S.
-    function ownerOf(
-        uint256 tokenId
-    ) public view virtual override returns (address) {
-        if (isShattered && !isFused) {
-            if (tokenId > 0 && tokenId <= shatters) {
-                address owner = _ownerOf(tokenId);
-                if (owner == address(0)) {
-                    return _shatterAddress;
-                } else {
-                    return owner;
-                }
-            } else {
-                revert("Invalid token id");
-            }
-        } else {
-            return super.ownerOf(tokenId);
-        }
-    }
-
     /*//////////////////////////////////////////////////////////////////////////
                             Internal Functions 
     //////////////////////////////////////////////////////////////////////////*/
