@@ -8,11 +8,11 @@ import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/O
 import {StoryContractUpgradeable} from "tl-story/upgradeable/StoryContractUpgradeable.sol";
 import {BlockListUpgradeable} from "tl-blocklist/BlockListUpgradeable.sol";
 
-/// @title ShatterV1
-/// @notice Shatter V1 implementation. 1/1 turns into carbon-copy editions upon Shatter.
+/// @title Shatter
+/// @notice Shatter implementation. Turns 1/1 into a multiple sub-pieces.
 /// @author transientlabs.xyz
 /// @custom:version 2.0.0
-contract ShatterV1 is
+contract Shatter is
     ERC721Upgradeable,
     IERC2309Upgradeable,
     EIP2981TLUpgradeable,
@@ -78,9 +78,6 @@ contract ShatterV1 is
     /// @param admins: array of admin addresses to add to the contract
     /// @param enableStory: a bool deciding whether to add story fuctionality or not
     /// @param blockListRegistry: address of the blocklist registry to use
-    /// @param min is the minimum number of editions
-    /// @param max is the maximum number of editions
-    /// @param time is time after which replication can occur
     function initialize(
         string memory name,
         string memory symbol,
@@ -89,19 +86,8 @@ contract ShatterV1 is
         address initOwner,
         address[] memory admins,
         bool enableStory,
-        address blockListRegistry,
-        uint256 min,
-        uint256 max,
-        uint256 time
+        address blockListRegistry
     ) external initializer {
-        if (min < 1) {
-            minShatters = 1;
-        } else {
-            minShatters = min;
-        }
-        maxShatters = max;
-        shatterTime = time;
-
         __ERC721_init(name, symbol);
         __EIP2981TL_init(royaltyRecipient, royaltyPercentage);
         __OwnableAccessControl_init(initOwner);
@@ -131,12 +117,30 @@ contract ShatterV1 is
     }
 
     /// @notice function for minting the 1/1 to the owner's address
+    /// @param newUri is the base uri to be used for the shatter folder
+    /// @param min is the minimum number of editions
+    /// @param max is the maximum number of editions
+    /// @param time is time after which replication can occur
     /// @dev requires contract owner or admin
     /// @dev sets the description, image, animation url (if exists), and traits for the piece
     /// @dev requires that shatters is equal to 0 -> meaning no piece has been minted
     /// @dev using _mint function as owner() should always be an EOA or trusted entity that can receive ERC721 tokens
-    function mint(string memory newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function mint(
+        string memory newUri,
+        uint256 min,
+        uint256 max,
+        uint256 time
+    ) external onlyRoleOrOwner(ADMIN_ROLE) {
         require(shatters == 0, "Already minted the first piece");
+        
+        if (min < 1) {
+            minShatters = 1;
+        } else {
+            minShatters = min;
+        }
+        maxShatters = max;
+        
+        shatterTime = time;
         _setBaseUri(newUri);
         shatters = 1;
         _mint(owner(), 0);
