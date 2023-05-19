@@ -5,11 +5,11 @@ import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import {OwnableAccessControlUpgradeable, NotRoleOrOwner} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 
-/// @title CollectorsChoice.sol
+/// @title Doppelganger.sol
 /// @notice Transient Labs Core Creator Contract
 /// @dev this works for only ERC721TL contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
-contract CollectorsChoice is ERC1967Proxy {
+contract Doppelganger is ERC1967Proxy {
 
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
@@ -17,15 +17,15 @@ contract CollectorsChoice is ERC1967Proxy {
 
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
-    // bytes32(uint256(keccak256('erc721.tl.collectorschoice')) - 1);
-    bytes32 public constant METADATA_STORAGE_SLOT = 0x42e4ec1f98e793b22ce6d3d94dac69be208b1022748a25a29587cf3b64c7a04c;
+    // bytes32(uint256(keccak256('erc721.tl.doppelganger')) - 1);
+    bytes32 public constant METADATA_STORAGE_SLOT = 0xe8e107277cf2bf4ca5b1c80e072dc96f1981a6e70d5a59566b0c646a780d487b;
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Events
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice Event emitted when a new URI is added.
-    event NewURIAdded(
+    /// @notice Event emitted when a new doppelganger is added.
+    event NewDoppelgangerAdded(
         address indexed sender,
         string newUri,
         uint256 index
@@ -50,10 +50,9 @@ contract CollectorsChoice is ERC1967Proxy {
                                     Structs
     //////////////////////////////////////////////////////////////////////////*/
 
-    struct CollectorsChoiceStorage {
-        mapping(uint256 => uint256) tokens;
+    struct DoppelgangerStorage {
+        mapping(uint256 => uint256) dopplegangTokens;
         string[] uris;
-        uint256 uriChangeCutoff;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -76,7 +75,6 @@ contract CollectorsChoice is ERC1967Proxy {
         uint256 defaultRoyaltyPercentage,
         address initOwner,
         address[] memory admins,
-        string memory defaultUri,
         bool enableStory,
         address blockListRegistry
     )
@@ -94,62 +92,38 @@ contract CollectorsChoice is ERC1967Proxy {
                 blockListRegistry
             )
         )
-    {
-        CollectorsChoiceStorage storage store;
-
-        assembly {
-            store.slot := METADATA_STORAGE_SLOT
-        }
-
-        store.uris.push(defaultUri);
-    }
+    {}
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Admin Write Functions
     //////////////////////////////////////////////////////////////////////////*/
 
-    function addNewURI(string[] calldata _newURIs) external {
+    function addDoppelgangers(string[] calldata _newDoppelgangers) external {
         if (msg.sender != OwnableAccessControlUpgradeable(address(this)).owner() && !OwnableAccessControlUpgradeable(address(this)).hasRole(ADMIN_ROLE, msg.sender)) {
             revert Unauthorized();
         }
 
-        CollectorsChoiceStorage storage store;
+        DoppelgangerStorage storage store;
 
         assembly {
             store.slot := METADATA_STORAGE_SLOT
         }
 
-        for (uint256 i = 0; i < _newURIs.length; i++) {
-            store.uris.push(_newURIs[i]);
+        for (uint256 i = 0; i < _newDoppelgangers.length; i++) {
+            store.uris.push(_newDoppelgangers[i]);
 
-            emit NewURIAdded(msg.sender, _newURIs[i], store.uris.length);
+            emit NewDoppelgangerAdded(msg.sender, _newDoppelgangers[i], store.uris.length);
         }
-    }
-
-    function setCutoff(uint256 _cutoffDatetime) external {
-        if (msg.sender != OwnableAccessControlUpgradeable(address(this)).owner() && !OwnableAccessControlUpgradeable(address(this)).hasRole(ADMIN_ROLE, msg.sender)) {
-            revert Unauthorized();
-        }
-
-        CollectorsChoiceStorage storage store;
-
-        assembly {
-            store.slot := METADATA_STORAGE_SLOT
-        }
-
-        if (store.uriChangeCutoff != 0) revert Unauthorized();
-
-        store.uriChangeCutoff = _cutoffDatetime;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Public Write Functions
     //////////////////////////////////////////////////////////////////////////*/
 
-    function changeURI(uint256 tokenId, uint256 tokenUriIndex) external {
+    function doppelgang(uint256 tokenId, uint256 tokenUriIndex) external {
         if (IERC721(address(this)).ownerOf(tokenId) != msg.sender) revert Unauthorized();
 
-        CollectorsChoiceStorage storage store;
+        DoppelgangerStorage storage store;
 
         assembly {
             store.slot := METADATA_STORAGE_SLOT
@@ -157,9 +131,7 @@ contract CollectorsChoice is ERC1967Proxy {
 
         if (tokenUriIndex >= store.uris.length) revert MetadataSelectionDoesNotExist(tokenUriIndex);
 
-        if(store.uriChangeCutoff != 0 && store.uriChangeCutoff < block.timestamp) revert Unauthorized();
-
-        store.tokens[tokenId] = tokenUriIndex;
+        store.dopplegangTokens[tokenId] = tokenUriIndex;
 
         emit Cloned(msg.sender, tokenId, store.uris[tokenUriIndex]);
     }
@@ -171,19 +143,19 @@ contract CollectorsChoice is ERC1967Proxy {
     function tokenURI(uint256 tokenId) external view returns (string memory) {
         IERC721(address(this)).ownerOf(tokenId);
         
-        CollectorsChoiceStorage storage store;
+        DoppelgangerStorage storage store;
 
         assembly {
             store.slot := METADATA_STORAGE_SLOT
         }
 
-        uint256 uri_index = store.tokens[tokenId];
+        uint256 uri_index = store.dopplegangTokens[tokenId];
 
         return store.uris[uri_index];
     }
 
-    function numURIs() external view returns (uint256) {
-        CollectorsChoiceStorage storage store;
+    function numDoppelgangerURIs() external view returns (uint256) {
+        DoppelgangerStorage storage store;
 
         assembly {
             store.slot := METADATA_STORAGE_SLOT
@@ -192,13 +164,19 @@ contract CollectorsChoice is ERC1967Proxy {
         return store.uris.length;
     }
 
-    function getCutoff() external view returns (uint256) {
-        CollectorsChoiceStorage storage store;
+    function viewDoppelgangerOptions() external view returns (string[] memory) {
+        DoppelgangerStorage storage store;
 
         assembly {
             store.slot := METADATA_STORAGE_SLOT
         }
 
-        return store.uriChangeCutoff;
+        string[] memory options = new string[](store.uris.length);
+
+        for (uint256 i = 0; i < store.uris.length; i ++) {
+            options[i] = store.uris[i];
+        }
+
+        return options;
     }
 }
