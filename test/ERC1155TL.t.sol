@@ -904,10 +904,9 @@ contract ERC1155TLUnitTest is Test {
         tokenContract.setStoryEnabled(false);
         vm.stopPrank();
 
-        // verify admin can't enable/disable
+        // verify admin can enable/disable
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert();
         tokenContract.setStoryEnabled(false);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);

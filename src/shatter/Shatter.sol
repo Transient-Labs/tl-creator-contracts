@@ -263,6 +263,16 @@ contract Shatter is
         return _baseUri;
     }
 
+    function _ownerOf(uint256 tokenId) internal view virtual override returns (address) {
+        if (isShattered && !isFused) {
+            if (tokenId > 0 && tokenId <= shatters) {
+                return _shatterAddress;
+            }
+        } 
+
+        return ERC721Upgradeable._ownerOf(tokenId);
+    }
+
     /*//////////////////////////////////////////////////////////////////////////
                                 Story Contract Hooks
     //////////////////////////////////////////////////////////////////////////*/

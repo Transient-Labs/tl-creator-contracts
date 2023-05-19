@@ -519,7 +519,11 @@ contract ERC721TLUnitTest is Test {
         }
         address[] memory addresses = new address[](numAddresses);
         for (uint256 i = 0; i < numAddresses; i++) {
-            addresses[i] = makeAddr(i.toString());
+            if (makeAddr(i.toString()) == recipient) {
+                addresses[i] = makeAddr("hello");
+            } else {
+                addresses[i] = makeAddr(i.toString());
+            }
         }
         tokenContract.airdrop(addresses, "baseUri");
         for (uint256 i = 1; i < numAddresses / 2; i++) {
@@ -986,7 +990,11 @@ contract ERC721TLUnitTest is Test {
         }
         address[] memory addresses = new address[](numAddresses);
         for (uint256 i = 0; i < numAddresses; i++) {
-            addresses[i] = makeAddr(i.toString());
+            if (makeAddr(i.toString()) == operator) {
+                addresses[i] = makeAddr("hello");
+            } else {
+                addresses[i] = makeAddr(i.toString());
+            }
         }
         vm.assume(operator != address(0));
         // airdrop to addresses
@@ -1716,10 +1724,9 @@ contract ERC721TLUnitTest is Test {
         tokenContract.setStoryEnabled(false);
         vm.stopPrank();
 
-        // verify admin can't enable/disable
+        // verify admin can enable/disable
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert();
         tokenContract.setStoryEnabled(false);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);

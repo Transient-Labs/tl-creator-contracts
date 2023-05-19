@@ -151,7 +151,10 @@ contract ShatterV1 is IERC2309Upgradeable, Test {
         
         vm.warp(block.timestamp + 7200);
 
-        tokenContract.shatter(50);
+        tokenContract.shatter(100);
+
+        assert(tokenContract.isShattered());
+        assert(!tokenContract.isFused());
 
         tokenContract.fuse();
      }
