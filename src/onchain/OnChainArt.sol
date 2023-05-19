@@ -69,7 +69,7 @@ contract OnChainArt is ERC1967Proxy {
 
         if (store.tokenURIs.length < _tokenId + 1) store.tokenURIs.push();
 
-        if (IERC721(address(this)).ownerOf(_tokenId) != msg.sender) revert NotTokenOwner();
+        if (IERC721(address(this)).ownerOf(_tokenId) != OwnableAccessControlUpgradeable(address(this)).owner()) revert NotTokenOwner();
 
         store.tokenURIs[_tokenId].push(SSTORE2.write(bytes(_uriPart)));
     }
@@ -85,7 +85,7 @@ contract OnChainArt is ERC1967Proxy {
             store.slot := METADATA_STORAGE_SLOT
         }
 
-        if (IERC721(address(this)).ownerOf(_tokenId) != msg.sender) revert NotTokenOwner();
+        if (IERC721(address(this)).ownerOf(_tokenId) != OwnableAccessControlUpgradeable(address(this)).owner()) revert NotTokenOwner();
 
         store.tokenURIs[_tokenId][_index] = SSTORE2.write(bytes(_uriPart));
     }
