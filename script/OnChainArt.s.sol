@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import "forge-std/Script.sol";
 import {OnChainArt} from "tl-creator/onchain/OnChainArt.sol";
-import {ERC721TL} from "tl-creator/ERC721TL.sol";
+import {ERC721TL} from "tl-creator/core/ERC721TL.sol";
 
 contract OnChainArtScript is Script {
 	string chunkedMetadataPath = "chunks.json";
