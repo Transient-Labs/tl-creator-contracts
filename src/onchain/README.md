@@ -28,3 +28,20 @@ forge script script/OnChainArt.s.sol \
 	--ledger \
 	--sender <minter address>
 ```
+
+0x2eeD2371f88ae36A717Cbfe67eeD5bab69c77679
+
+forge create src/onchain/OnChainArt.sol:OnChainArt \
+	--rpc-url $GOERLI_RPC_URL\
+	--verify \
+	-l \
+	--constructor-args \
+	0xe6de8cCFE609aef6de78DC6C9F409C6762f58EC5 \
+	TestNFT \
+	NFT \
+	0x2eeD2371f88ae36A717Cbfe67eeD5bab69c77679 \
+	1000 \
+	0x2eeD2371f88ae36A717Cbfe67eeD5bab69c77679 \
+	"[]" \
+	true \
+	0x0000000000000000000000000000000000000000
