@@ -3,17 +3,17 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import {ERC721TL} from "../src/ERC721TL.sol";
-import {Doppelganger} from "../src/doppelganger/Doppelganger.sol";
+import {CollectorsChoice} from "../src/doppelganger/CollectorsChoice.sol";
 
-contract DoppelgangerTest is Test {
+contract CollectorsChoiceTest is Test {
 
-    event NewDoppelgangerAdded(
+    event NewURIAdded(
         address indexed sender,
         string newUri,
         uint256 index
     );
 
-    event Cloned(
+    event URIChanged(
         address indexed sender,
         uint256 tokenId,
         string newUri
@@ -32,7 +32,7 @@ contract DoppelgangerTest is Test {
 
     function setUp() public {
         erc721 = new ERC721TL(true);
-        Doppelganger depProxy = new Doppelganger(
+        CollectorsChoice depProxy = new CollectorsChoice(
             address(erc721),
             "Test",
             "TST",
@@ -50,8 +50,8 @@ contract DoppelgangerTest is Test {
 
         vm.startPrank(alice);
         vm.expectEmit(true, false, false, false);
-        emit NewDoppelgangerAdded(alice, "doppelgangURI1://", 1);
-        Doppelganger(payable(address(proxy))).addDoppelgangers(uris);
+        emit NewURIAdded(alice, "doppelgangURI1://", 1);
+        CollectorsChoice(payable(address(proxy))).addNewURIs(uris);
         vm.stopPrank();
     }
 
@@ -83,84 +83,122 @@ contract DoppelgangerTest is Test {
         assert(proxy.ownerOf(1) == bob);
     }
 
-    function test_addDoppelganger() external {
+    function test_addURI() external {
         string[] memory uris = new string[](1);
         uris[0] = "doppelgangURI1://";
 
         vm.startPrank(alice);
         vm.expectEmit(true, false, false, false);
-        emit NewDoppelgangerAdded(alice, "doppelgangURI1://", 1);
-        Doppelganger(payable(address(proxy))).addDoppelgangers(uris);
+        emit NewURIAdded(alice, "doppelgangURI1://", 1);
+        CollectorsChoice(payable(address(proxy))).addNewURIs(uris);
         vm.stopPrank();
-        assert(Doppelganger(payable(address(proxy))).numDoppelgangerURIs() == 2);
+        assert(CollectorsChoice(payable(address(proxy))).numURIs() == 2);
     }
 
-    function test_addDoppelganger_fail_unauthorized() external {
+    function test_addURI_fail_unauthorized() external {
         string[] memory uris = new string[](1);
         uris[0] = "doppelgangURI1://";
 
         vm.startPrank(bob);
         vm.expectRevert(Unauthorized.selector);
-        Doppelganger(payable(address(proxy))).addDoppelgangers(uris);
+        CollectorsChoice(payable(address(proxy))).addNewURIs(uris);
         vm.stopPrank();
     }
 
-    function test_dopplegang() public {
+    function test_changeURI() public {
         string[] memory uris = new string[](1);
         uris[0] = "doppelgangURI1://";
 
         vm.startPrank(alice);
         proxy.mint(bob, "berries and cream");
-        Doppelganger(payable(address(proxy))).addDoppelgangers(uris);
+        CollectorsChoice(payable(address(proxy))).addNewURIs(uris);
         vm.stopPrank();
 
         vm.prank(bob);
         vm.expectEmit(true, false, false, false);
-        emit Cloned(bob, 1, "doppelgangURI1://");
-        Doppelganger(payable(address(proxy))).doppelgang(1, 1);
+        emit URIChanged(bob, 1, "doppelgangURI1://");
+        CollectorsChoice(payable(address(proxy))).changeURI(1, 1);
 
         assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == 
             keccak256(abi.encodePacked("doppelgangURI1://")));
     }
 
-    function test_dopplegang_fail_unauthorized() public {
+    function test_changeURI_fail_unauthorized() public {
         string[] memory uris = new string[](1);
         uris[0] = "doppelgangURI1://";
         
         vm.startPrank(alice);
         proxy.mint(bob, "berries and cream");
-        Doppelganger(payable(address(proxy))).addDoppelgangers(uris);
+        CollectorsChoice(payable(address(proxy))).addNewURIs(uris);
         vm.stopPrank();
 
         vm.prank(charlie);
         vm.expectRevert(Unauthorized.selector);
-        Doppelganger(payable(address(proxy))).doppelgang(1, 1);
+        CollectorsChoice(payable(address(proxy))).changeURI(1, 1);
 
         assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == 
             keccak256(abi.encodePacked("defaultURI://")));
     }
 
-    function test_dopplegang_fail_metadata_doesnt_exist() public {
+    function test_changeURI_fail_metadata_doesnt_exist() public {
         vm.startPrank(alice);
         proxy.mint(bob, "berries and cream");
         vm.stopPrank();
 
         vm.prank(bob);
         vm.expectRevert(abi.encodeWithSelector(MetadataSelectionDoesNotExist.selector, 1));
-        Doppelganger(payable(address(proxy))).doppelgang(1, 1);
+        CollectorsChoice(payable(address(proxy))).changeURI(1, 1);
 
         assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == 
             keccak256(abi.encodePacked("defaultURI://")));
     }
 
-    function test_dopplegang_fail_metadata_token_doesnt_exist() public {
+    function test_changeURI_fail_metadata_token_doesnt_exist() public {
         vm.prank(bob);
         vm.expectRevert("ERC721: invalid token ID");
-        Doppelganger(payable(address(proxy))).doppelgang(1, 1);
+        CollectorsChoice(payable(address(proxy))).changeURI(1, 1);
     }
 
     function test_tokenUri_fail_doesnt_exist() public {
         vm.expectRevert("ERC721: invalid token ID");
         proxy.tokenURI(1);
+    }
+
+    function test_setCutoff() public {
+        string[] memory uris = new string[](1);
+        uris[0] = "doppelgangURI1://";
+
+        vm.startPrank(alice);
+        proxy.mint(bob, "berries and cream");
+        CollectorsChoice(payable(address(proxy))).setCutoff(block.timestamp + 500);
+        CollectorsChoice(payable(address(proxy))).addNewURIs(uris);
+        vm.stopPrank();
+
+        vm.prank(bob);
+        vm.expectEmit(true, false, false, false);
+        emit URIChanged(bob, 1, "doppelgangURI1://");
+        CollectorsChoice(payable(address(proxy))).changeURI(1, 1);
+
+        assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == 
+            keccak256(abi.encodePacked("doppelgangURI1://")));
+
+        vm.warp(block.timestamp + 501);
+        vm.prank(bob);
+        vm.expectRevert();
+        CollectorsChoice(payable(address(proxy))).changeURI(1, 1);
+    }
+
+    function test_setCutoff_fail() public {
+        string[] memory uris = new string[](1);
+        uris[0] = "doppelgangURI1://";
+
+        vm.startPrank(alice);
+        proxy.mint(bob, "berries and cream");
+        CollectorsChoice(payable(address(proxy))).setCutoff(block.timestamp + 500);
+        CollectorsChoice(payable(address(proxy))).addNewURIs(uris);
+        
+        vm.expectRevert();
+        CollectorsChoice(payable(address(proxy))).setCutoff(block.timestamp + 200);
+        vm.stopPrank();
     }
 }
