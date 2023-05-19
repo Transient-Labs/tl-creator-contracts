@@ -105,6 +105,10 @@ contract OnChainArt is ERC1967Proxy {
         ));
     }
 
+    function updateBlockListRegistry(address newBlockListRegistry) public {
+        revert();
+    }
+
     function _pack(address[] storage _tokenURIs) internal view returns (bytes memory) {
         bytes memory res = bytes("");
 
