@@ -74,6 +74,22 @@ contract OnChainArt is ERC1967Proxy {
         store.tokenURIs[_tokenId].push(SSTORE2.write(bytes(_uriPart)));
     }
 
+    function modifyURIPart(uint256 _tokenId, uint256 _index, string calldata _uriPart) external {
+        if (msg.sender != OwnableAccessControlUpgradeable(address(this)).owner() && !OwnableAccessControlUpgradeable(address(this)).hasRole(ADMIN_ROLE, msg.sender)) {
+            revert Unauthorized();
+        }
+
+        OnChainArtStorage storage store;
+
+        assembly {
+            store.slot := METADATA_STORAGE_SLOT
+        }
+
+        if (IERC721(address(this)).ownerOf(_tokenId) != msg.sender) revert NotTokenOwner();
+
+        store.tokenURIs[_tokenId][_index] = SSTORE2.write(bytes(_uriPart));
+    }
+
     function tokenURI(uint256 _tokenId) public view returns (string memory) {
         IERC721(address(this)).ownerOf(_tokenId);
 
