@@ -56,7 +56,7 @@ error NoTokenUriUpdateAvailable();
 ///      - Synergy metadata protection
 ///      - individual token royalty overrides
 /// @author transientlabs.xyz
-/// @custom:version 2.1.1
+/// @custom:version 2.2.0
 contract ERC721TL is
     Initializable,
     ERC721Upgradeable,
@@ -91,7 +91,7 @@ contract ERC721TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "2.1.1";
+    string public constant VERSION = "2.2.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids

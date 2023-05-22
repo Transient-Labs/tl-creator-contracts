@@ -11,7 +11,7 @@ import {BlockListUpgradeable} from "tl-blocklist/BlockListUpgradeable.sol";
 /// @title Shatter
 /// @notice Shatter implementation. Turns 1/1 into a multiple sub-pieces.
 /// @author transientlabs.xyz
-/// @custom:version 2.0.0
+/// @custom:version 2.2.0
 contract Shatter is
     ERC721Upgradeable,
     IERC2309Upgradeable,
