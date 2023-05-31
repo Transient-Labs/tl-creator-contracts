@@ -13,3 +13,6 @@
 [submodule "lib/tl-sol-tools"]
 	path = lib/tl-sol-tools
 	url = https://github.com/Transient-Labs/tl-sol-tools
+[submodule "lib/blocklist"]
+	path = lib/blocklist
+	url = https://github.com/Transient-Labs/blocklist
