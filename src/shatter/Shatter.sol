@@ -209,7 +209,7 @@ contract Shatter is
     function _batchMint(address shatterExecutor, uint256 quantity) internal {
         require(uint96(quantity) == quantity);
         _shatterAddress = shatterExecutor;
-        _beforeTokenTransfer(address(0), _shatterAddress, 0, quantity);
+        __unsafe_increaseBalance(_shatterAddress, quantity);
         emit ConsecutiveTransfer(1, quantity, address(0), _shatterAddress);
     }
 

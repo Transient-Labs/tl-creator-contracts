@@ -240,7 +240,7 @@ contract ERC721TL is
         _counter += numTokens;
         _batchMints.push(BatchMint(recipient, start, end, baseUri));
 
-        _beforeTokenTransfer(address(0), recipient, start, numTokens); // this hook adds the number of tokens to the recipient address
+        __unsafe_increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
 
         emit ConsecutiveTransfer(start, end, address(0), recipient);
     }
