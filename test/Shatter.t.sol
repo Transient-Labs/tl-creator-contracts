@@ -6,11 +6,7 @@ import {Shatter} from "tl-creator/shatter/Shatter.sol";
 import {IERC2309Upgradeable} from "openzeppelin-upgradeable/interfaces/IERC2309Upgradeable.sol";
 
 contract ShatterV1 is IERC2309Upgradeable, Test {
-    event Shattered(
-        address indexed user,
-        uint256 indexed numShatters,
-        uint256 indexed shatteredTime
-    );
+    event Shattered(address indexed user, uint256 indexed numShatters, uint256 indexed shatteredTime);
 
     event Fused(address indexed user, uint256 indexed fuseTime);
 
@@ -22,16 +18,7 @@ contract ShatterV1 is IERC2309Upgradeable, Test {
     function setUp() public {
         address[] memory admins = new address[](0);
         tokenContract = new Shatter(false);
-        tokenContract.initialize(
-            "Test721",
-            "T721",
-            royaltyRecipient,
-            10_00,
-            address(this),
-            admins,
-            true,
-            address(0)
-        );
+        tokenContract.initialize("Test721", "T721", royaltyRecipient, 10_00, address(this), admins, true, address(0));
     }
 
     function test_setUp() public view {
@@ -41,12 +28,7 @@ contract ShatterV1 is IERC2309Upgradeable, Test {
     }
 
     function test_mint() public {
-        tokenContract.mint(
-            "testURI://",
-            1,
-            100,
-            block.timestamp + 7200
-        );
+        tokenContract.mint("testURI://", 1, 100, block.timestamp + 7200);
         assert(tokenContract.minShatters() == 1);
         assert(tokenContract.maxShatters() == 100);
         assert(tokenContract.shatterTime() == block.timestamp + 7200);
@@ -54,31 +36,16 @@ contract ShatterV1 is IERC2309Upgradeable, Test {
     }
 
     function test_mint_fail() public {
-        tokenContract.mint(
-            "testURI://",
-            1,
-            100,
-            block.timestamp + 7200
-        );
+        tokenContract.mint("testURI://", 1, 100, block.timestamp + 7200);
         vm.expectRevert("Already minted the first piece");
-        tokenContract.mint(
-            "testURI://",
-            1,
-            100,
-            block.timestamp + 7200
-        );
+        tokenContract.mint("testURI://", 1, 100, block.timestamp + 7200);
         assert(tokenContract.shatters() == 1);
     }
 
     function test_shatter(uint256 _numShatters) public {
         vm.assume(_numShatters < 100 && _numShatters > 0);
 
-        tokenContract.mint(
-            "testURI://",
-            1,
-            100,
-            block.timestamp + 7200
-        );
+        tokenContract.mint("testURI://", 1, 100, block.timestamp + 7200);
 
         vm.warp(block.timestamp + 7200);
 
@@ -114,13 +81,8 @@ contract ShatterV1 is IERC2309Upgradeable, Test {
         }
     }
 
-     function test_shatter_fail() public {
-        tokenContract.mint(
-            "testURI://",
-            1,
-            100,
-            block.timestamp + 7200
-        );
+    function test_shatter_fail() public {
+        tokenContract.mint("testURI://", 1, 100, block.timestamp + 7200);
 
         vm.expectRevert("Cannot shatter prior to shatterTime");
         tokenContract.shatter(1);
@@ -139,16 +101,11 @@ contract ShatterV1 is IERC2309Upgradeable, Test {
         tokenContract.shatter(50);
         vm.expectRevert("Already is shattered");
         tokenContract.shatter(1);
-     }
+    }
 
-     function test_fuse() public {
-        tokenContract.mint(
-            "testURI://",
-            1,
-            100,
-            block.timestamp + 7200
-        );
-        
+    function test_fuse() public {
+        tokenContract.mint("testURI://", 1, 100, block.timestamp + 7200);
+
         vm.warp(block.timestamp + 7200);
 
         tokenContract.shatter(100);
@@ -157,16 +114,11 @@ contract ShatterV1 is IERC2309Upgradeable, Test {
         assert(!tokenContract.isFused());
 
         tokenContract.fuse();
-     }
+    }
 
-     function test_fuse_fail() public {
-        tokenContract.mint(
-            "testURI://",
-            1,
-            100,
-            block.timestamp + 7200
-        );
-        
+    function test_fuse_fail() public {
+        tokenContract.mint("testURI://", 1, 100, block.timestamp + 7200);
+
         vm.warp(block.timestamp + 7200);
 
         vm.expectRevert();
@@ -192,5 +144,5 @@ contract ShatterV1 is IERC2309Upgradeable, Test {
 
         vm.expectRevert();
         tokenContract.fuse();
-     }
+    }
 }

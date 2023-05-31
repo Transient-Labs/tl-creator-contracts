@@ -209,7 +209,10 @@ contract ERC721TL is
     /// @param uri: the token uri to mint
     /// @param royaltyAddress: royalty payout address for this new token
     /// @param royaltyPercent: royalty percentage for this new token
-    function mint(address recipient, string calldata uri, address royaltyAddress, uint256 royaltyPercent) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function mint(address recipient, string calldata uri, address royaltyAddress, uint256 royaltyPercent)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
         if (bytes(uri).length == 0) revert EmptyTokenURI();
         _counter++;
         _tokenUris[_counter] = uri;

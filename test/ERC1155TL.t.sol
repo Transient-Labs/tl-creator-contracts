@@ -70,7 +70,14 @@ contract ERC1155TLUnitTest is Test {
             emit RoleChange(address(this), admins[i], true, tokenContract.ADMIN_ROLE());
         }
         tokenContract.initialize(
-            name, symbol, defaultRoyaltyRecipient, defaultRoyaltyPercentage, initOwner, admins, enableStory, blockListRegistry
+            name,
+            symbol,
+            defaultRoyaltyRecipient,
+            defaultRoyaltyPercentage,
+            initOwner,
+            admins,
+            enableStory,
+            blockListRegistry
         );
         assertEq(tokenContract.name(), name);
         assertEq(tokenContract.symbol(), symbol);
@@ -87,7 +94,14 @@ contract ERC1155TLUnitTest is Test {
         // can't initialize again
         vm.expectRevert(bytes("Initializable: contract is already initialized"));
         tokenContract.initialize(
-            name, symbol, defaultRoyaltyRecipient, defaultRoyaltyPercentage, initOwner, admins, enableStory, blockListRegistry
+            name,
+            symbol,
+            defaultRoyaltyRecipient,
+            defaultRoyaltyPercentage,
+            initOwner,
+            admins,
+            enableStory,
+            blockListRegistry
         );
     }
 
@@ -229,7 +243,12 @@ contract ERC1155TLUnitTest is Test {
         }
     }
 
-    function testCreateTokenWithRoyalty(uint16 numAddresses, uint16 amount, address royaltyAddress, uint16 royaltyPercent) public {
+    function testCreateTokenWithRoyalty(
+        uint16 numAddresses,
+        uint16 amount,
+        address royaltyAddress,
+        uint16 royaltyPercent
+    ) public {
         vm.assume(numAddresses > 0);
         // limit num addresses to 300
         if (numAddresses > 300) {
@@ -407,7 +426,13 @@ contract ERC1155TLUnitTest is Test {
         }
     }
 
-    function testBatchCreateTokenWithTokenRoyalty(uint16 numTokens, uint16 numAddresses, uint16 amount, address royaltyAddress, uint16 royaltyPercent) public {
+    function testBatchCreateTokenWithTokenRoyalty(
+        uint16 numTokens,
+        uint16 numAddresses,
+        uint16 amount,
+        address royaltyAddress,
+        uint16 royaltyPercent
+    ) public {
         vm.assume(numAddresses > 0);
         // limit num addresses to 300
         if (numAddresses > 300) {
@@ -449,7 +474,7 @@ contract ERC1155TLUnitTest is Test {
         tokenContract.batchCreateToken(strings, recipients, amounts, royaltyAddresses, royaltyPercents);
         for (uint256 i = 0; i < numTokens; i++) {
             assertEq(tokenContract.uri(i + 1), i.toString());
-            (address recp, uint256 amt) = tokenContract.royaltyInfo(i+1, 10_000);
+            (address recp, uint256 amt) = tokenContract.royaltyInfo(i + 1, 10_000);
             assertEq(recp, royaltyAddress);
             assertEq(amt, royaltyPercent);
             for (uint256 j = 0; j < numAddresses; j++) {
@@ -796,6 +821,7 @@ contract ERC1155TLUnitTest is Test {
         if (newPercentage >= 10_000) {
             newPercentage = newPercentage % 10_000;
         }
+        vm.assume(user != address(this));
         address[] memory users = new address[](1);
         users[0] = user;
         // verify that user can't set royalty

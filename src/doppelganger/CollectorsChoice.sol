@@ -2,7 +2,10 @@
 pragma solidity 0.8.19;
 
 import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
-import {OwnableAccessControlUpgradeable, NotRoleOrOwner} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {
+    OwnableAccessControlUpgradeable,
+    NotRoleOrOwner
+} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 
 /// @title CollectorsChoice.sol
@@ -10,7 +13,6 @@ import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 /// @dev this works for only ERC721TL contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
 contract CollectorsChoice is ERC1967Proxy {
-
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
     //////////////////////////////////////////////////////////////////////////*/
@@ -25,18 +27,10 @@ contract CollectorsChoice is ERC1967Proxy {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Event emitted when a new URI is added.
-    event NewURIAdded(
-        address indexed sender,
-        string newUri,
-        uint256 index
-    );
+    event NewURIAdded(address indexed sender, string newUri, uint256 index);
 
     /// @notice Event emitted when a uri is cloned
-    event URIChanged(
-        address indexed sender,
-        uint256 tokenId,
-        string newUri
-    );
+    event URIChanged(address indexed sender, uint256 tokenId, string newUri);
 
     /*//////////////////////////////////////////////////////////////////////////
                                     Error
@@ -100,7 +94,10 @@ contract CollectorsChoice is ERC1967Proxy {
     //////////////////////////////////////////////////////////////////////////*/
 
     function addNewURIs(string[] calldata _newURIs) external {
-        if (msg.sender != OwnableAccessControlUpgradeable(address(this)).owner() && !OwnableAccessControlUpgradeable(address(this)).hasRole(ADMIN_ROLE, msg.sender)) {
+        if (
+            msg.sender != OwnableAccessControlUpgradeable(address(this)).owner()
+                && !OwnableAccessControlUpgradeable(address(this)).hasRole(ADMIN_ROLE, msg.sender)
+        ) {
             revert Unauthorized();
         }
 
@@ -118,7 +115,10 @@ contract CollectorsChoice is ERC1967Proxy {
     }
 
     function setCutoff(uint256 _cutoffDatetime) external {
-        if (msg.sender != OwnableAccessControlUpgradeable(address(this)).owner() && !OwnableAccessControlUpgradeable(address(this)).hasRole(ADMIN_ROLE, msg.sender)) {
+        if (
+            msg.sender != OwnableAccessControlUpgradeable(address(this)).owner()
+                && !OwnableAccessControlUpgradeable(address(this)).hasRole(ADMIN_ROLE, msg.sender)
+        ) {
             revert Unauthorized();
         }
 
@@ -148,7 +148,7 @@ contract CollectorsChoice is ERC1967Proxy {
 
         if (tokenUriIndex >= store.uris.length) revert MetadataSelectionDoesNotExist(tokenUriIndex);
 
-        if(store.uriChangeCutoff != 0 && store.uriChangeCutoff < block.timestamp) revert Unauthorized();
+        if (store.uriChangeCutoff != 0 && store.uriChangeCutoff < block.timestamp) revert Unauthorized();
 
         store.tokens[tokenId] = tokenUriIndex;
 
@@ -161,7 +161,7 @@ contract CollectorsChoice is ERC1967Proxy {
 
     function tokenURI(uint256 tokenId) external view returns (string memory) {
         IERC721(address(this)).ownerOf(tokenId);
-        
+
         CollectorsChoiceStorage storage store;
 
         assembly {
@@ -202,7 +202,7 @@ contract CollectorsChoice is ERC1967Proxy {
 
         string[] memory options = new string[](store.uris.length);
 
-        for (uint256 i = 0; i < store.uris.length; i ++) {
+        for (uint256 i = 0; i < store.uris.length; i++) {
             options[i] = store.uris[i];
         }
 

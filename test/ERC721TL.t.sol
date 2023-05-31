@@ -233,7 +233,9 @@ contract ERC721TLUnitTest is Test {
         }
     }
 
-    function testMintTokenRoyalty(uint16 tokenId, address recipient, address royaltyAddress, uint16 royaltyPercent) public {
+    function testMintTokenRoyalty(uint16 tokenId, address recipient, address royaltyAddress, uint16 royaltyPercent)
+        public
+    {
         vm.assume(tokenId != 0);
         vm.assume(recipient != address(0));
         vm.assume(royaltyAddress != royaltyRecipient);
@@ -916,10 +918,10 @@ contract ERC721TLUnitTest is Test {
     }
 
     function testBurnBatchMint(uint16 batchSize, address collector, address operator) public {
-        vm.assume(collector != address(0));
-        vm.assume(collector != operator);
-        vm.assume(operator != address(0));
-        vm.assume(batchSize > 1);
+        vm.assume(collector != address(0) && collector != operator && operator != address(0));
+        if (batchSize < 2) {
+            batchSize = 2;
+        }
         if (batchSize > 300) {
             batchSize = batchSize % 299 + 2;
         }

@@ -13,7 +13,6 @@ import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 /// @author transientlabs.xyz
 /// @custom:version 2.2.0
 contract TLCreator is ERC1967Proxy {
-
     /// @param name: the name of the contract
     /// @param symbol: the symbol of the contract
     /// @param defaultRoyaltyRecipient: the default address for royalty payments

@@ -6,7 +6,6 @@ import {ERC1155TL} from "../src/core/ERC1155TL.sol";
 import {TLCreator} from "../src/TLCreator.sol";
 
 contract ERC1155TLProxyUnitTest is Test {
-
     ERC1155TL public erc1155;
     ERC1155TL public proxy;
 
