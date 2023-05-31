@@ -10,3 +10,6 @@
 [submodule "lib/story-contract"]
 	path = lib/story-contract
 	url = https://github.com/Transient-Labs/story-contract
+[submodule "lib/tl-sol-tools"]
+	path = lib/tl-sol-tools
+	url = https://github.com/Transient-Labs/tl-sol-tools
