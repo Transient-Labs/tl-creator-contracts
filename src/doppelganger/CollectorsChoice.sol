@@ -8,10 +8,15 @@ import {
 } from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 
+/*//////////////////////////////////////////////////////////////////////////
+                            Collector's Choice
+//////////////////////////////////////////////////////////////////////////*/
+
 /// @title CollectorsChoice.sol
-/// @notice Transient Labs Core Creator Contract
+/// @notice the doppelganger contract with a twist where the ability to doppelgang is locked after a time period
 /// @dev this works for only ERC721TL contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
+/// @custom:version 2.3.0
 contract CollectorsChoice is ERC1967Proxy {
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
@@ -23,7 +28,7 @@ contract CollectorsChoice is ERC1967Proxy {
     bytes32 public constant METADATA_STORAGE_SLOT = 0x42e4ec1f98e793b22ce6d3d94dac69be208b1022748a25a29587cf3b64c7a04c;
 
     /*//////////////////////////////////////////////////////////////////////////
-                                Events
+                                    Events
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Event emitted when a new URI is added.
@@ -33,7 +38,7 @@ contract CollectorsChoice is ERC1967Proxy {
     event URIChanged(address indexed sender, uint256 tokenId, string newUri);
 
     /*//////////////////////////////////////////////////////////////////////////
-                                    Error
+                                    Errors
     //////////////////////////////////////////////////////////////////////////*/
 
     error Unauthorized();

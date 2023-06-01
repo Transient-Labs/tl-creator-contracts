@@ -8,10 +8,15 @@ import {
 } from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 
+/*//////////////////////////////////////////////////////////////////////////
+                            Doppelganger
+//////////////////////////////////////////////////////////////////////////*/
+
 /// @title Doppelganger.sol
-/// @notice Transient Labs Core Creator Contract
+/// @notice contract where each owner can set their metadata from an array of choices
 /// @dev this works for only ERC721TL contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
+/// @custom:version 2.3.0
 contract Doppelganger is ERC1967Proxy {
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
@@ -23,7 +28,7 @@ contract Doppelganger is ERC1967Proxy {
     bytes32 public constant METADATA_STORAGE_SLOT = 0xe8e107277cf2bf4ca5b1c80e072dc96f1981a6e70d5a59566b0c646a780d487b;
 
     /*//////////////////////////////////////////////////////////////////////////
-                                Events
+                                    Events
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Event emitted when a new doppelganger is added.
@@ -33,7 +38,7 @@ contract Doppelganger is ERC1967Proxy {
     event Cloned(address indexed sender, uint256 tokenId, string newUri);
 
     /*//////////////////////////////////////////////////////////////////////////
-                                    Error
+                                    Errors
     //////////////////////////////////////////////////////////////////////////*/
 
     error Unauthorized();

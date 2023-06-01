@@ -8,10 +8,14 @@ import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/O
 import {StoryContractUpgradeable} from "tl-story/upgradeable/StoryContractUpgradeable.sol";
 import {BlockListUpgradeable} from "tl-blocklist/BlockListUpgradeable.sol";
 
+/*//////////////////////////////////////////////////////////////////////////
+                            Shatter
+//////////////////////////////////////////////////////////////////////////*/
+
 /// @title Shatter
 /// @notice Shatter implementation. Turns 1/1 into a multiple sub-pieces.
 /// @author transientlabs.xyz
-/// @custom:version 2.2.0
+/// @custom:version 2.3.0
 contract Shatter is
     ERC721Upgradeable,
     IERC2309Upgradeable,
