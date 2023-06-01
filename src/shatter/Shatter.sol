@@ -8,10 +8,14 @@ import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/O
 import {StoryContractUpgradeable} from "tl-story/upgradeable/StoryContractUpgradeable.sol";
 import {BlockListUpgradeable} from "tl-blocklist/BlockListUpgradeable.sol";
 
+/*//////////////////////////////////////////////////////////////////////////
+                            Shatter
+//////////////////////////////////////////////////////////////////////////*/
+
 /// @title Shatter
 /// @notice Shatter implementation. Turns 1/1 into a multiple sub-pieces.
 /// @author transientlabs.xyz
-/// @custom:version 2.2.0
+/// @custom:version 2.3.0
 contract Shatter is
     ERC721Upgradeable,
     IERC2309Upgradeable,
@@ -20,16 +24,11 @@ contract Shatter is
     StoryContractUpgradeable,
     BlockListUpgradeable
 {
-
     /*//////////////////////////////////////////////////////////////////////////
                                       Events
     //////////////////////////////////////////////////////////////////////////*/
 
-    event Shattered(
-        address indexed user,
-        uint256 indexed numShatters,
-        uint256 indexed shatteredTime
-    );
+    event Shattered(address indexed user, uint256 indexed numShatters, uint256 indexed shatteredTime);
 
     event Fused(address indexed user, uint256 indexed fuseTime);
 
@@ -49,7 +48,7 @@ contract Shatter is
     /*//////////////////////////////////////////////////////////////////////////
                                 Public State Variables
     //////////////////////////////////////////////////////////////////////////*/
-    
+
     bool public isShattered;
     bool public isFused;
     uint256 public minShatters;
@@ -102,10 +101,7 @@ contract Shatter is
     /// @dev this is useful if the amount was set improperly at contract creation.
     /// @param newAddr is the new royalty payout addresss
     /// @param newPerc is the new royalty percentage, in basis points (out of 10,000)
-    function setRoyaltyInfo(
-        address newAddr,
-        uint256 newPerc
-    ) external onlyOwner {
+    function setRoyaltyInfo(address newAddr, uint256 newPerc) external onlyOwner {
         _setDefaultRoyaltyInfo(newAddr, newPerc);
     }
 
@@ -125,21 +121,16 @@ contract Shatter is
     /// @dev sets the description, image, animation url (if exists), and traits for the piece
     /// @dev requires that shatters is equal to 0 -> meaning no piece has been minted
     /// @dev using _mint function as owner() should always be an EOA or trusted entity that can receive ERC721 tokens
-    function mint(
-        string memory newUri,
-        uint256 min,
-        uint256 max,
-        uint256 time
-    ) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function mint(string memory newUri, uint256 min, uint256 max, uint256 time) external onlyRoleOrOwner(ADMIN_ROLE) {
         require(shatters == 0, "Already minted the first piece");
-        
+
         if (min < 1) {
             minShatters = 1;
         } else {
             minShatters = min;
         }
         maxShatters = max;
-        
+
         shatterTime = time;
         _setBaseUri(newUri);
         shatters = 1;
@@ -162,10 +153,7 @@ contract Shatter is
             numShatters >= minShatters && numShatters <= maxShatters,
             "Cannot set number of editions above max or below the min"
         );
-        require(
-            block.timestamp >= shatterTime,
-            "Cannot shatter prior to shatterTime"
-        );
+        require(block.timestamp >= shatterTime, "Cannot shatter prior to shatterTime");
 
         if (numShatters > 1) {
             _burn(0);
@@ -208,9 +196,7 @@ contract Shatter is
     /// @notice function to override the _exists function in ERC721S
     /// @dev if is shattered and not fused, checks to see if tokenId is in the range of shatters
     ///     otherwise, returns result from ERC721S
-    function _exists(
-        uint256 tokenId
-    ) internal view virtual override returns (bool) {
+    function _exists(uint256 tokenId) internal view virtual override returns (bool) {
         if (isShattered && !isFused) {
             if (tokenId > 0 && tokenId <= shatters) {
                 return true;
@@ -227,7 +213,7 @@ contract Shatter is
     function _batchMint(address shatterExecutor, uint256 quantity) internal {
         require(uint96(quantity) == quantity);
         _shatterAddress = shatterExecutor;
-        _beforeTokenTransfer(address(0), _shatterAddress, 0, quantity);
+        __unsafe_increaseBalance(_shatterAddress, quantity);
         emit ConsecutiveTransfer(1, quantity, address(0), _shatterAddress);
     }
 
@@ -246,7 +232,7 @@ contract Shatter is
             if (tokenId > 0 && ERC721Upgradeable._ownerOf(tokenId) == address(0)) {
                 return _shatterAddress;
             }
-        } 
+        }
 
         return ERC721Upgradeable._ownerOf(tokenId);
     }
@@ -319,22 +305,13 @@ contract Shatter is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ERC165Upgradeable
-    function supportsInterface(
-        bytes4 interfaceId
-    )
+    function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(
-            EIP2981TLUpgradeable,
-            ERC721Upgradeable,
-            StoryContractUpgradeable
-        )
+        override(EIP2981TLUpgradeable, ERC721Upgradeable, StoryContractUpgradeable)
         returns (bool)
     {
-        return
-            ERC721Upgradeable.supportsInterface(interfaceId) ||
-            EIP2981TLUpgradeable.supportsInterface(interfaceId) ||
-            StoryContractUpgradeable.supportsInterface(interfaceId) ||
-            interfaceId == bytes4(0x49064906);
+        return ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
+            || StoryContractUpgradeable.supportsInterface(interfaceId) || interfaceId == bytes4(0x49064906);
     }
 }

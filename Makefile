@@ -13,12 +13,20 @@ remove:
 # Install the Modules
 install:
 	forge install foundry-rs/forge-std
-	forge install OpenZeppelin/openzeppelin-contracts@v4.8.0
-	forge install OpenZeppelin/openzeppelin-contracts-upgradeable@v4.8.0
-	forge install Transient-Labs/story-contract@3.0.0
-	forge install Transient-Labs/tl-sol-tools@1.1.0
-	forge install Transient-Labs/blocklist@3.2.0
+	forge install OpenZeppelin/openzeppelin-contracts@v4.8.3
+	forge install OpenZeppelin/openzeppelin-contracts-upgradeable@v4.8.3
+	forge install Transient-Labs/story-contract@4.0.1
+	forge install Transient-Labs/tl-sol-tools@2.2.1
+	forge install Transient-Labs/blocklist@4.0.1
+	forge install 0xsequence/sstore2
+
+# Update the modules
+update: remove install
 
 # Builds
 build:
-	forge clean && forge build --optimize --optimizer-runs 2000
+	forge fmt && forge clean && forge build --optimize --optimizer-runs 2000
+
+# Tests
+tests:
+	forge test --gas-report -vvv

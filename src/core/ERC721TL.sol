@@ -56,7 +56,7 @@ error NoTokenUriUpdateAvailable();
 ///      - Synergy metadata protection
 ///      - individual token royalty overrides
 /// @author transientlabs.xyz
-/// @custom:version 2.2.0
+/// @custom:version 2.3.0
 contract ERC721TL is
     Initializable,
     ERC721Upgradeable,
@@ -91,7 +91,7 @@ contract ERC721TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "2.2.0";
+    string public constant VERSION = "2.3.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
@@ -209,7 +209,10 @@ contract ERC721TL is
     /// @param uri: the token uri to mint
     /// @param royaltyAddress: royalty payout address for this new token
     /// @param royaltyPercent: royalty percentage for this new token
-    function mint(address recipient, string calldata uri, address royaltyAddress, uint256 royaltyPercent) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function mint(address recipient, string calldata uri, address royaltyAddress, uint256 royaltyPercent)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
         if (bytes(uri).length == 0) revert EmptyTokenURI();
         _counter++;
         _tokenUris[_counter] = uri;
@@ -237,7 +240,7 @@ contract ERC721TL is
         _counter += numTokens;
         _batchMints.push(BatchMint(recipient, start, end, baseUri));
 
-        _beforeTokenTransfer(address(0), recipient, start, numTokens); // this hook adds the number of tokens to the recipient address
+        __unsafe_increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
 
         emit ConsecutiveTransfer(start, end, address(0), recipient);
     }

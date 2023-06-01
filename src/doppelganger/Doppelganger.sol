@@ -2,15 +2,22 @@
 pragma solidity 0.8.19;
 
 import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
-import {OwnableAccessControlUpgradeable, NotRoleOrOwner} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {
+    OwnableAccessControlUpgradeable,
+    NotRoleOrOwner
+} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 
+/*//////////////////////////////////////////////////////////////////////////
+                            Doppelganger
+//////////////////////////////////////////////////////////////////////////*/
+
 /// @title Doppelganger.sol
-/// @notice Transient Labs Core Creator Contract
+/// @notice contract where each owner can set their metadata from an array of choices
 /// @dev this works for only ERC721TL contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
+/// @custom:version 2.3.0
 contract Doppelganger is ERC1967Proxy {
-
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
     //////////////////////////////////////////////////////////////////////////*/
@@ -21,25 +28,17 @@ contract Doppelganger is ERC1967Proxy {
     bytes32 public constant METADATA_STORAGE_SLOT = 0xe8e107277cf2bf4ca5b1c80e072dc96f1981a6e70d5a59566b0c646a780d487b;
 
     /*//////////////////////////////////////////////////////////////////////////
-                                Events
+                                    Events
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Event emitted when a new doppelganger is added.
-    event NewDoppelgangerAdded(
-        address indexed sender,
-        string newUri,
-        uint256 index
-    );
+    event NewDoppelgangerAdded(address indexed sender, string newUri, uint256 index);
 
     /// @notice Event emitted when a uri is cloned
-    event Cloned(
-        address indexed sender,
-        uint256 tokenId,
-        string newUri
-    );
+    event Cloned(address indexed sender, uint256 tokenId, string newUri);
 
     /*//////////////////////////////////////////////////////////////////////////
-                                    Error
+                                    Errors
     //////////////////////////////////////////////////////////////////////////*/
 
     error Unauthorized();
@@ -99,7 +98,10 @@ contract Doppelganger is ERC1967Proxy {
     //////////////////////////////////////////////////////////////////////////*/
 
     function addDoppelgangers(string[] calldata _newDoppelgangers) external {
-        if (msg.sender != OwnableAccessControlUpgradeable(address(this)).owner() && !OwnableAccessControlUpgradeable(address(this)).hasRole(ADMIN_ROLE, msg.sender)) {
+        if (
+            msg.sender != OwnableAccessControlUpgradeable(address(this)).owner()
+                && !OwnableAccessControlUpgradeable(address(this)).hasRole(ADMIN_ROLE, msg.sender)
+        ) {
             revert Unauthorized();
         }
 
@@ -142,7 +144,7 @@ contract Doppelganger is ERC1967Proxy {
 
     function tokenURI(uint256 tokenId) external view returns (string memory) {
         IERC721(address(this)).ownerOf(tokenId);
-        
+
         DoppelgangerStorage storage store;
 
         assembly {
@@ -173,7 +175,7 @@ contract Doppelganger is ERC1967Proxy {
 
         string[] memory options = new string[](store.uris.length);
 
-        for (uint256 i = 0; i < store.uris.length; i ++) {
+        for (uint256 i = 0; i < store.uris.length; i++) {
             options[i] = store.uris[i];
         }
 

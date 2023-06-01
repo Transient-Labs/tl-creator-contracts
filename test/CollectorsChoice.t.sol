@@ -6,18 +6,9 @@ import {ERC721TL} from "../src/core/ERC721TL.sol";
 import {CollectorsChoice} from "../src/doppelganger/CollectorsChoice.sol";
 
 contract CollectorsChoiceTest is Test {
+    event NewURIAdded(address indexed sender, string newUri, uint256 index);
 
-    event NewURIAdded(
-        address indexed sender,
-        string newUri,
-        uint256 index
-    );
-
-    event URIChanged(
-        address indexed sender,
-        uint256 tokenId,
-        string newUri
-    );
+    event URIChanged(address indexed sender, uint256 tokenId, string newUri);
 
     error Unauthorized();
 
@@ -76,8 +67,7 @@ contract CollectorsChoiceTest is Test {
         proxy.mint(bob, "berries and cream");
         vm.stopPrank();
 
-        assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == 
-            keccak256(abi.encodePacked("defaultURI://")));
+        assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == keccak256(abi.encodePacked("defaultURI://")));
 
         assert(proxy.balanceOf(bob) == 1);
         assert(proxy.ownerOf(1) == bob);
@@ -119,14 +109,13 @@ contract CollectorsChoiceTest is Test {
         emit URIChanged(bob, 1, "doppelgangURI1://");
         CollectorsChoice(payable(address(proxy))).changeURI(1, 1);
 
-        assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == 
-            keccak256(abi.encodePacked("doppelgangURI1://")));
+        assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == keccak256(abi.encodePacked("doppelgangURI1://")));
     }
 
     function test_changeURI_fail_unauthorized() public {
         string[] memory uris = new string[](1);
         uris[0] = "doppelgangURI1://";
-        
+
         vm.startPrank(alice);
         proxy.mint(bob, "berries and cream");
         CollectorsChoice(payable(address(proxy))).addNewURIs(uris);
@@ -136,8 +125,7 @@ contract CollectorsChoiceTest is Test {
         vm.expectRevert(Unauthorized.selector);
         CollectorsChoice(payable(address(proxy))).changeURI(1, 1);
 
-        assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == 
-            keccak256(abi.encodePacked("defaultURI://")));
+        assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == keccak256(abi.encodePacked("defaultURI://")));
     }
 
     function test_changeURI_fail_metadata_doesnt_exist() public {
@@ -149,8 +137,7 @@ contract CollectorsChoiceTest is Test {
         vm.expectRevert(abi.encodeWithSelector(MetadataSelectionDoesNotExist.selector, 1));
         CollectorsChoice(payable(address(proxy))).changeURI(1, 1);
 
-        assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == 
-            keccak256(abi.encodePacked("defaultURI://")));
+        assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == keccak256(abi.encodePacked("defaultURI://")));
     }
 
     function test_changeURI_fail_metadata_token_doesnt_exist() public {
@@ -179,8 +166,7 @@ contract CollectorsChoiceTest is Test {
         emit URIChanged(bob, 1, "doppelgangURI1://");
         CollectorsChoice(payable(address(proxy))).changeURI(1, 1);
 
-        assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == 
-            keccak256(abi.encodePacked("doppelgangURI1://")));
+        assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == keccak256(abi.encodePacked("doppelgangURI1://")));
 
         vm.warp(block.timestamp + 501);
         vm.prank(bob);
@@ -196,7 +182,7 @@ contract CollectorsChoiceTest is Test {
         proxy.mint(bob, "berries and cream");
         CollectorsChoice(payable(address(proxy))).setCutoff(block.timestamp + 500);
         CollectorsChoice(payable(address(proxy))).addNewURIs(uris);
-        
+
         vm.expectRevert();
         CollectorsChoice(payable(address(proxy))).setCutoff(block.timestamp + 200);
         vm.stopPrank();

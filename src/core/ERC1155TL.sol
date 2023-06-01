@@ -55,7 +55,7 @@ error BurnZeroTokens();
 ///      - BlockList
 ///      - individual token royalties
 /// @author transientlabs.xyz
-/// @custom:version 2.2.0
+/// @custom:version 2.3.0
 contract ERC1155TL is
     ERC1155Upgradeable,
     EIP2981TLUpgradeable,
@@ -77,7 +77,7 @@ contract ERC1155TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "2.2.0";
+    string public constant VERSION = "2.3.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter;
@@ -177,12 +177,15 @@ contract ERC1155TL is
     /// @param amounts: the amount of the new token to mint to each address
     /// @param royaltyAddress: royalty payout address for the created token
     /// @param royaltyPercent: royalty percentage for this token
-    function createToken(string calldata newUri, address[] calldata addresses, uint256[] calldata amounts, address royaltyAddress, uint256 royaltyPercent)
-        external
-        onlyRoleOrOwner(ADMIN_ROLE)
-    {
-       uint256 tokenId =  _createToken(newUri, addresses, amounts);
-       _overrideTokenRoyaltyInfo(tokenId, royaltyAddress, royaltyPercent);
+    function createToken(
+        string calldata newUri,
+        address[] calldata addresses,
+        uint256[] calldata amounts,
+        address royaltyAddress,
+        uint256 royaltyPercent
+    ) external onlyRoleOrOwner(ADMIN_ROLE) {
+        uint256 tokenId = _createToken(newUri, addresses, amounts);
+        _overrideTokenRoyaltyInfo(tokenId, royaltyAddress, royaltyPercent);
     }
 
     /// @notice function to batch create tokens that can be minted to creator or airdropped
@@ -208,10 +211,13 @@ contract ERC1155TL is
     /// @param amounts: 2d dynamic array holding the amounts of the new tokens to mint to each address
     /// @param royaltyAddresses: royalty payout addresses for the tokens
     /// @param royaltyPercents: royalty payout percents for the tokens
-    function batchCreateToken(string[] calldata newUris, address[][] calldata addresses, uint256[][] calldata amounts, address[] calldata royaltyAddresses, uint256[] calldata royaltyPercents)
-        external
-        onlyRoleOrOwner(ADMIN_ROLE)
-    {
+    function batchCreateToken(
+        string[] calldata newUris,
+        address[][] calldata addresses,
+        uint256[][] calldata amounts,
+        address[] calldata royaltyAddresses,
+        uint256[] calldata royaltyPercents
+    ) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (newUris.length == 0) revert EmptyTokenURI();
         for (uint256 i = 0; i < newUris.length; i++) {
             uint256 tokenId = _createToken(newUris[i], addresses[i], amounts[i]);
@@ -224,7 +230,10 @@ contract ERC1155TL is
     /// @param addresses: the addresses to mint the new token to
     /// @param amounts: the amount of the new token to mint to each address
     /// @return _counter: token id created
-    function _createToken(string memory newUri, address[] memory addresses, uint256[] memory amounts) private returns(uint256) {
+    function _createToken(string memory newUri, address[] memory addresses, uint256[] memory amounts)
+        private
+        returns (uint256)
+    {
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
         if (addresses.length == 0) revert MintToZeroAddresses();
         if (addresses.length != amounts.length) revert ArrayLengthMismatch();

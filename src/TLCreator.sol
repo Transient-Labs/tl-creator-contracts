@@ -4,16 +4,15 @@ pragma solidity 0.8.19;
 import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 
 /*//////////////////////////////////////////////////////////////////////////
-                            TLCoreCreator
+                            TLCreator
 //////////////////////////////////////////////////////////////////////////*/
 
-/// @title TLCoreCreator.sol
+/// @title TLCreator.sol
 /// @notice Transient Labs Core Creator Contract
 /// @dev this works for either ERC721TL or ERC1155TL contracts, just need to change the implementation
 /// @author transientlabs.xyz
-/// @custom:version 2.2.0
+/// @custom:version 2.3.0
 contract TLCreator is ERC1967Proxy {
-
     /// @param name: the name of the contract
     /// @param symbol: the symbol of the contract
     /// @param defaultRoyaltyRecipient: the default address for royalty payments
