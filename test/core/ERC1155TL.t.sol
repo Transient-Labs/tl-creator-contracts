@@ -12,7 +12,7 @@ import {
     TokenDoesntExist,
     BurnZeroTokens,
     CallerNotApprovedOrOwner
-} from "../src/core/ERC1155TL.sol";
+} from "tl-creator-contracts/core/ERC1155TL.sol";
 import {NotRoleOrOwner, NotSpecifiedRole} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {BlockListRegistry} from "tl-blocklist/BlockListRegistry.sol";
 

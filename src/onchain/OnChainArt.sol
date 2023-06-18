@@ -22,7 +22,7 @@ contract OnChainArt is ERC1967Proxy {
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
     //////////////////////////////////////////////////////////////////////////*/
-    
+
     // bytes32(uint256(keccak256('erc721.tl.onchain')) - 1);
     bytes32 public constant METADATA_STORAGE_SLOT = 0xaa722c9862d77ef84ead3759e5fa0d850912eaa701dffd53d5d94ed98406237c;
 
