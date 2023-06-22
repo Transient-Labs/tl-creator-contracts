@@ -2,8 +2,8 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {ERC721TL} from "tl-creator/core/ERC721TL.sol";
-import {OnChainArt} from "tl-creator/onchain/OnChainArt.sol";
+import {ERC721TL} from "tl-creator-contracts/core/ERC721TL.sol";
+import {OnChainArt} from "tl-creator-contracts/onchain/OnChainArt.sol";
 
 contract OnChainArtTest is Test {
     OnChainArt oca;
@@ -25,7 +25,7 @@ contract OnChainArtTest is Test {
     );
     }
 
-    function test_mint() public {
+    function testMint() public {
         string memory path = "test/utils/metadata.txt";
         string memory metadata = vm.readFile(path);
 

@@ -13,10 +13,10 @@ import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 //////////////////////////////////////////////////////////////////////////*/
 
 /// @title Doppelganger.sol
-/// @notice contract where each owner can set their metadata from an array of choices
+/// @notice contract where each owner can set their metadata from an array of choices that is set at the contract level
 /// @dev this works for only ERC721TL contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
-/// @custom:version 2.3.0
+/// @custom:version 2.4.0
 contract Doppelganger is ERC1967Proxy {
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
@@ -31,11 +31,11 @@ contract Doppelganger is ERC1967Proxy {
                                     Events
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice Event emitted when a new doppelganger is added.
-    event NewDoppelgangerAdded(address indexed sender, string newUri, uint256 index);
+    /// @notice Event emitted when a new doppelganger is added
+    event NewURIAdded(address indexed sender, string newUri, uint256 index);
 
-    /// @notice Event emitted when a uri is cloned
-    event Cloned(address indexed sender, uint256 tokenId, string newUri);
+    /// @notice Event emitted when a uri is changed
+    event URIChanged(address indexed sender, uint256 tokenId, string newUri);
 
     /*//////////////////////////////////////////////////////////////////////////
                                     Errors
@@ -50,7 +50,7 @@ contract Doppelganger is ERC1967Proxy {
     //////////////////////////////////////////////////////////////////////////*/
 
     struct DoppelgangerStorage {
-        mapping(uint256 => uint256) dopplegangTokens;
+        mapping(uint256 => uint256) tokens;
         string[] uris;
     }
 
@@ -97,7 +97,10 @@ contract Doppelganger is ERC1967Proxy {
                                 Admin Write Functions
     //////////////////////////////////////////////////////////////////////////*/
 
-    function addDoppelgangers(string[] calldata _newDoppelgangers) external {
+    /// @notice function to add URIs to the URI array
+    /// @dev requires contract admin or owner
+    /// @param _newURIs: string array of URIs
+    function addNewURIs(string[] calldata _newURIs) external {
         if (
             msg.sender != OwnableAccessControlUpgradeable(address(this)).owner()
                 && !OwnableAccessControlUpgradeable(address(this)).hasRole(ADMIN_ROLE, msg.sender)
@@ -111,10 +114,10 @@ contract Doppelganger is ERC1967Proxy {
             store.slot := METADATA_STORAGE_SLOT
         }
 
-        for (uint256 i = 0; i < _newDoppelgangers.length; i++) {
-            store.uris.push(_newDoppelgangers[i]);
+        for (uint256 i = 0; i < _newURIs.length; i++) {
+            store.uris.push(_newURIs[i]);
 
-            emit NewDoppelgangerAdded(msg.sender, _newDoppelgangers[i], store.uris.length);
+            emit NewURIAdded(msg.sender, _newURIs[i], store.uris.length);
         }
     }
 
@@ -122,7 +125,12 @@ contract Doppelganger is ERC1967Proxy {
                                 Public Write Functions
     //////////////////////////////////////////////////////////////////////////*/
 
-    function doppelgang(uint256 tokenId, uint256 tokenUriIndex) external {
+    /// @notice function for token owners to change URI for their token
+    /// @dev requires msg.sender is the owner of tokenId
+    /// @dev cannot change the URI after the uri change cutoff timestamp
+    /// @param tokenId: token id of the token to change the URI for
+    /// @param tokenUriIndex: index in the the array of the URI to point the token to
+    function changeURI(uint256 tokenId, uint256 tokenUriIndex) external {
         if (IERC721(address(this)).ownerOf(tokenId) != msg.sender) revert Unauthorized();
 
         DoppelgangerStorage storage store;
@@ -133,15 +141,16 @@ contract Doppelganger is ERC1967Proxy {
 
         if (tokenUriIndex >= store.uris.length) revert MetadataSelectionDoesNotExist(tokenUriIndex);
 
-        store.dopplegangTokens[tokenId] = tokenUriIndex;
+        store.tokens[tokenId] = tokenUriIndex;
 
-        emit Cloned(msg.sender, tokenId, store.uris[tokenUriIndex]);
+        emit URIChanged(msg.sender, tokenId, store.uris[tokenUriIndex]);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 External View Functions
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @notice function to override the ERC-721 tokenURI function
     function tokenURI(uint256 tokenId) external view returns (string memory) {
         IERC721(address(this)).ownerOf(tokenId);
 
@@ -151,12 +160,14 @@ contract Doppelganger is ERC1967Proxy {
             store.slot := METADATA_STORAGE_SLOT
         }
 
-        uint256 uri_index = store.dopplegangTokens[tokenId];
+        uint256 uri_index = store.tokens[tokenId];
 
         return store.uris[uri_index];
     }
 
-    function numDoppelgangerURIs() external view returns (uint256) {
+    /// @notice function to return how many URIs are on the contract
+    /// @return uint256 with that number
+    function numURIs() external view returns (uint256) {
         DoppelgangerStorage storage store;
 
         assembly {
@@ -166,7 +177,9 @@ contract Doppelganger is ERC1967Proxy {
         return store.uris.length;
     }
 
-    function viewDoppelgangerOptions() external view returns (string[] memory) {
+    /// @notice function to get an array of all available URIs on the contract
+    /// @return string array of URIs
+    function viewURIOptions() external view returns (string[] memory) {
         DoppelgangerStorage storage store;
 
         assembly {

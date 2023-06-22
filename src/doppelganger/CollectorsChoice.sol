@@ -13,10 +13,10 @@ import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 //////////////////////////////////////////////////////////////////////////*/
 
 /// @title CollectorsChoice.sol
-/// @notice the doppelganger contract with a twist where the ability to doppelgang is locked after a time period
+/// @notice the doppelganger contract with a twist where the ability to change URIs is locked after a time period
 /// @dev this works for only ERC721TL contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
-/// @custom:version 2.3.0
+/// @custom:version 2.4.0
 contract CollectorsChoice is ERC1967Proxy {
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
@@ -31,10 +31,10 @@ contract CollectorsChoice is ERC1967Proxy {
                                     Events
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice Event emitted when a new URI is added.
+    /// @notice Event emitted when a new URI is added
     event NewURIAdded(address indexed sender, string newUri, uint256 index);
 
-    /// @notice Event emitted when a uri is cloned
+    /// @notice Event emitted when a uri is changed
     event URIChanged(address indexed sender, uint256 tokenId, string newUri);
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -98,6 +98,9 @@ contract CollectorsChoice is ERC1967Proxy {
                                 Admin Write Functions
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @notice function to add URIs to the URI array
+    /// @dev requires contract admin or owner
+    /// @param _newURIs: string array of URIs
     function addNewURIs(string[] calldata _newURIs) external {
         if (
             msg.sender != OwnableAccessControlUpgradeable(address(this)).owner()
@@ -119,6 +122,10 @@ contract CollectorsChoice is ERC1967Proxy {
         }
     }
 
+    /// @notice function to set the cutoff timestamp after which token URIs cannot be changed
+    /// @dev requires contract admin or owner
+    /// @dev cannot be set more than once
+    /// @param _cutoffDatetime: timestamp in seconds after which the owners of the tokens cannot change URI
     function setCutoff(uint256 _cutoffDatetime) external {
         if (
             msg.sender != OwnableAccessControlUpgradeable(address(this)).owner()
@@ -142,6 +149,11 @@ contract CollectorsChoice is ERC1967Proxy {
                                 Public Write Functions
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @notice function for token owners to change URI for their token
+    /// @dev requires msg.sender is the owner of tokenId
+    /// @dev cannot change the URI after the uri change cutoff timestamp
+    /// @param tokenId: token id of the token to change the URI for
+    /// @param tokenUriIndex: index in the the array of the URI to point the token to
     function changeURI(uint256 tokenId, uint256 tokenUriIndex) external {
         if (IERC721(address(this)).ownerOf(tokenId) != msg.sender) revert Unauthorized();
 
@@ -153,7 +165,7 @@ contract CollectorsChoice is ERC1967Proxy {
 
         if (tokenUriIndex >= store.uris.length) revert MetadataSelectionDoesNotExist(tokenUriIndex);
 
-        if (store.uriChangeCutoff != 0 && store.uriChangeCutoff < block.timestamp) revert Unauthorized();
+        if (store.uriChangeCutoff != 0 && block.timestamp > store.uriChangeCutoff) revert Unauthorized();
 
         store.tokens[tokenId] = tokenUriIndex;
 
@@ -164,6 +176,7 @@ contract CollectorsChoice is ERC1967Proxy {
                                 External View Functions
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @notice function to override the ERC-721 tokenURI function
     function tokenURI(uint256 tokenId) external view returns (string memory) {
         IERC721(address(this)).ownerOf(tokenId);
 
@@ -178,6 +191,8 @@ contract CollectorsChoice is ERC1967Proxy {
         return store.uris[uri_index];
     }
 
+    /// @notice function to return how many URIs are on the contract
+    /// @return uint256 with that number
     function numURIs() external view returns (uint256) {
         CollectorsChoiceStorage storage store;
 
@@ -188,6 +203,8 @@ contract CollectorsChoice is ERC1967Proxy {
         return store.uris.length;
     }
 
+    /// @notice function to get the uri change cutoff timestamp
+    /// @return uint256 with that timestamp
     function getCutoff() external view returns (uint256) {
         CollectorsChoiceStorage storage store;
 
@@ -198,6 +215,8 @@ contract CollectorsChoice is ERC1967Proxy {
         return store.uriChangeCutoff;
     }
 
+    /// @notice function to get an array of all available URIs on the contract
+    /// @return string array of URIs
     function viewURIOptions() external view returns (string[] memory) {
         CollectorsChoiceStorage storage store;
 

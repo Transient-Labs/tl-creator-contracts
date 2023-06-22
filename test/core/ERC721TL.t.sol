@@ -14,7 +14,7 @@ import {
     CallerNotApprovedOrOwner,
     CallerNotTokenOwner,
     NoTokenUriUpdateAvailable
-} from "../src/core/ERC721TL.sol";
+} from "tl-creator-contracts/core/ERC721TL.sol";
 import {NotRoleOrOwner, NotSpecifiedRole} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {BlockListRegistry} from "tl-blocklist/BlockListRegistry.sol";
 
@@ -1216,6 +1216,7 @@ contract ERC721TLUnitTest is Test {
         vm.assume(collector != address(0));
         vm.assume(collector != operator);
         vm.assume(operator != address(0));
+        vm.assume(operator.code.length == 0);
         if (tokenId > 1000) {
             tokenId = tokenId % 1000 + 1;
         }
