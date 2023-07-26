@@ -217,9 +217,8 @@ contract ERC721TL is
         _mint(recipient, _counter);
     }
 
-    /// @notice function to batch mint tokens, maximum gas savings with ERC-2309
+    /// @notice function to batch mint tokens
     /// @dev requires owner or admin
-    /// @dev uses ERC-2309. BEWARE may not be compatible with all platforms
     /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
     /// @param numTokens: number of tokens in the batch mint
     /// @param baseUri: the base uri for the batch, expecting json to be in order and starting at 0
@@ -240,19 +239,21 @@ contract ERC721TL is
 
         __unsafe_increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
 
-        emit ConsecutiveTransfer(start, end, address(0), recipient);
+        for (uint256 id = start; id < end + 1; ++id) {
+            emit Transfer(address(0), recipient, id);
+        }
     }
 
-    /// @notice function to batch mint tokens in a manner compatible with all platforms
+    /// @notice function to batch mint tokens, ultra gas savings with ERC-2309
     /// @dev requires owner or admin
-    /// @dev does NOT use ERC-2309 for maximum web2 compatibility
+    /// @dev uses ERC-2309. BEWARE may not be compatible with all platforms
     /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
     /// @param numTokens: number of tokens in the batch mint
     /// @param baseUri: the base uri for the batch, expecting json to be in order and starting at 0
     ///                 NOTE: this folder should have the same number of json files in it as numTokens
     ///                 NOTE: files should be named without any file extension
     ///                 NOTE: baseUri should NOT have a trailing `/`
-    function safeBatchMint(address recipient, uint256 numTokens, string calldata baseUri)
+    function batchMintUltra(address recipient, uint256 numTokens, string calldata baseUri)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -266,9 +267,7 @@ contract ERC721TL is
 
         __unsafe_increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
 
-        for (uint256 id = start; id < end + 1; ++id) {
-            emit Transfer(address(0), recipient, id);
-        }
+        emit ConsecutiveTransfer(start, end, address(0), recipient);
     }
 
     /// @notice function to airdrop tokens to addresses

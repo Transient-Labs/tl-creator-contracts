@@ -5,6 +5,7 @@ import {Initializable} from "openzeppelin-upgradeable/proxy/utils/Initializable.
 import {ERC721Upgradeable, ERC165Upgradeable} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {StringsUpgradeable} from "openzeppelin-upgradeable/utils/StringsUpgradeable.sol";
+import {IERC2309Upgradeable} from "openzeppelin-upgradeable/interfaces/IERC2309Upgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {StoryContractUpgradeable} from "tl-story/upgradeable/StoryContractUpgradeable.sol";
 import {BlockListUpgradeable} from "tl-blocklist/BlockListUpgradeable.sol";
@@ -62,6 +63,7 @@ contract Shatter is
     OwnableAccessControlUpgradeable,
     StoryContractUpgradeable,
     BlockListUpgradeable,
+    IERC2309Upgradeable,
     IShatter
 {
     /*//////////////////////////////////////////////////////////////////////////
@@ -213,7 +215,31 @@ contract Shatter is
 
         if (numShatters > 1) {
             _burn(0);
-            _batchMint(msg.sender, numShatters);
+            _batchMint(msg.sender, numShatters, false);
+            emit Shattered(msg.sender, numShatters, block.timestamp);
+        } else {
+            isFused = true;
+            emit Shattered(msg.sender, numShatters, block.timestamp);
+            emit Fused(msg.sender, block.timestamp);
+        }
+        // no reentrancy so can set these after burning and minting
+        // needs to be called here since _burn relies on ownership check
+        isShattered = true;
+        shatters = numShatters;
+    }
+
+    /// @notice function to shatter using ERC-2309
+    /// @dev same requirements as `shatter` in {IShatter}
+    /// @dev uses ERC-2309. BEWARE - this may not be supported by all platforms.
+    function shatterUltra(uint256 numShatters) external {
+        if (isShattered) revert IsShattered();
+        if (msg.sender != ownerOf(0)) revert CallerNotTokenOwner();
+        if (numShatters < minShatters || numShatters > maxShatters) revert InvalidNumShatters();
+        if (block.timestamp < shatterTime) revert CallPriorToShatterTime();
+
+        if (numShatters > 1) {
+            _burn(0);
+            _batchMint(msg.sender, numShatters, true);
             emit Shattered(msg.sender, numShatters, block.timestamp);
         } else {
             isFused = true;
@@ -251,12 +277,17 @@ contract Shatter is
     /// @dev does not check if the recipient ifs the zero address or can receive ERC-721 tokens
     /// @param recipient: address to receive the tokens
     /// @param quantity: amount of tokens to batch mint
-    function _batchMint(address recipient, uint256 quantity) internal {
+    /// @param ultra: bool specifying to use ERC-2309 or the regular `Transfer` event
+    function _batchMint(address recipient, uint256 quantity, bool ultra) internal {
         _shatterAddress = recipient;
         __unsafe_increaseBalance(_shatterAddress, quantity);
         
-        for (uint256 id = 1; id < quantity + 1; ++id) {
-            emit Transfer(address(0), recipient, id);
+        if (ultra) {
+            emit ConsecutiveTransfer(1, quantity, address(0), recipient);
+        } else {
+            for (uint256 id = 1; id < quantity + 1; ++id) {
+                emit Transfer(address(0), recipient, id);
+            }
         }
     }
 

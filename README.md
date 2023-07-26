@@ -38,9 +38,9 @@ Allows creators to airdrop tokens to a list of addresses.
 ### Batch Minting
 Allows creators to cheaply batch mint tokens to their wallet. 
 
-Uses ERC-2309 on the regular `batchMint` function and we have included a `safeBatchMint` function that loops and emits `Transfer` events for use if the target platform does not listen to the `ConsecutiveTransfer` event from [ERC-2309](https://eips.ethereum.org/EIPS/eip-2309). 
+Uses the standard `Transfer` event on the `batchMint` function and is the recommended function to use. We have included a `batchMintUltra` function that uses the `ConsecutiveTransfer` event from [ERC-2309](https://eips.ethereum.org/EIPS/eip-2309) if the target platform listens for that event. This additional function may result in some platforms not showing the batch minted NFTs until after they have been transferred to another address.
 
-Testing shows this is market leading: [view here](https://docs.transientlabs.xyz/creator-contracts/ERC721TL)
+Testing shows our implementation is market leading: [view here](https://docs.transientlabs.xyz/creator-contracts/ERC721TL)
 
 ## Proxy Deployments
 We use immutable ERC-1967 proxies for creators to deploy contracts in a cheap and immutable way while being able to customize aspects like contract name (in source code) and ASCII art/personalization.
@@ -57,6 +57,8 @@ Fully on-chain NFT implementation that is a proxy that utilizes `ERC721TL` under
 
 ## Shatter Features
 Allows a 1/1 token to be shattered into many tokens, that can either be an edition or more 1/1 tokens. Later, all the tokens can be fused back into the 1/1 if the tokens are all owned by the same address.
+
+The regular `shatter` function uses the regular `Transfer` events. If the user knows their target platform listens to ERC-2309, `shatterUltra` uses the `ConsecutiveTransfer` event.
 
 Shares many similar features to `ERC721TL` like AccessControl, Story, BlockList, and Synergy.
 
