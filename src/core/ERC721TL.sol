@@ -104,11 +104,6 @@ contract ERC721TL is
                                 Events
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev This event is for consecutive transfers per EIP-2309
-    event ConsecutiveTransfer(
-        uint256 indexed fromTokenId, uint256 toTokenId, address indexed fromAddress, address indexed toAddress
-    );
-
     /// @dev This event emits when the metadata of a token is changed
     ///      so that the third-party platforms such as NFT market can
     ///      timely update the images and related attributes of the NFT.
@@ -227,7 +222,7 @@ contract ERC721TL is
     /// @param baseUri: the base uri for the batch, expecting json to be in order and starting at 0
     ///                 NOTE: this folder should have the same number of json files in it as numTokens
     ///                 NOTE: files should be named without any file extension
-    ///                 NOTE: baseUri should not have a trailing `/`
+    ///                 NOTE: baseUri should NOT have a trailing `/`
     function batchMint(address recipient, uint256 numTokens, string calldata baseUri)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
@@ -242,7 +237,9 @@ contract ERC721TL is
 
         __unsafe_increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
 
-        emit ConsecutiveTransfer(start, end, address(0), recipient);
+        for (uint256 id = start; id < end + 1; ++id) {
+            emit Transfer(address(0), recipient, id);
+        }
     }
 
     /// @notice function to airdrop tokens to addresses

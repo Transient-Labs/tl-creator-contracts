@@ -28,9 +28,6 @@ contract ERC721TLUnitTest is Test {
     event RoleChange(address indexed from, address indexed user, bool indexed approved, bytes32 role);
     event BlockListRegistryUpdated(address indexed caller, address indexed oldRegistry, address indexed newRegistry);
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
-    event ConsecutiveTransfer(
-        uint256 indexed fromTokenId, uint256 toTokenId, address indexed fromAddress, address indexed toAddress
-    );
     event MetadataUpdate(uint256 tokenId);
     event SynergyStatusChange(
         address indexed from, uint256 indexed tokenId, ERC721TL.SynergyAction indexed action, string uri
@@ -262,6 +259,8 @@ contract ERC721TLUnitTest is Test {
         vm.assume(recipient != address(0));
         vm.assume(secondRecipient != address(0));
         vm.assume(recipient != secondRecipient);
+        vm.assume(recipient.code.length == 0);
+        vm.assume(secondRecipient.code.length == 0);
         vm.assume(tokenId != 0);
         if (tokenId > 1000) {
             tokenId = tokenId % 1000 + 1; // map to 1000
@@ -323,8 +322,10 @@ contract ERC721TLUnitTest is Test {
         vm.startPrank(user, user);
         uint256 start = tokenContract.totalSupply() + 1;
         uint256 end = start + 1;
-        vm.expectEmit(true, true, true, true);
-        emit ConsecutiveTransfer(start, end, address(0), address(this));
+        for (uint256 id = start; id < end + 1; ++id) {
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(address(0), address(this), id);
+        }
         tokenContract.batchMint(address(this), 2, "baseUri");
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(address(this)), 2);
@@ -363,8 +364,10 @@ contract ERC721TLUnitTest is Test {
         }
         uint256 start = tokenContract.totalSupply() + 1;
         uint256 end = start + numTokens - 1;
-        vm.expectEmit(true, true, true, true);
-        emit ConsecutiveTransfer(start, end, address(0), recipient);
+        for (uint256 id = start; id < end + 1; ++id) {
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(address(0), recipient, id);
+        }
         tokenContract.batchMint(recipient, numTokens, "baseUri");
         assertEq(tokenContract.balanceOf(recipient), numTokens);
         for (uint256 i = 1; i <= numTokens; i++) {
@@ -378,6 +381,8 @@ contract ERC721TLUnitTest is Test {
         vm.assume(recipient != address(0));
         vm.assume(secondRecipient != address(0));
         vm.assume(recipient != secondRecipient);
+        vm.assume(recipient.code.length == 0);
+        vm.assume(secondRecipient.code.length == 0);
         vm.assume(numTokens > 1);
         if (numTokens > 1000) {
             numTokens = numTokens % 1000 + 2; // map to 1000
@@ -516,6 +521,7 @@ contract ERC721TLUnitTest is Test {
     function testAirdropTransfers(uint16 numAddresses, address recipient) public {
         vm.assume(numAddresses > 1);
         vm.assume(recipient != address(0));
+        vm.assume(recipient.code.length == 0);
         if (numAddresses > 1000) {
             numAddresses = numAddresses % 299 + 2; // map to 300
         }
@@ -648,6 +654,7 @@ contract ERC721TLUnitTest is Test {
         vm.assume(recipient != address(1));
         vm.assume(transferRecipient != address(0));
         vm.assume(transferRecipient != address(1));
+        vm.assume(transferRecipient.code.length == 0);
         vm.assume(bytes(uri).length > 0);
         vm.assume(numTokens > 0);
         if (numTokens > 1000) {
@@ -1217,6 +1224,7 @@ contract ERC721TLUnitTest is Test {
         vm.assume(collector != operator);
         vm.assume(operator != address(0));
         vm.assume(operator.code.length == 0);
+        vm.assume(collector.code.length == 0);
         if (tokenId > 1000) {
             tokenId = tokenId % 1000 + 1;
         }

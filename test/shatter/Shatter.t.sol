@@ -17,11 +17,10 @@ import {
     TokenDoesntExist
 } from "tl-creator-contracts/shatter/Shatter.sol";
 import {IShatter} from "tl-creator-contracts/shatter/IShatter.sol";
-import {IERC2309Upgradeable} from "openzeppelin-upgradeable/interfaces/IERC2309Upgradeable.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {BlockListRegistry} from "tl-blocklist/BlockListRegistry.sol";
 
-contract ShatterUnitTest is IERC2309Upgradeable, Test {
+contract ShatterUnitTest is Test {
     event Shattered(address indexed user, uint256 indexed numShatters, uint256 indexed shatteredTime);
     event Fused(address indexed user, uint256 indexed fuseTime);
     event Transfer(address indexed _from, address indexed _to, uint256 indexed _tokenId);
@@ -113,8 +112,10 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
             vm.expectEmit(true, true, true, true);
             emit Transfer(recipient, address(0), 0);
             // batch mint event
-            vm.expectEmit(true, true, true, true);
-            emit ConsecutiveTransfer(1, numShatters, address(0), recipient);
+            for (uint256 id = 1; id < numShatters + 1; ++id) {
+                vm.expectEmit(true, true, true, false);
+                emit Transfer(address(0), recipient, id);
+            }
             // shatter event
             vm.expectEmit(true, true, true, true);
             emit Shattered(recipient, numShatters, block.timestamp);

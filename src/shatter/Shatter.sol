@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import {Initializable} from "openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 import {ERC721Upgradeable, ERC165Upgradeable} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {IERC2309Upgradeable} from "openzeppelin-upgradeable/interfaces/IERC2309Upgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {StringsUpgradeable} from "openzeppelin-upgradeable/utils/StringsUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
@@ -63,7 +62,6 @@ contract Shatter is
     OwnableAccessControlUpgradeable,
     StoryContractUpgradeable,
     BlockListUpgradeable,
-    IERC2309Upgradeable,
     IShatter
 {
     /*//////////////////////////////////////////////////////////////////////////
@@ -251,13 +249,15 @@ contract Shatter is
     /// @notice function to batch mint upon shatter
     /// @dev only mints tokenIds 1 -> quantity to recipient
     /// @dev does not check if the recipient ifs the zero address or can receive ERC-721 tokens
-    /// @dev emits an ERC-2309 consecutive transfer event
     /// @param recipient: address to receive the tokens
     /// @param quantity: amount of tokens to batch mint
     function _batchMint(address recipient, uint256 quantity) internal {
         _shatterAddress = recipient;
         __unsafe_increaseBalance(_shatterAddress, quantity);
-        emit ConsecutiveTransfer(1, quantity, address(0), _shatterAddress);
+        
+        for (uint256 id = 1; id < quantity + 1; ++id) {
+            emit Transfer(address(0), recipient, id);
+        }
     }
 
     /// @inheritdoc ERC721Upgradeable
