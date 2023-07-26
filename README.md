@@ -36,7 +36,7 @@ A feature that allows creators to block operators, such as marketplaces, from ge
 Allows creators to airdrop tokens to a list of addresses.
 
 ### Batch Minting
-Allows creators to cheaply batch mint tokens to their wallet. Uses EIP-2309 during mint to save gas. Testing shows this is market leading: [view here](https://docs.transientlabs.xyz/creator-contracts/ERC721TL)
+Allows creators to cheaply batch mint tokens to their wallet. Testing shows this is market leading: [view here](https://docs.transientlabs.xyz/creator-contracts/ERC721TL)
 
 ### Proxy Deployments
 We use immutable ERC-1967 proxies for creators to deploy contracts in a cheap and immutable way while being able to customize aspects like contract name (in source code) and ASCII art/personalization.

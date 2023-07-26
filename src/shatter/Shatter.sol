@@ -54,7 +54,7 @@ error TokenDoesntExist();
 /// @title Shatter
 /// @notice Shatter implementation. Turns 1/1 into a multiple sub-pieces.
 /// @author transientlabs.xyz
-/// @custom:version 2.4.0
+/// @custom:version 2.5.0
 contract Shatter is
     Initializable,
     ERC721Upgradeable,
@@ -82,7 +82,7 @@ contract Shatter is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "2.4.0";
+    string public constant VERSION = "2.5.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bool public isShattered;
     bool public isFused;
