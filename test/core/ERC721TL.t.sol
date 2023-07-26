@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
+import {IERC2309Upgradeable} from "openzeppelin-upgradeable/interfaces/IERC2309Upgradeable.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {
     ERC721TL,
@@ -18,7 +19,7 @@ import {
 import {NotRoleOrOwner, NotSpecifiedRole} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {BlockListRegistry} from "tl-blocklist/BlockListRegistry.sol";
 
-contract ERC721TLUnitTest is Test {
+contract ERC721TLUnitTest is IERC2309Upgradeable, Test {
     using Strings for uint256;
 
     ERC721TL public tokenContract;
@@ -285,7 +286,146 @@ contract ERC721TLUnitTest is Test {
         }
     }
 
-    /// @notice test batch mint
+    /// @notice test safe batch mint
+    // - access control ✅
+    // - proper recipient ✅
+    // - transfer event ✅
+    // - proper token ids ✅
+    // - ownership ✅
+    // - balance ✅
+    // - transfer to another address ✅
+    // - safe transfer to another address ✅
+    // - token uris ✅
+    function testSafeBatchMintCustomErrors() public {
+        vm.expectRevert(MintToZeroAddress.selector);
+        tokenContract.safeBatchMint(address(0), 2, "uri");
+
+        vm.expectRevert(EmptyTokenURI.selector);
+        tokenContract.safeBatchMint(address(this), 2, "");
+
+        vm.expectRevert(BatchSizeTooSmall.selector);
+        tokenContract.safeBatchMint(address(this), 1, "baseUri");
+    }
+
+    function testSafeBatchMintAccessControl(address user) public {
+        vm.assume(user != address(this));
+        vm.assume(user != address(0));
+        // ensure user can't call the mint function
+        vm.startPrank(user, user);
+        vm.expectRevert(abi.encodeWithSelector(NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        tokenContract.safeBatchMint(address(this), 2, "baseUri");
+        vm.stopPrank();
+
+        // grant admin access and ensure that the user can call the mint function
+        address[] memory admins = new address[](1);
+        admins[0] = user;
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
+        vm.startPrank(user, user);
+        uint256 start = tokenContract.totalSupply() + 1;
+        uint256 end = start + 1;
+        for (uint256 id = start; id < end + 1; ++id) {
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(address(0), address(this), id);
+        }
+        tokenContract.safeBatchMint(address(this), 2, "baseUri");
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(address(this)), 2);
+        assertEq(tokenContract.ownerOf(1), address(this));
+        assertEq(tokenContract.ownerOf(2), address(this));
+        assertEq(tokenContract.tokenURI(1), "baseUri/0");
+        assertEq(tokenContract.tokenURI(2), "baseUri/1");
+
+        // revoke admin access and ensure that the user can't call the mint function
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
+        vm.startPrank(user, user);
+        vm.expectRevert(abi.encodeWithSelector(NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        tokenContract.safeBatchMint(address(this), 2, "baseUri");
+        vm.stopPrank();
+
+        // grant mint contract role and ensure that the user can't call the mint function
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, true);
+        vm.startPrank(user, user);
+        vm.expectRevert(abi.encodeWithSelector(NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        tokenContract.safeBatchMint(address(this), 2, "baseUri");
+        vm.stopPrank();
+
+        // revoke mint contract role and ensure that the user can't call the mint function
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, false);
+        vm.startPrank(user, user);
+        vm.expectRevert(abi.encodeWithSelector(NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        tokenContract.safeBatchMint(address(this), 2, "baseUri");
+        vm.stopPrank();
+    }
+
+    function testSafeBatchMint(uint256 numTokens, address recipient) public {
+        vm.assume(numTokens > 1);
+        vm.assume(recipient != address(0));
+        if (numTokens > 1000) {
+            numTokens = numTokens % 1000 + 2; // map to 1000
+        }
+        uint256 start = tokenContract.totalSupply() + 1;
+        uint256 end = start + numTokens - 1;
+        for (uint256 id = start; id < end + 1; ++id) {
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(address(0), recipient, id);
+        }
+        tokenContract.safeBatchMint(recipient, numTokens, "baseUri");
+        assertEq(tokenContract.balanceOf(recipient), numTokens);
+        for (uint256 i = 1; i <= numTokens; i++) {
+            string memory uri = string(abi.encodePacked("baseUri/", (i - start).toString()));
+            assertEq(tokenContract.ownerOf(i), recipient);
+            assertEq(tokenContract.tokenURI(i), uri);
+        }
+    }
+
+    function testSafeBatchMintTransfers(uint256 numTokens, address recipient, address secondRecipient) public {
+        vm.assume(recipient != address(0));
+        vm.assume(secondRecipient != address(0));
+        vm.assume(recipient != secondRecipient);
+        vm.assume(recipient.code.length == 0);
+        vm.assume(secondRecipient.code.length == 0);
+        vm.assume(numTokens > 1);
+        if (numTokens > 1000) {
+            numTokens = numTokens % 1000 + 2; // map to 1000
+        }
+        tokenContract.safeBatchMint(address(this), numTokens, "baseUri");
+        // test transferFrom on first half of tokens
+        for (uint256 i = 1; i < numTokens / 2; i++) {
+            // transfer to recipient with transferFrom
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(address(this), recipient, i);
+            tokenContract.transferFrom(address(this), recipient, i);
+            assertEq(tokenContract.balanceOf(recipient), 1);
+            assertEq(tokenContract.ownerOf(i), recipient);
+            // transfer to second recipient with safeTransferFrom
+            vm.startPrank(recipient, recipient);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(recipient, secondRecipient, i);
+            tokenContract.safeTransferFrom(recipient, secondRecipient, i);
+            assertEq(tokenContract.balanceOf(secondRecipient), i);
+            assertEq(tokenContract.ownerOf(i), secondRecipient);
+            vm.stopPrank();
+        }
+        // test safeTransferFrom on second half of tokens
+        for (uint256 i = numTokens / 2; i <= numTokens; i++) {
+            // transfer to recipient with transferFrom
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(address(this), recipient, i);
+            tokenContract.safeTransferFrom(address(this), recipient, i);
+            assertEq(tokenContract.balanceOf(recipient), 1);
+            assertEq(tokenContract.ownerOf(i), recipient);
+            // transfer to second recipient with safeTransferFrom
+            vm.startPrank(recipient, recipient);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(recipient, secondRecipient, i);
+            tokenContract.safeTransferFrom(recipient, secondRecipient, i);
+            assertEq(tokenContract.balanceOf(secondRecipient), i);
+            assertEq(tokenContract.ownerOf(i), secondRecipient);
+            vm.stopPrank();
+        }
+    }
+
+    /// @notice test batch mint ultra
     // - access control ✅
     // - proper recipient ✅
     // - consectuive transfer event ✅
@@ -322,10 +462,8 @@ contract ERC721TLUnitTest is Test {
         vm.startPrank(user, user);
         uint256 start = tokenContract.totalSupply() + 1;
         uint256 end = start + 1;
-        for (uint256 id = start; id < end + 1; ++id) {
-            vm.expectEmit(true, true, true, false);
-            emit Transfer(address(0), address(this), id);
-        }
+        vm.expectEmit(true, true, true, true);
+        emit ConsecutiveTransfer(start, end, address(0), address(this));
         tokenContract.batchMint(address(this), 2, "baseUri");
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(address(this)), 2);
@@ -364,10 +502,8 @@ contract ERC721TLUnitTest is Test {
         }
         uint256 start = tokenContract.totalSupply() + 1;
         uint256 end = start + numTokens - 1;
-        for (uint256 id = start; id < end + 1; ++id) {
-            vm.expectEmit(true, true, true, false);
-            emit Transfer(address(0), recipient, id);
-        }
+        vm.expectEmit(true, true, true, true);
+        emit ConsecutiveTransfer(start, end, address(0), recipient);
         tokenContract.batchMint(recipient, numTokens, "baseUri");
         assertEq(tokenContract.balanceOf(recipient), numTokens);
         for (uint256 i = 1; i <= numTokens; i++) {
@@ -686,7 +822,7 @@ contract ERC721TLUnitTest is Test {
 
     /// @notice test mint options in a row
     // - randomly make sure that can mint in a row and that there aren't overlapping token ids ✅
-    function testMintsCombined(uint8 n1, uint8 n2, uint8 n3, uint8 n4, uint16 batchSize, uint16 numAddresses) public {
+    function testMintsCombined(uint8 n1, uint8 n2, uint8 n3, uint8 n4, uint8 n5, uint16 batchSize, uint16 numAddresses) public {
         address[] memory minters = new address[](1);
         minters[0] = address(1);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
@@ -699,10 +835,12 @@ contract ERC721TLUnitTest is Test {
         for (uint256 i = 0; i < numAddresses; i++) {
             addresses[i] = makeAddr(i.toString());
         }
-        n1 = n1 % 4;
-        n2 = n2 % 4;
-        n3 = n3 % 4;
-        n4 = n4 % 4;
+        n1 = n1 % 5;
+        n2 = n2 % 5;
+        n3 = n3 % 5;
+        n4 = n4 % 5;
+        n5 = n5 % 5;
+
 
         uint256 id = tokenContract.totalSupply();
         if (n1 == 0) {
@@ -714,6 +852,10 @@ contract ERC721TLUnitTest is Test {
             assertEq(tokenContract.totalSupply(), id + batchSize);
             id += batchSize;
         } else if (n1 == 2) {
+            tokenContract.safeBatchMint(address(this), batchSize, "uri");
+            assertEq(tokenContract.totalSupply(), id + batchSize);
+            id += batchSize;
+        } else if (n1 == 3) {
             tokenContract.airdrop(addresses, "uri");
             assertEq(tokenContract.totalSupply(), id + numAddresses);
             id += numAddresses;
@@ -734,6 +876,10 @@ contract ERC721TLUnitTest is Test {
             assertEq(tokenContract.totalSupply(), id + batchSize);
             id += batchSize;
         } else if (n2 == 2) {
+            tokenContract.safeBatchMint(address(this), batchSize, "uri");
+            assertEq(tokenContract.totalSupply(), id + batchSize);
+            id += batchSize;
+        } else if (n2 == 3) {
             tokenContract.airdrop(addresses, "uri");
             assertEq(tokenContract.totalSupply(), id + numAddresses);
             id += numAddresses;
@@ -754,6 +900,10 @@ contract ERC721TLUnitTest is Test {
             assertEq(tokenContract.totalSupply(), id + batchSize);
             id += batchSize;
         } else if (n3 == 2) {
+            tokenContract.safeBatchMint(address(this), batchSize, "uri");
+            assertEq(tokenContract.totalSupply(), id + batchSize);
+            id += batchSize;
+        } else if (n3 == 3) {
             tokenContract.airdrop(addresses, "uri");
             assertEq(tokenContract.totalSupply(), id + numAddresses);
             id += numAddresses;
@@ -774,6 +924,34 @@ contract ERC721TLUnitTest is Test {
             assertEq(tokenContract.totalSupply(), id + batchSize);
             id += batchSize;
         } else if (n4 == 2) {
+            tokenContract.safeBatchMint(address(this), batchSize, "uri");
+            assertEq(tokenContract.totalSupply(), id + batchSize);
+            id += batchSize;
+        } else if (n4 == 3) {
+            tokenContract.airdrop(addresses, "uri");
+            assertEq(tokenContract.totalSupply(), id + numAddresses);
+            id += numAddresses;
+        } else {
+            vm.startPrank(address(1), address(1));
+            tokenContract.externalMint(address(this), "uri");
+            vm.stopPrank();
+            assertEq(tokenContract.totalSupply(), id + 1);
+            id += 1;
+        }
+
+        if (n5 == 0) {
+            tokenContract.mint(address(this), "uri");
+            assertEq(tokenContract.totalSupply(), id + 1);
+            id += 1;
+        } else if (n5 == 1) {
+            tokenContract.batchMint(address(this), batchSize, "uri");
+            assertEq(tokenContract.totalSupply(), id + batchSize);
+            id += batchSize;
+        } else if (n5 == 2) {
+            tokenContract.safeBatchMint(address(this), batchSize, "uri");
+            assertEq(tokenContract.totalSupply(), id + batchSize);
+            id += batchSize;
+        } else if (n5 == 3) {
             tokenContract.airdrop(addresses, "uri");
             assertEq(tokenContract.totalSupply(), id + numAddresses);
             id += numAddresses;
@@ -974,6 +1152,74 @@ contract ERC721TLUnitTest is Test {
         }
         // mint batch again
         tokenContract.batchMint(collector, batchSize, "baseUri");
+        vm.startPrank(collector, collector);
+        tokenContract.setApprovalForAll(operator, true);
+        vm.stopPrank();
+        // verify operator can burn the batch
+        for (uint256 i = 2 * batchSize + 1; i <= 3 * batchSize; i++) {
+            vm.startPrank(collector, collector);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(collector, address(0), i);
+            tokenContract.burn(i);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(collector), 3 * batchSize - i);
+            vm.expectRevert(TokenDoesntExist.selector);
+            tokenContract.tokenURI(i);
+            vm.expectRevert();
+            tokenContract.ownerOf(i);
+        }
+    }
+
+    function testBurnSafeBatchMint(uint16 batchSize, address collector, address operator) public {
+        vm.assume(collector != address(0) && collector != operator && operator != address(0));
+        if (batchSize < 2) {
+            batchSize = 2;
+        }
+        if (batchSize > 300) {
+            batchSize = batchSize % 299 + 2;
+        }
+        // batch mint to collector
+        tokenContract.safeBatchMint(collector, batchSize, "baseUri");
+        // verify collector can burn the batch
+        for (uint256 i = 1; i <= batchSize; i++) {
+            vm.startPrank(collector, collector);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(collector, address(0), i);
+            tokenContract.burn(i);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(collector), batchSize - i);
+            vm.expectRevert(TokenDoesntExist.selector);
+            tokenContract.tokenURI(i);
+            vm.expectRevert();
+            tokenContract.ownerOf(i);
+        }
+        // batch mint again to collector
+        tokenContract.safeBatchMint(collector, batchSize, "baseUri");
+        // verify that operator can't burn
+        for (uint256 i = batchSize + 1; i <= 2 * batchSize; i++) {
+            vm.startPrank(operator, operator);
+            vm.expectRevert(CallerNotApprovedOrOwner.selector);
+            tokenContract.burn(i);
+            vm.stopPrank();
+        }
+        // grant operator rights for each token and burn
+        for (uint256 i = batchSize + 1; i <= 2 * batchSize; i++) {
+            vm.startPrank(collector, collector);
+            tokenContract.approve(operator, i);
+            vm.stopPrank();
+            vm.startPrank(collector, collector);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(collector, address(0), i);
+            tokenContract.burn(i);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(collector), 2 * batchSize - i);
+            vm.expectRevert(TokenDoesntExist.selector);
+            tokenContract.tokenURI(i);
+            vm.expectRevert();
+            tokenContract.ownerOf(i);
+        }
+        // mint batch again
+        tokenContract.safeBatchMint(collector, batchSize, "baseUri");
         vm.startPrank(collector, collector);
         tokenContract.setApprovalForAll(operator, true);
         vm.stopPrank();

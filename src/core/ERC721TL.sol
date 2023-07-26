@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import {Initializable} from "openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 import {ERC721Upgradeable, ERC165Upgradeable} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {IERC2309Upgradeable} from "openzeppelin-upgradeable/interfaces/IERC2309Upgradeable.sol";
 import {StringsUpgradeable} from "openzeppelin-upgradeable/utils/StringsUpgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
@@ -63,7 +64,8 @@ contract ERC721TL is
     EIP2981TLUpgradeable,
     OwnableAccessControlUpgradeable,
     StoryContractUpgradeable,
-    BlockListUpgradeable
+    BlockListUpgradeable,
+    IERC2309Upgradeable
 {
     /*//////////////////////////////////////////////////////////////////////////
                                 Custom Types
@@ -215,8 +217,9 @@ contract ERC721TL is
         _mint(recipient, _counter);
     }
 
-    /// @notice function to batch mint tokens
+    /// @notice function to batch mint tokens, maximum gas savings with ERC-2309
     /// @dev requires owner or admin
+    /// @dev uses ERC-2309. BEWARE may not be compatible with all platforms
     /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
     /// @param numTokens: number of tokens in the batch mint
     /// @param baseUri: the base uri for the batch, expecting json to be in order and starting at 0
@@ -224,6 +227,32 @@ contract ERC721TL is
     ///                 NOTE: files should be named without any file extension
     ///                 NOTE: baseUri should NOT have a trailing `/`
     function batchMint(address recipient, uint256 numTokens, string calldata baseUri)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
+        if (recipient == address(0)) revert MintToZeroAddress();
+        if (bytes(baseUri).length == 0) revert EmptyTokenURI();
+        if (numTokens < 2) revert BatchSizeTooSmall();
+        uint256 start = _counter + 1;
+        uint256 end = start + numTokens - 1;
+        _counter += numTokens;
+        _batchMints.push(BatchMint(recipient, start, end, baseUri));
+
+        __unsafe_increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
+
+        emit ConsecutiveTransfer(start, end, address(0), recipient);
+    }
+
+    /// @notice function to batch mint tokens in a manner compatible with all platforms
+    /// @dev requires owner or admin
+    /// @dev does NOT use ERC-2309 for maximum web2 compatibility
+    /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
+    /// @param numTokens: number of tokens in the batch mint
+    /// @param baseUri: the base uri for the batch, expecting json to be in order and starting at 0
+    ///                 NOTE: this folder should have the same number of json files in it as numTokens
+    ///                 NOTE: files should be named without any file extension
+    ///                 NOTE: baseUri should NOT have a trailing `/`
+    function safeBatchMint(address recipient, uint256 numTokens, string calldata baseUri)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
