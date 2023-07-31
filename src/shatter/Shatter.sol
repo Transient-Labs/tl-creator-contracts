@@ -155,7 +155,6 @@ contract Shatter is
         __BlockList_init(blockListRegistry);
 
         _setRole(ADMIN_ROLE, admins, true);
-
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -281,7 +280,7 @@ contract Shatter is
     function _batchMint(address recipient, uint256 quantity, bool ultra) internal {
         _shatterAddress = recipient;
         __unsafe_increaseBalance(_shatterAddress, quantity);
-        
+
         if (ultra) {
             emit ConsecutiveTransfer(1, quantity, address(0), recipient);
         } else {

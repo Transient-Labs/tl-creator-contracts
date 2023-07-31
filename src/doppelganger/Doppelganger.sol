@@ -16,7 +16,7 @@ import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 /// @notice contract where each owner can set their metadata from an array of choices that is set at the contract level
 /// @dev this works for only ERC721TL contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
-/// @custom:version 2.4.0
+/// @custom:version 2.6.0
 contract Doppelganger is ERC1967Proxy {
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
@@ -34,8 +34,8 @@ contract Doppelganger is ERC1967Proxy {
     /// @notice Event emitted when a new doppelganger is added
     event NewURIAdded(address indexed sender, string newUri, uint256 index);
 
-    /// @notice Event emitted when a uri is changed
-    event URIChanged(address indexed sender, uint256 tokenId, string newUri);
+    /// @notice ERC-4906 event for when metadata is changed
+    event MetadataUpdate(uint256 tokenId);
 
     /*//////////////////////////////////////////////////////////////////////////
                                     Errors
@@ -143,7 +143,7 @@ contract Doppelganger is ERC1967Proxy {
 
         store.tokens[tokenId] = tokenUriIndex;
 
-        emit URIChanged(msg.sender, tokenId, store.uris[tokenUriIndex]);
+        emit MetadataUpdate(tokenId);
     }
 
     /*//////////////////////////////////////////////////////////////////////////

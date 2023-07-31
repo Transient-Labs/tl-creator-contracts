@@ -25,8 +25,11 @@ update: remove install
 
 # Builds
 build:
-	forge fmt && forge clean && forge build --optimize --optimizer-runs 2000
+	forge fmt && forge clean && forge build
 
 # Tests
-tests:
-	forge test --gas-report -vvv
+quick_test:
+	forge test --fuzz-runs 512 -vvv
+
+fuzz_test:
+	forge test --fuzz-runs 10000 -vvv

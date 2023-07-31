@@ -16,7 +16,7 @@ import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 /// @notice the doppelganger contract with a twist where the ability to change URIs is locked after a time period
 /// @dev this works for only ERC721TL contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
-/// @custom:version 2.4.0
+/// @custom:version 2.6.0
 contract CollectorsChoice is ERC1967Proxy {
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
@@ -34,8 +34,8 @@ contract CollectorsChoice is ERC1967Proxy {
     /// @notice Event emitted when a new URI is added
     event NewURIAdded(address indexed sender, string newUri, uint256 index);
 
-    /// @notice Event emitted when a uri is changed
-    event URIChanged(address indexed sender, uint256 tokenId, string newUri);
+    /// @notice ERC-4906 event for when metadata is changed
+    event MetadataUpdate(uint256 tokenId);
 
     /*//////////////////////////////////////////////////////////////////////////
                                     Errors
@@ -169,7 +169,7 @@ contract CollectorsChoice is ERC1967Proxy {
 
         store.tokens[tokenId] = tokenUriIndex;
 
-        emit URIChanged(msg.sender, tokenId, store.uris[tokenUriIndex]);
+        emit MetadataUpdate(tokenId);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
