@@ -1,0 +1,21 @@
+[submodule "lib/forge-std"]
+	path = lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "lib/openzeppelin-contracts-upgradeable"]
+	path = lib/openzeppelin-contracts-upgradeable
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
+[submodule "lib/story-contract"]
+	path = lib/story-contract
+	url = https://github.com/Transient-Labs/story-contract
+[submodule "lib/tl-sol-tools"]
+	path = lib/tl-sol-tools
+	url = https://github.com/Transient-Labs/tl-sol-tools
+[submodule "lib/blocklist"]
+	path = lib/blocklist
+	url = https://github.com/Transient-Labs/blocklist
+[submodule "lib/sstore2"]
+	path = lib/sstore2
+	url = https://github.com/0xsequence/sstore2
