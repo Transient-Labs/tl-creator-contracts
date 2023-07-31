@@ -16,8 +16,8 @@ import {
     NoTokenUriUpdateAvailable,
     TokenDoesntExist
 } from "tl-creator-contracts/shatter/Shatter.sol";
-import {IShatter} from "tl-creator-contracts/shatter/IShatter.sol";
 import {IERC2309Upgradeable} from "openzeppelin-upgradeable/interfaces/IERC2309Upgradeable.sol";
+import {IShatter} from "tl-creator-contracts/shatter/IShatter.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {BlockListRegistry} from "tl-blocklist/BlockListRegistry.sol";
 
@@ -113,8 +113,10 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
             vm.expectEmit(true, true, true, true);
             emit Transfer(recipient, address(0), 0);
             // batch mint event
-            vm.expectEmit(true, true, true, true);
-            emit ConsecutiveTransfer(1, numShatters, address(0), recipient);
+            for (uint256 id = 1; id < numShatters + 1; ++id) {
+                vm.expectEmit(true, true, true, false);
+                emit Transfer(address(0), recipient, id);
+            }
             // shatter event
             vm.expectEmit(true, true, true, true);
             emit Shattered(recipient, numShatters, block.timestamp);
@@ -169,6 +171,87 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
         tokenContract.shatter(1);
     }
 
+    function testShatterUltra(address recipient, uint256 numShatters) public {
+        vm.assume(numShatters <= 100 && numShatters > 0);
+        vm.assume(recipient != address(0));
+        vm.assume(recipient != address(this));
+        vm.assume(recipient != admin);
+
+        // mint
+        tokenContract.mint(recipient, "testURI", 1, 100, block.timestamp + 7200);
+        vm.warp(block.timestamp + 7200);
+
+        // verify owner and admin can't shatter
+        vm.expectRevert(CallerNotTokenOwner.selector);
+        tokenContract.shatterUltra(numShatters);
+        vm.startPrank(admin, admin);
+        vm.expectRevert(CallerNotTokenOwner.selector);
+        tokenContract.shatterUltra(numShatters);
+        vm.stopPrank();
+
+        // test shatter
+        vm.startPrank(recipient, recipient);
+        if (numShatters > 1) {
+            // burn event
+            vm.expectEmit(true, true, true, true);
+            emit Transfer(recipient, address(0), 0);
+            // batch mint event
+            vm.expectEmit(true, true, true, true);
+            emit ConsecutiveTransfer(1, numShatters, address(0), recipient);
+            // shatter event
+            vm.expectEmit(true, true, true, true);
+            emit Shattered(recipient, numShatters, block.timestamp);
+        } else {
+            // shatter event
+            vm.expectEmit(true, true, true, true);
+            emit Shattered(recipient, numShatters, block.timestamp);
+            // fuse event
+            vm.expectEmit(true, true, true, true);
+            emit Fused(recipient, block.timestamp);
+        }
+
+        tokenContract.shatterUltra(numShatters);
+        assert(tokenContract.shatters() == numShatters);
+        assert(tokenContract.isShattered());
+        assert(tokenContract.balanceOf(recipient) == numShatters);
+
+        vm.stopPrank();
+
+        if (numShatters == 1) {
+            assert(tokenContract.ownerOf(0) == recipient);
+            assert(tokenContract.isFused());
+        } else {
+            vm.expectRevert("ERC721: invalid token ID");
+            tokenContract.ownerOf(0);
+        }
+
+        for (uint256 i = 1; i < numShatters; i++) {
+            assert(tokenContract.ownerOf(i) == recipient);
+        }
+    }
+
+    function testShatterUltraFail() public {
+        tokenContract.mint(address(this), "testURI", 1, 100, block.timestamp + 7200);
+
+        vm.expectRevert(CallPriorToShatterTime.selector);
+        tokenContract.shatterUltra(1);
+
+        vm.prank(bob);
+        vm.expectRevert(CallerNotTokenOwner.selector);
+        tokenContract.shatterUltra(1);
+
+        vm.warp(block.timestamp + 7200);
+
+        vm.expectRevert(InvalidNumShatters.selector);
+        tokenContract.shatterUltra(0);
+        vm.expectRevert(InvalidNumShatters.selector);
+        tokenContract.shatterUltra(101);
+
+        tokenContract.shatterUltra(50);
+        vm.expectRevert(IsShattered.selector);
+        tokenContract.shatterUltra(1);
+    }
+
     function testFuse(uint256 numShatters) public {
         vm.assume(numShatters <= 100 && numShatters > 1);
 
@@ -197,6 +280,55 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
         tokenContract.fuse();
 
         tokenContract.shatter(100);
+
+        assert(tokenContract.isShattered());
+        assert(!tokenContract.isFused());
+
+        tokenContract.transferFrom(address(this), address(0xbeef), 5);
+        assert(tokenContract.ownerOf(5) == address(0xbeef));
+        assert(tokenContract.balanceOf(address(0xbeef)) == 1);
+
+        vm.expectRevert(CallerDoesNotOwnAllTokens.selector);
+        tokenContract.fuse();
+
+        vm.prank(address(0xbeef));
+        tokenContract.transferFrom(address(0xbeef), address(this), 5);
+        assert(tokenContract.balanceOf(address(0xbeef)) == 0);
+
+        tokenContract.fuse();
+
+        vm.expectRevert(IsFused.selector);
+        tokenContract.fuse();
+    }
+
+    function testFuseAfterUltra(uint256 numShatters) public {
+        vm.assume(numShatters <= 100 && numShatters > 1);
+
+        // mint and shatter
+        tokenContract.mint(address(this), "testURI", 1, 100, 0);
+        tokenContract.shatterUltra(numShatters);
+
+        assert(tokenContract.isShattered());
+        assert(!tokenContract.isFused());
+        
+        for (uint256 i = 0; i < numShatters; i++) {
+            vm.expectEmit(true, true, true, true);
+            emit Transfer(address(this), address(0), i + 1);
+        }
+
+        vm.expectEmit(true, true, true, true);
+        emit Fused(address(this), block.timestamp);
+
+        tokenContract.fuse();
+    }
+
+    function testFuseAfterUltraFail() public {
+        tokenContract.mint(address(this), "testURI", 1, 100, 0);
+
+        vm.expectRevert(NotShattered.selector);
+        tokenContract.fuse();
+
+        tokenContract.shatterUltra(100);
 
         assert(tokenContract.isShattered());
         assert(!tokenContract.isFused());
