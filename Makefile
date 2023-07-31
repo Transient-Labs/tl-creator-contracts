@@ -29,7 +29,7 @@ build:
 
 # Tests
 quick_test:
-	forge test --fuzz-runs 512 -vvv
+	forge test --fuzz-runs 512
 
 fuzz_test:
-	forge test --fuzz-runs 10000 -vvv
+	forge test --fuzz-runs 10000
