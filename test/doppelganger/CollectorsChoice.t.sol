@@ -8,7 +8,7 @@ import {CollectorsChoice} from "tl-creator-contracts/doppelganger/CollectorsChoi
 contract CollectorsChoiceTest is Test {
     event NewURIAdded(address indexed sender, string newUri, uint256 index);
 
-    event URIChanged(address indexed sender, uint256 tokenId, string newUri);
+    event MetadataUpdate(uint256 tokenId);
 
     error Unauthorized();
 
@@ -106,7 +106,7 @@ contract CollectorsChoiceTest is Test {
 
         vm.prank(bob);
         vm.expectEmit(true, false, false, false);
-        emit URIChanged(bob, 1, "doppelgangURI1://");
+        emit MetadataUpdate(1);
         CollectorsChoice(payable(address(proxy))).changeURI(1, 1);
 
         assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == keccak256(abi.encodePacked("doppelgangURI1://")));
@@ -163,7 +163,7 @@ contract CollectorsChoiceTest is Test {
 
         vm.prank(bob);
         vm.expectEmit(true, false, false, false);
-        emit URIChanged(bob, 1, "doppelgangURI1://");
+        emit MetadataUpdate(1);
         CollectorsChoice(payable(address(proxy))).changeURI(1, 1);
 
         assert(keccak256(abi.encodePacked(proxy.tokenURI(1))) == keccak256(abi.encodePacked("doppelgangURI1://")));

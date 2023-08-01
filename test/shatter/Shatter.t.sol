@@ -26,7 +26,10 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
     event Fused(address indexed user, uint256 indexed fuseTime);
     event Transfer(address indexed _from, address indexed _to, uint256 indexed _tokenId);
     event MetadataUpdate(uint256 tokenId);
-    event SynergyStatusChange(address indexed from, uint256 indexed tokenId, Shatter.SynergyAction indexed action, string uri);
+    event SynergyStatusChange(
+        address indexed from, uint256 indexed tokenId, Shatter.SynergyAction indexed action, string uri
+    );
+
     Shatter public tokenContract;
     address public alice = address(0xcafe);
     address public bob = address(0xbeef);
@@ -261,7 +264,7 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
 
         assert(tokenContract.isShattered());
         assert(!tokenContract.isFused());
-        
+
         for (uint256 i = 0; i < numShatters; i++) {
             vm.expectEmit(true, true, true, true);
             emit Transfer(address(this), address(0), i + 1);
@@ -310,7 +313,7 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
 
         assert(tokenContract.isShattered());
         assert(!tokenContract.isFused());
-        
+
         for (uint256 i = 0; i < numShatters; i++) {
             vm.expectEmit(true, true, true, true);
             emit Transfer(address(this), address(0), i + 1);
@@ -355,7 +358,7 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
         vm.assume(numShatters <= 100 && numShatters > 1);
         vm.assume(recipient != address(0));
         vm.assume(recipient != address(this));
-        
+
         // mint and transfer
         tokenContract.mint(address(this), "tokenUri", 1, 100, 0);
         tokenContract.transferFrom(address(this), recipient, 0);
@@ -369,7 +372,7 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
         tokenContract.shatter(numShatters);
         for (uint256 i = 0; i < numShatters; i++) {
             tokenContract.transferFrom(address(this), recipient, i + 1);
-            assert(tokenContract.ownerOf(i+1) == recipient);
+            assert(tokenContract.ownerOf(i + 1) == recipient);
         }
 
         // fuse and transfer
@@ -379,7 +382,6 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
         tokenContract.transferFrom(recipient, address(this), 0);
         assert(tokenContract.ownerOf(0) == address(this));
         vm.stopPrank();
-
     }
 
     function testSetDefaultRoyalty() public {
@@ -418,7 +420,6 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
         tokenContract.setTokenRoyalty(1, admin, 1000);
     }
 
-
     function testTokenUri(uint256 numShatters) public {
         vm.assume(numShatters < 101 && numShatters > 0);
         // unminted token
@@ -433,7 +434,7 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
         tokenContract.shatter(numShatters);
         if (numShatters > 1) {
             for (uint256 i = 0; i < numShatters; i++) {
-                assertEq(tokenContract.tokenURI(i+1), string(abi.encodePacked("testUri/", (i+1).toString())));
+                assertEq(tokenContract.tokenURI(i + 1), string(abi.encodePacked("testUri/", (i + 1).toString())));
             }
         } else {
             assertEq(tokenContract.tokenURI(0), "testUri/0");
@@ -489,16 +490,16 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
 
         vm.prank(alice);
         tokenContract.shatter(numShatters);
-        for(uint256 i = 0; i < numShatters; i++) {
-            string memory uri = string(abi.encodePacked("newUri/", (i+1).toString()));
-            tokenContract.proposeNewTokenUri(i+1, uri);
+        for (uint256 i = 0; i < numShatters; i++) {
+            string memory uri = string(abi.encodePacked("newUri/", (i + 1).toString()));
+            tokenContract.proposeNewTokenUri(i + 1, uri);
             vm.prank(alice);
             vm.expectEmit(true, true, true, true);
-            emit MetadataUpdate(i+1);
+            emit MetadataUpdate(i + 1);
             vm.expectEmit(true, true, true, true);
-            emit SynergyStatusChange(alice, i+1, Shatter.SynergyAction.Accepted, uri);
-            tokenContract.acceptTokenUriUpdate(i+1);
-            assertEq(tokenContract.tokenURI(i+1), uri);
+            emit SynergyStatusChange(alice, i + 1, Shatter.SynergyAction.Accepted, uri);
+            tokenContract.acceptTokenUriUpdate(i + 1);
+            assertEq(tokenContract.tokenURI(i + 1), uri);
         }
 
         vm.prank(alice);
@@ -545,14 +546,14 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
 
         vm.prank(alice);
         tokenContract.shatter(numShatters);
-        for(uint256 i = 0; i < numShatters; i++) {
-            string memory uri = string(abi.encodePacked("testUri/", (i+1).toString()));
-            tokenContract.proposeNewTokenUri(i+1, "newUri");
+        for (uint256 i = 0; i < numShatters; i++) {
+            string memory uri = string(abi.encodePacked("testUri/", (i + 1).toString()));
+            tokenContract.proposeNewTokenUri(i + 1, "newUri");
             vm.prank(alice);
             vm.expectEmit(true, true, true, true);
-            emit SynergyStatusChange(alice, i+1, Shatter.SynergyAction.Rejected, "");
-            tokenContract.rejectTokenUriUpdate(i+1);
-            assertEq(tokenContract.tokenURI(i+1), uri);
+            emit SynergyStatusChange(alice, i + 1, Shatter.SynergyAction.Rejected, "");
+            tokenContract.rejectTokenUriUpdate(i + 1);
+            assertEq(tokenContract.tokenURI(i + 1), uri);
         }
 
         vm.prank(alice);
