@@ -9,5 +9,17 @@ optimizer = true
 optimizer_runs = 20000
 verbosity = 3
 wrap_comments = true
-gas_reports = ["*"]
+gas_reports = ["ERC721TL", "ERC1155TL", "Doppelganger", "CollectorsChoice", "OnChainArt", "Shatter", "TLCreator"]
 fs_permissions = [{ access = "read", path = "./"}]
+
+[rpc_endpoints]
+goerli = "${GOERLI_RPC_URL}"
+arb_goerli = "${ARB_GOERLI_RPC_URL}"
+mainnet = "${ETH_RPC_URL}"
+arb = "${ARB_RPC_URL}"
+
+[etherscan]
+goerli = { key = "${ETHERSCAN_KEY}" }
+arb_goerli = { key = "${ARBISCAN_KEY}", url = "${ARB_GOERLI_VERIFIER_URL}" }
+mainnet = { key = "${ETHERSCAN_KEY}"}
+arb = { key = "${ARBISCAN_KEY}", url = "${ARB_VERIFIER_URL}" }
