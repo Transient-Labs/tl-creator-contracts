@@ -31,5 +31,34 @@ build:
 quick_test:
 	forge test --fuzz-runs 512
 
+gas_test:
+	forge test --gas-report
+
 fuzz_test:
 	forge test --fuzz-runs 10000
+
+# Testnet Deployments
+deploy_erc721tl_testnets:
+	forge script script/Deployments.s.sol:DeployERC721TL --rpc-url goerli --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployERC721TL --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify
+
+deploy_erc1155tl_testnets:
+	forge script script/Deployments.s.sol:DeployERC1155TL --rpc-url goerli --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployERC1155TL --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify
+
+deploy_shatter_testnets:
+	forge script script/Deployments.s.sol:DeployShatter --rpc-url goerli --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployShatter --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify
+
+# Deployments
+deploy_erc721tl:
+	forge script script/Deployments.s.sol:DeployERC721TL --rpc-url mainnet --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployERC721TL --rpc-url arb --ledger --sender ${SENDER} --broadcast --verify
+
+deploy_erc1155tl:
+	forge script script/Deployments.s.sol:DeployERC1155TL --rpc-url mainnet --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployERC1155TL --rpc-url arb --ledger --sender ${SENDER} --broadcast --verify
+
+deploy_shatter:
+	forge script script/Deployments.s.sol:DeployShatter --rpc-url mainnet --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployShatter --rpc-url arb --ledger --sender ${SENDER} --broadcast --verify
