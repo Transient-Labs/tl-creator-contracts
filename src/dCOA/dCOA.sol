@@ -13,7 +13,6 @@ import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 /// @notice contract built for the purpose of being a digital & decentralized Certificate of Authenticity (COA) for physical objects
 /// @dev this works for only ERC721 contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
-/// @custom:version 2.7.0
 contract dCOA is ERC1967Proxy, EIP712 {
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
