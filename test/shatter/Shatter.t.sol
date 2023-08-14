@@ -92,7 +92,8 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
     }
 
     function testShatter(address recipient, uint256 numShatters) public {
-        vm.assume(numShatters <= 100 && numShatters > 0);
+        vm.assume(numShatters > 1);
+        if (numShatters > 100) numShatters = numShatters % 99 + 2;
         vm.assume(recipient != address(0));
         vm.assume(recipient != address(this));
         vm.assume(recipient != admin);
@@ -175,7 +176,8 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
     }
 
     function testShatterUltra(address recipient, uint256 numShatters) public {
-        vm.assume(numShatters <= 100 && numShatters > 0);
+        vm.assume(numShatters > 1);
+        if (numShatters > 100) numShatters = numShatters % 99 + 2;
         vm.assume(recipient != address(0));
         vm.assume(recipient != address(this));
         vm.assume(recipient != admin);
@@ -256,7 +258,8 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
     }
 
     function testFuse(uint256 numShatters) public {
-        vm.assume(numShatters <= 100 && numShatters > 1);
+        vm.assume(numShatters > 1);
+        if (numShatters > 100) numShatters = numShatters % 99 + 2;
 
         // mint and shatter
         tokenContract.mint(address(this), "testURI", 1, 100, 0);
@@ -305,7 +308,8 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
     }
 
     function testFuseAfterUltra(uint256 numShatters) public {
-        vm.assume(numShatters <= 100 && numShatters > 1);
+        vm.assume(numShatters > 1);
+        if (numShatters > 100) numShatters = numShatters % 99 + 2;
 
         // mint and shatter
         tokenContract.mint(address(this), "testURI", 1, 100, 0);
@@ -355,7 +359,8 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
 
     function testOwnerOf(address recipient, uint256 numShatters) public {
         // tests transfer of tokens prior to shatter, after shatter, and then after fuse
-        vm.assume(numShatters <= 100 && numShatters > 1);
+        vm.assume(numShatters > 1);
+        if (numShatters > 100) numShatters = numShatters % 99 + 2;
         vm.assume(recipient != address(0));
         vm.assume(recipient != address(this));
 
@@ -472,7 +477,8 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
     }
 
     function testAcceptTokenUri(uint256 numShatters) public {
-        vm.assume(numShatters < 101 && numShatters > 1);
+        vm.assume(numShatters > 1);
+        if (numShatters > 100) numShatters = numShatters % 99 + 2;
 
         tokenContract.mint(alice, "testUri", 1, 100, 0);
         assertEq(tokenContract.tokenURI(0), "testUri/0");
@@ -530,7 +536,8 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
     }
 
     function testRejectTokenUri(uint256 numShatters) public {
-        vm.assume(numShatters < 101 && numShatters > 1);
+        vm.assume(numShatters > 1);
+        if (numShatters > 100) numShatters = numShatters % 99 + 2;
 
         tokenContract.mint(alice, "testUri", 1, 100, 0);
         assertEq(tokenContract.tokenURI(0), "testUri/0");
@@ -597,7 +604,8 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
     }
 
     function testCreatorStory(uint256 numShatters) public {
-        vm.assume(numShatters < 101 && numShatters > 1);
+        vm.assume(numShatters > 1);
+        if (numShatters > 100) numShatters = numShatters % 99 + 2;
 
         // token doesn't exist
         vm.expectRevert();
@@ -640,7 +648,8 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
     }
 
     function testCollectorStory(uint256 numShatters) public {
-        vm.assume(numShatters < 101 && numShatters > 1);
+        vm.assume(numShatters > 1);
+        if (numShatters > 100) numShatters = numShatters % 99 + 2;
 
         // token doesn't exist
         vm.expectRevert();
