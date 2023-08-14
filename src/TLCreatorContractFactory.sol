@@ -184,10 +184,10 @@ contract TLCreatorContractFactory is Ownable {
     }
 
     /// @notice Function to get contract type info by id
-    /// @param contractId The contract type id
+    /// @param contractTypeId The contract type id
     /// @return contractType A contract type struct
-    function getContractType(uint256 contractId) external view returns (ContractType memory contractType) {
-        return _contractTypes[contractId];
+    function getContractType(uint256 contractTypeId) external view returns (ContractType memory contractType) {
+        return _contractTypes[contractTypeId];
     }
 
     /*//////////////////////////////////////////////////////////////////////////
