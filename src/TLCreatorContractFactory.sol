@@ -50,10 +50,10 @@ contract TLCreatorContractFactory is Ownable {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @dev event emitted whenever a contract type is added
-    event ContractTypeAdded(uint256 indexed contractId, address indexed firstImplementation, string name);
+    event ContractTypeAdded(uint256 indexed contractTypeId, address indexed firstImplementation, string name);
 
     /// @dev event emitted whenever an implementation is added for a contract type
-    event ImplementationAdded(uint256 indexed contractId, address indexed implementation);
+    event ImplementationAdded(uint256 indexed contractTypeId, address indexed implementation);
 
     /// @dev event emitted whenever a contract is deployed
     event ContractDeployed(address indexed contractAddress, address indexed implementationAddress, address indexed sender);
@@ -84,13 +84,13 @@ contract TLCreatorContractFactory is Ownable {
 
     /// @notice Function to add an implementation contract for a type
     /// @dev only callable by the factory owner
-    /// @param contractId The contract type id
+    /// @param contractTypeId The contract type id
     /// @param implementation The new implementation address to add
-    function addContractImplementation(uint256 contractId, address implementation) external onlyOwner {
-        ContractType storage contractType = _contractTypes[contractId];
+    function addContractImplementation(uint256 contractTypeId, address implementation) external onlyOwner {
+        ContractType storage contractType = _contractTypes[contractTypeId];
         contractType.implementations.push(implementation);
 
-        emit ImplementationAdded(contractId, implementation);
+        emit ImplementationAdded(contractTypeId, implementation);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -98,7 +98,7 @@ contract TLCreatorContractFactory is Ownable {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Function to deploy the latest implementation contract for a contract type
-    /// @param contractId The contract type id
+    /// @param contractTypeId The contract type id
     /// @param contractName The deployed contract name
     /// @param contractSymbol The deployed contract symbol
     /// @param defaultRoyaltyRecipient The default royalty recipient
@@ -109,7 +109,7 @@ contract TLCreatorContractFactory is Ownable {
     /// @param blockListRegistry The blocklist registry
     /// @return contractAddress The deployed contract address
     function deployLatestImplementation(
-        uint256 contractId,
+        uint256 contractTypeId,
         string memory contractName,
         string memory contractSymbol,
         address defaultRoyaltyRecipient,
@@ -119,7 +119,7 @@ contract TLCreatorContractFactory is Ownable {
         bool enableStory,
         address blockListRegistry
     ) external returns (address contractAddress) {
-        ContractType memory contractType = _contractTypes[contractId];
+        ContractType memory contractType = _contractTypes[contractTypeId];
         address implementation = contractType.implementations[contractType.implementations.length - 1];
         return _deployContract(
             implementation,
@@ -135,7 +135,7 @@ contract TLCreatorContractFactory is Ownable {
     }
 
     /// @notice Function to deploy a specific implementation contract for a contract type
-    /// @param contractId The contract type id
+    /// @param contractTypeId The contract type id
     /// @param implementationIndex The index specifying the implementation contract
     /// @param contractName The deployed contract name
     /// @param contractSymbol The deployed contract symbol
@@ -147,7 +147,7 @@ contract TLCreatorContractFactory is Ownable {
     /// @param blockListRegistry The blocklist registry
     /// @return contractAddress The deployed contract address
     function deployImplementation(
-        uint256 contractId,
+        uint256 contractTypeId,
         uint256 implementationIndex,
         string memory contractName,
         string memory contractSymbol,
@@ -158,7 +158,7 @@ contract TLCreatorContractFactory is Ownable {
         bool enableStory,
         address blockListRegistry
     ) external returns (address contractAddress) {
-        ContractType memory contractType = _contractTypes[contractId];
+        ContractType memory contractType = _contractTypes[contractTypeId];
         address implementation = contractType.implementations[implementationIndex];
         return _deployContract(
             implementation,
