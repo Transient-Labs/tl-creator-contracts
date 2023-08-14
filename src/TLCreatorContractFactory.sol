@@ -77,9 +77,9 @@ contract TLCreatorContractFactory is Ownable {
         implementations[0] = implementation;
 
         _contractTypes.push(ContractType(name, implementations));
-        uint256 contractId = _contractTypes.length - 1;
+        uint256 contractTypeId = _contractTypes.length - 1;
 
-        emit ContractTypeAdded(contractId, implementation, name);
+        emit ContractTypeAdded(contractTypeId, implementation, name);
     }
 
     /// @notice Function to add an implementation contract for a type
