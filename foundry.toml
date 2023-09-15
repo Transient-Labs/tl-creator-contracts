@@ -15,11 +15,15 @@ fs_permissions = [{ access = "read", path = "./"}]
 [rpc_endpoints]
 goerli = "${GOERLI_RPC_URL}"
 arb_goerli = "${ARB_GOERLI_RPC_URL}"
+base_goerli = "${BASE_GOERLI_RPC_URL}"
 mainnet = "${ETH_RPC_URL}"
 arb = "${ARB_RPC_URL}"
+base = "${BASE_RPC_URL}"
 
 [etherscan]
 goerli = { key = "${ETHERSCAN_KEY}" }
-arb_goerli = { key = "${ARBISCAN_KEY}", url = "${ARB_GOERLI_VERIFIER_URL}" }
+arb_goerli = { key = "${ARBISCAN_KEY}", url = "https://api-goerli.arbiscan.io/api" }
+base_goerli = { key = "${BASESCAN_KEY}", url = "https://api-goerli.basescan.org/api" }
 mainnet = { key = "${ETHERSCAN_KEY}"}
-arb = { key = "${ARBISCAN_KEY}", url = "${ARB_VERIFIER_URL}" }
+arb = { key = "${ARBISCAN_KEY}", url = "https://api.arbiscan.io/api" }
+base = { key = "${BASESCAN_KEY}", url = "https://api.basescan.org/api" }

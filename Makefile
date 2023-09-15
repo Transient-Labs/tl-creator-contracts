@@ -41,32 +41,40 @@ fuzz_test:
 deploy_erc721tl_testnets:
 	forge script script/Deployments.s.sol:DeployERC721TL --rpc-url goerli --ledger --sender ${SENDER} --broadcast --verify
 	forge script script/Deployments.s.sol:DeployERC721TL --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployERC721TL --rpc-url base_goerli --ledger --sender ${SENDER} --broadcast --verify
 
 deploy_erc1155tl_testnets:
 	forge script script/Deployments.s.sol:DeployERC1155TL --rpc-url goerli --ledger --sender ${SENDER} --broadcast --verify
 	forge script script/Deployments.s.sol:DeployERC1155TL --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployERC1155TL --rpc-url base_goerli --ledger --sender ${SENDER} --broadcast --verify
 
 deploy_shatter_testnets:
 	forge script script/Deployments.s.sol:DeployShatter --rpc-url goerli --ledger --sender ${SENDER} --broadcast --verify
 	forge script script/Deployments.s.sol:DeployShatter --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployShatter --rpc-url base_goerli --ledger --sender ${SENDER} --broadcast --verify
 
 deploy_tl_creator_contract_factory_testnets:
 	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url goerli --ledger --sender ${SENDER} --broadcast --verify
 	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url base_goerli --ledger --sender ${SENDER} --broadcast --verify
 
 # Deployments
 deploy_erc721tl:
 	forge script script/Deployments.s.sol:DeployERC721TL --rpc-url mainnet --ledger --sender ${SENDER} --broadcast --verify
 	forge script script/Deployments.s.sol:DeployERC721TL --rpc-url arb --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployERC721TL --rpc-url base --ledger --sender ${SENDER} --broadcast --verify
 
 deploy_erc1155tl:
 	forge script script/Deployments.s.sol:DeployERC1155TL --rpc-url mainnet --ledger --sender ${SENDER} --broadcast --verify
 	forge script script/Deployments.s.sol:DeployERC1155TL --rpc-url arb --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployERC1155TL --rpc-url base --ledger --sender ${SENDER} --broadcast --verify
 
 deploy_shatter:
 	forge script script/Deployments.s.sol:DeployShatter --rpc-url mainnet --ledger --sender ${SENDER} --broadcast --verify
 	forge script script/Deployments.s.sol:DeployShatter --rpc-url arb --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployShatter --rpc-url base --ledger --sender ${SENDER} --broadcast --verify
 
 deploy_tl_creator_contract_factory:
 	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url mainnet --ledger --sender ${SENDER} --broadcast --verify
 	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url arb --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url base --ledger --sender ${SENDER} --broadcast --verify
