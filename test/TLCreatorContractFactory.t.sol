@@ -7,10 +7,11 @@ import {ERC721TL} from "../src/core/ERC721TL.sol";
 import {ERC1155TL} from "../src/core/ERC1155TL.sol";
 
 contract TLCreatorContractFactoryTest is Test {
-
     event ContractTypeAdded(uint256 indexed contractId, address indexed firstImplementation, string name);
     event ImplementationAdded(uint256 indexed contractId, address indexed implementation);
-    event ContractDeployed(address indexed contractAddress, address indexed implementationAddress, address indexed sender);
+    event ContractDeployed(
+        address indexed contractAddress, address indexed implementationAddress, address indexed sender
+    );
 
     address ERC721TLImplementation;
     address ERC1155TLImplementation;
@@ -50,14 +51,17 @@ contract TLCreatorContractFactoryTest is Test {
 
     function testRevertInvalidContractId() public {
         vm.expectRevert();
-        factory.deployLatestImplementation(0, "test", "test", address(1), 100, address(this), new address[](0), false, address(0));
+        factory.deployLatestImplementation(
+            0, "test", "test", address(1), 100, address(this), new address[](0), false, address(0)
+        );
 
         vm.expectRevert();
-        factory.deployImplementation(0, 0, "test", "test", address(1), 100, address(this), new address[](0), false, address(0));
+        factory.deployImplementation(
+            0, 0, "test", "test", address(1), 100, address(this), new address[](0), false, address(0)
+        );
     }
 
     function testAddContractTypesAndImplementations() public {
-
         vm.expectEmit(true, true, false, true);
         emit ContractTypeAdded(0, ERC721TLImplementation, "ERC721TL");
         factory.addContractType("ERC721TL", ERC721TLImplementation);
@@ -81,7 +85,7 @@ contract TLCreatorContractFactoryTest is Test {
         assert(keccak256(bytes(contractType.name)) == keccak256("ERC1155TL"));
         assert(contractType.implementations.length == 1);
         assert(contractType.implementations[0] == ERC1155TLImplementation);
-        
+
         address implementation = address(new ERC721TL(true));
         vm.expectEmit(true, true, false, false);
         emit ImplementationAdded(0, implementation);
@@ -141,7 +145,7 @@ contract TLCreatorContractFactoryTest is Test {
             contractName,
             contractSymbol,
             defaultRoyaltyRecipient,
-            defaultRoyaltyPercentage, 
+            defaultRoyaltyPercentage,
             initOwner,
             new address[](0),
             enableStory,
@@ -211,7 +215,7 @@ contract TLCreatorContractFactoryTest is Test {
             contractName,
             contractSymbol,
             defaultRoyaltyRecipient,
-            defaultRoyaltyPercentage, 
+            defaultRoyaltyPercentage,
             initOwner,
             new address[](0),
             enableStory,
@@ -233,5 +237,4 @@ contract TLCreatorContractFactoryTest is Test {
 
         vm.stopPrank();
     }
-
 }

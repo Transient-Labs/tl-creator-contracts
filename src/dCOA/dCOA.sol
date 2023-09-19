@@ -53,7 +53,7 @@ contract dCOA is ERC1967Proxy, EIP712 {
                                     Structs
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev struct used for our storage 
+    /// @dev struct used for our storage
     struct dCOAStorage {
         dCOARegistry registry;
         mapping(uint256 => uint256) nonces; // tokenId -> nonce
@@ -136,16 +136,15 @@ contract dCOA is ERC1967Proxy, EIP712 {
             store.slot := D_COA_STORAGE_SLOT
         }
 
-        address coaOwner = IERC721(address(this)).ownerOf(tokenId);
-        bytes32 digest = _hashTypedDataV4(_hashVerifiedStory(store.nonces[tokenId], tokenId, story));
+        if (address(store.registry).code.length == 0) revert Unauthorized();
         bool isRegisteredAgent;
         string memory registeredAgentName;
         (isRegisteredAgent, registeredAgentName) = store.registry.isRegisteredAgent(msg.sender);
+        if (!isRegisteredAgent) revert Unauthorized();
 
+        address coaOwner = IERC721(address(this)).ownerOf(tokenId);
+        bytes32 digest = _hashTypedDataV4(_hashVerifiedStory(tokenId, store.nonces[tokenId]++, msg.sender, story));
         if (coaOwner != ECDSA.recover(digest, signature)) revert InvalidSignature();
-        if (!isRegisteredAgent || address(store.registry).code.length == 0) revert Unauthorized();
-
-        store.nonces[tokenId]++;
 
         emit Story(tokenId, msg.sender, registeredAgentName, story);
     }
@@ -154,7 +153,7 @@ contract dCOA is ERC1967Proxy, EIP712 {
                                 External View Functions
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice function to return the nonce for a token
+    /// @notice Function to return the nonce for a token
     /// @param tokenId The token to query
     /// @return uint256 The token nonce
     function getTokenNonce(uint256 tokenId) external view returns (uint256) {
@@ -167,19 +166,36 @@ contract dCOA is ERC1967Proxy, EIP712 {
         return store.nonces[tokenId];
     }
 
+    /// @notice Function to return the dCOA registry
+    /// @return address The dCOA registry
+    function getDCOARegistry() external view returns (address) {
+        dCOAStorage storage store;
+
+        assembly {
+            store.slot := D_COA_STORAGE_SLOT
+        }
+
+        return address(store.registry);
+    }
+
     /*//////////////////////////////////////////////////////////////////////////
                                 Internal View Functions
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice function to hash the typed data
-    function _hashVerifiedStory(uint256 tokenId, uint256 nonce, string memory story) internal view returns (bytes32) {
+    function _hashVerifiedStory(uint256 tokenId, uint256 nonce, address sender, string memory story)
+        internal
+        pure
+        returns (bytes32)
+    {
         return keccak256(
             abi.encode(
-                keccak256("VerifiedStory(uint256 nonce,uint256 tokenId,address sender,string story)"),
+                // keccak256("VerifiedStory(uint256 nonce,uint256 tokenId,address sender,string story)"),
+                0x3ea278f3e0e25a71281e489b82695f448ae01ef3fc312598f1e61ac9956ab954,
                 nonce,
                 tokenId,
-                msg.sender,
-                story
+                sender,
+                keccak256(bytes(story))
             )
         );
     }

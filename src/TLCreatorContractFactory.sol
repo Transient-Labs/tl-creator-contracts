@@ -56,7 +56,9 @@ contract TLCreatorContractFactory is Ownable {
     event ImplementationAdded(uint256 indexed contractTypeId, address indexed implementation);
 
     /// @dev event emitted whenever a contract is deployed
-    event ContractDeployed(address indexed contractAddress, address indexed implementationAddress, address indexed sender);
+    event ContractDeployed(
+        address indexed contractAddress, address indexed implementationAddress, address indexed sender
+    );
 
     /*//////////////////////////////////////////////////////////////////////////
                                   Constructor
