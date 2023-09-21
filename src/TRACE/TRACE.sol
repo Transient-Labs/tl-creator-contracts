@@ -5,23 +5,24 @@ import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import {EIP712, ECDSA} from "openzeppelin/utils/cryptography/EIP712.sol";
 import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
 import {OwnableAccessControl} from "tl-sol-tools/access/OwnableAccessControl.sol";
-import {dCOARegistry} from "./dCOARegistry.sol";
+import {TRACERSRegistry} from "./TRACERSRegistry.sol";
 
 /*//////////////////////////////////////////////////////////////////////////
-                                    dCOA
+                                    TRACE
 //////////////////////////////////////////////////////////////////////////*/
 
-/// @title dCOA.sol
-/// @notice contract built for the purpose of being a digital & decentralized Certificate of Authenticity (COA) for physical objects
+/// @title TRACE.sol
+/// @notice Tokenized Record for Artwork Certification and Evolution (TRACE)
+/// @dev contract built for the purpose of being a digitally Traced Certificate of Authenticity (COA) for physical objects
 /// @dev this works for only ERC721 contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
-contract dCOA is ERC1967Proxy, EIP712 {
+contract TRACE is ERC1967Proxy, EIP712 {
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
     //////////////////////////////////////////////////////////////////////////*/
 
-    // bytes32(uint256(keccak256('erc721.tl.dCOA')) - 1);
-    bytes32 public constant D_COA_STORAGE_SLOT = 0x506d9631d29a36413b99378b28108918d79038e9b044315c404934777355fa94;
+    // bytes32(uint256(keccak256('erc721.tl.TRACE')) - 1);
+    bytes32 public constant TRACE_STORAGE_SLOT = 0x6903afa62760e546de6be4476e800b244654a868ec5cf438c7afd6b310bb4804;
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -54,8 +55,8 @@ contract dCOA is ERC1967Proxy, EIP712 {
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @dev struct used for our storage
-    struct dCOAStorage {
-        dCOARegistry registry;
+    struct TRACEStorage {
+        TRACERSRegistry registry;
         mapping(uint256 => uint256) nonces; // tokenId -> nonce
     }
 
@@ -111,16 +112,18 @@ contract dCOA is ERC1967Proxy, EIP712 {
                                 Owner Admin Functions
     //////////////////////////////////////////////////////////////////////////*/
 
-    function setDCOARegistry(address registry) external {
+    /// @notice Function to set the TRACERS Registry
+    /// @dev Only callable by the creator or admin
+    function setTRACERSRegistry(address registry) external {
         OwnableAccessControl c = OwnableAccessControl(address(this));
         if (c.owner() != msg.sender && !c.hasRole(ADMIN_ROLE, msg.sender)) revert NotCreatorOrAdmin();
 
-        dCOAStorage storage store;
+        TRACEStorage storage store;
         assembly {
-            store.slot := D_COA_STORAGE_SLOT
+            store.slot := TRACE_STORAGE_SLOT
         }
 
-        store.registry = dCOARegistry(registry);
+        store.registry = TRACERSRegistry(registry);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -131,9 +134,9 @@ contract dCOA is ERC1967Proxy, EIP712 {
     /// @dev requires that the passed signature is signed by the token owner, which is the ARX Halo Chip (physical)
     /// @dev uses EIP-712 for the signature
     function addVerifiedStory(uint256 tokenId, string calldata story, bytes calldata signature) external {
-        dCOAStorage storage store;
+        TRACEStorage storage store;
         assembly {
-            store.slot := D_COA_STORAGE_SLOT
+            store.slot := TRACE_STORAGE_SLOT
         }
 
         if (address(store.registry).code.length == 0) revert Unauthorized();
@@ -157,22 +160,20 @@ contract dCOA is ERC1967Proxy, EIP712 {
     /// @param tokenId The token to query
     /// @return uint256 The token nonce
     function getTokenNonce(uint256 tokenId) external view returns (uint256) {
-        dCOAStorage storage store;
-
+        TRACEStorage storage store;
         assembly {
-            store.slot := D_COA_STORAGE_SLOT
+            store.slot := TRACE_STORAGE_SLOT
         }
 
         return store.nonces[tokenId];
     }
 
-    /// @notice Function to return the dCOA registry
-    /// @return address The dCOA registry
-    function getDCOARegistry() external view returns (address) {
-        dCOAStorage storage store;
-
+    /// @notice Function to return the TRACERS registry
+    /// @return address The TRACERS registry
+    function getTRACERSRegistry() external view returns (address) {
+        TRACEStorage storage store;
         assembly {
-            store.slot := D_COA_STORAGE_SLOT
+            store.slot := TRACE_STORAGE_SLOT
         }
 
         return address(store.registry);

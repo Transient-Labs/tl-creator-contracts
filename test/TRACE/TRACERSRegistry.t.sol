@@ -3,20 +3,20 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import {ERC721TL} from "tl-creator-contracts/core/ERC721TL.sol";
-import {dCOARegistry} from "tl-creator-contracts/dCOA/dCOARegistry.sol";
+import {TRACERSRegistry} from "tl-creator-contracts/TRACE/TRACERSRegistry.sol";
 
-contract dCOARegistryTest is Test, dCOARegistry {
+contract dCOARegistryTest is Test, TRACERSRegistry {
     ERC721TL public nft;
     address public nftOwner = address(0x404);
     address public nftAdmin = address(0xC0FFEE);
 
-    dCOARegistry public registry;
+    TRACERSRegistry public registry;
     address public tl = makeAddr("build different.");
 
     function setUp() public {
         // create dCOARegistry
         vm.prank(tl);
-        registry = new dCOARegistry();
+        registry = new TRACERSRegistry();
 
         // create nft contract
         address[] memory admins = new address[](1);

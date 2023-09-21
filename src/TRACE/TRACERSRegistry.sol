@@ -3,10 +3,10 @@ pragma solidity 0.8.19;
 
 import {OwnableAccessControl} from "tl-sol-tools/access/OwnableAccessControl.sol";
 
-/// @title dCOARegistry
-/// @notice Registry for verified dCOA story senders
+/// @title TRACERSRegistry
+/// @notice Registry for TRACE Registered agentS
 /// @author transientlabs.xyz
-contract dCOARegistry is OwnableAccessControl {
+contract TRACERSRegistry is OwnableAccessControl {
     /*//////////////////////////////////////////////////////////////////////////
                                     Custom Types
     //////////////////////////////////////////////////////////////////////////*/
