@@ -80,6 +80,7 @@ contract TRACE is ERC1967Proxy, EIP712 {
     /// @param admins: Array of admin addresses to add to the contract
     /// @param enableStory: Bool deciding whether to add story fuctionality or not (should be set to true for this contract really)
     /// @param blockListRegistry: Address of the blocklist registry to use
+    /// @param tracersRegistry: The initial TRACERS Registry address
     constructor(
         address implementation,
         string memory name,
