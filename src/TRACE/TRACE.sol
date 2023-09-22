@@ -89,7 +89,8 @@ contract TRACE is ERC1967Proxy, EIP712 {
         address initOwner,
         address[] memory admins,
         bool enableStory,
-        address blockListRegistry
+        address blockListRegistry,
+        address tracersRegistry
     )
         ERC1967Proxy(
             implementation,
@@ -106,7 +107,14 @@ contract TRACE is ERC1967Proxy, EIP712 {
             )
         )
         EIP712(name, "1")
-    {}
+    {
+        TRACEStorage storage store;
+        assembly {
+            store.slot := TRACE_STORAGE_SLOT
+        }
+
+        store.registry = TRACERSRegistry(tracersRegistry);
+    }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Owner Admin Functions
@@ -114,7 +122,7 @@ contract TRACE is ERC1967Proxy, EIP712 {
 
     /// @notice Function to set the TRACERS Registry
     /// @dev Only callable by the creator or admin
-    function setTRACERSRegistry(address registry) external {
+    function setTRACERSRegistry(address tracersRegistry) external {
         OwnableAccessControl c = OwnableAccessControl(address(this));
         if (c.owner() != msg.sender && !c.hasRole(ADMIN_ROLE, msg.sender)) revert NotCreatorOrAdmin();
 
@@ -123,7 +131,7 @@ contract TRACE is ERC1967Proxy, EIP712 {
             store.slot := TRACE_STORAGE_SLOT
         }
 
-        store.registry = TRACERSRegistry(registry);
+        store.registry = TRACERSRegistry(tracersRegistry);
     }
 
     /*//////////////////////////////////////////////////////////////////////////

@@ -41,7 +41,6 @@ contract TRACESigUtils {
         returns (bytes32)
     {
         bytes32 hash = _hashVerifiedStory(tokenId, nonce, sender, story);
-        return
-            keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, hash));
+        return keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, hash));
     }
 }

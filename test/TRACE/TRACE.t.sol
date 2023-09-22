@@ -40,7 +40,8 @@ contract TRACETest is Test {
         // create TRACE
         address[] memory admins = new address[](1);
         admins[0] = creatorAdmin;
-        trace = new TRACE(implementation, "Test TRACE", "TRACE", creator, 1000, creator, admins, true, address(0));
+        trace =
+        new TRACE(implementation, "Test TRACE", "TRACE", creator, 1000, creator, admins, true, address(0), address(registry));
 
         // mint token
         vm.prank(creator);
@@ -52,6 +53,11 @@ contract TRACETest is Test {
 
         // sig utils
         sigUtils = new TRACESigUtils("Test TRACE", "1", address(trace));
+    }
+
+    /// @dev test setup
+    function test_setUp() public view {
+        assert(trace.getTRACERSRegistry() == address(registry));
     }
 
     /// @dev test `setDCOARegistry`
@@ -143,7 +149,8 @@ contract TRACETest is Test {
         // trace
         address[] memory admins = new address[](1);
         admins[0] = creatorAdmin;
-        trace = new TRACE(implementation, name, "COA", creator, 1000, creator, admins, true, address(0));
+        trace =
+            new TRACE(implementation, name, "COA", creator, 1000, creator, admins, true, address(0), address(registry));
 
         // mint token
         vm.prank(creator);

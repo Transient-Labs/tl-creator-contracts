@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {ERC721TL} from "tl-creator-contracts/core/ERC721TL.sol";
 import {TRACERSRegistry} from "tl-creator-contracts/TRACE/TRACERSRegistry.sol";
 
-contract dCOARegistryTest is Test, TRACERSRegistry {
+contract TRACERSRegistryTest is Test, TRACERSRegistry {
     ERC721TL public nft;
     address public nftOwner = address(0x404);
     address public nftAdmin = address(0xC0FFEE);
