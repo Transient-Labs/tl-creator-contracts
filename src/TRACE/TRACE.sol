@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import {EIP712, ECDSA} from "openzeppelin/utils/cryptography/EIP712.sol";
 import {IERC721} from "openzeppelin/interfaces/IERC721.sol";
+import {Strings} from "openzeppelin/utils/Strings.sol";
 import {OwnableAccessControl} from "tl-sol-tools/access/OwnableAccessControl.sol";
 import {TRACERSRegistry} from "./TRACERSRegistry.sol";
 
@@ -17,6 +18,9 @@ import {TRACERSRegistry} from "./TRACERSRegistry.sol";
 /// @dev this works for only ERC721 contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
 contract TRACE is ERC1967Proxy, EIP712 {
+
+    using Strings for address;
+
     /*//////////////////////////////////////////////////////////////////////////
                                     Constants
     //////////////////////////////////////////////////////////////////////////*/
@@ -148,16 +152,23 @@ contract TRACE is ERC1967Proxy, EIP712 {
             store.slot := TRACE_STORAGE_SLOT
         }
 
-        if (address(store.registry).code.length == 0) revert Unauthorized();
-        bool isRegisteredAgent;
-        string memory registeredAgentName;
-        (isRegisteredAgent, registeredAgentName) = store.registry.isRegisteredAgent(msg.sender);
-        if (!isRegisteredAgent) revert Unauthorized();
+        // default name to hex address
+        string memory registeredAgentName = msg.sender.toHexString();
 
+        // only check registered agent if the registry is not the zero address
+        if (address(store.registry) != address(0)) {
+            if (address(store.registry).code.length == 0) revert Unauthorized();
+            bool isRegisteredAgent;
+            (isRegisteredAgent, registeredAgentName) = store.registry.isRegisteredAgent(msg.sender);
+            if (!isRegisteredAgent) revert Unauthorized();
+        }
+
+        // verify signature
         address coaOwner = IERC721(address(this)).ownerOf(tokenId);
         bytes32 digest = _hashTypedDataV4(_hashVerifiedStory(tokenId, store.nonces[tokenId]++, msg.sender, story));
         if (coaOwner != ECDSA.recover(digest, signature)) revert InvalidSignature();
 
+        // emit story
         emit Story(tokenId, msg.sender, registeredAgentName, story);
     }
 

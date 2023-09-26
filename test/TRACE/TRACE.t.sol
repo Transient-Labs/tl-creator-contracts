@@ -6,8 +6,12 @@ import {ERC721TL} from "tl-creator-contracts/core/ERC721TL.sol";
 import {TRACE} from "tl-creator-contracts/TRACE/TRACE.sol";
 import {TRACERSRegistry} from "tl-creator-contracts/TRACE/TRACERSRegistry.sol";
 import {TRACESigUtils} from "../utils/TRACESigUtils.sol";
+import {Strings} from "openzeppelin/utils/Strings.sol";
 
 contract TRACETest is Test {
+
+    using Strings for address;
+
     event Story(uint256 indexed tokenId, address indexed senderAddress, string senderName, string story);
 
     error InvalidSignature();
@@ -175,5 +179,28 @@ contract TRACETest is Test {
         vm.prank(agent);
         trace.addVerifiedStory(1, "This is a story!", sig);
         assert(trace.getTokenNonce(1) == nonce + 1);
+    }
+
+    /// @dev test no registered agents
+    function test_addVerifiedStory_noRegisteredAgents(address sender) public {
+        // change registry to zero address
+        vm.prank(creator);
+        trace.setTRACERSRegistry(address(0));
+
+        // test add story
+        uint256 nonce = trace.getTokenNonce(1);
+        bytes32 digest = sigUtils.getTypedDataHash(1, nonce, sender, "This is a story!");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(chipPrivateKey, digest);
+        bytes memory sig = abi.encodePacked(r, s, v);
+        vm.expectEmit(true, true, false, true);
+        emit Story(1, sender, sender.toHexString(), "This is a story!");
+        vm.prank(sender);
+        trace.addVerifiedStory(1, "This is a story!", sig);
+        assert(trace.getTokenNonce(1) == nonce + 1);
+
+        // test replay protection
+        vm.expectRevert(InvalidSignature.selector);
+        vm.prank(sender);
+        trace.addVerifiedStory(1, "This is a story!", sig);
     }
 }
