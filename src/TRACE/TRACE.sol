@@ -17,7 +17,7 @@ import {TRACERSRegistry} from "./TRACERSRegistry.sol";
 /// @dev contract built for the purpose of being a digitally Traced Certificate of Authenticity (COA) for physical objects
 /// @dev this works for only ERC721 contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
-/// @custom:version 2.6.0
+/// @custom:version 2.7.0
 contract TRACE is ERC1967Proxy, EIP712 {
 
     using Strings for address;
