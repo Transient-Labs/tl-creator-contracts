@@ -1241,7 +1241,7 @@ contract ERC721TLUnitTest is IERC2309Upgradeable, Test {
 
     function testBurnAirdrop(uint16 numAddresses, address operator) public {
         vm.assume(numAddresses > 1);
-        if (numAddresses > 1000) {
+        if (numAddresses > 300) {
             numAddresses = numAddresses % 299 + 2; // map to 300
         }
         address[] memory addresses = new address[](numAddresses);

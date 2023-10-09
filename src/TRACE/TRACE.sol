@@ -13,10 +13,11 @@ import {TRACERSRegistry} from "./TRACERSRegistry.sol";
 //////////////////////////////////////////////////////////////////////////*/
 
 /// @title TRACE.sol
-/// @notice Tokenized Record for Artwork Certification and Evolution (TRACE)
+/// @notice Tokenized Record for Artwork/Asset Certification and Evolution (T.R.A.C.E.)
 /// @dev contract built for the purpose of being a digitally Traced Certificate of Authenticity (COA) for physical objects
 /// @dev this works for only ERC721 contracts, implementation contract should reflect that
 /// @author transientlabs.xyz
+/// @custom:version 2.6.0
 contract TRACE is ERC1967Proxy, EIP712 {
 
     using Strings for address;
