@@ -6,7 +6,7 @@ import {OwnableAccessControl} from "tl-sol-tools/access/OwnableAccessControl.sol
 /// @title TRACERSRegistry
 /// @notice Registry for TRACE Registered agents
 /// @author transientlabs.xyz
-/// @custom:version 2.6.0
+/// @custom:version 2.7.0
 contract TRACERSRegistry is OwnableAccessControl {
     /*//////////////////////////////////////////////////////////////////////////
                                     Custom Types
