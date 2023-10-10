@@ -817,7 +817,7 @@ contract ERC1155TLUnitTest is Test {
 
     function testTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage, address user) public {
         vm.assume(newRecipient != address(0));
-        vm.assume(user != address(0));
+        vm.assume(user != address(0) && user != address(this));
         if (newPercentage >= 10_000) {
             newPercentage = newPercentage % 10_000;
         }
