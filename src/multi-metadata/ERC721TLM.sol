@@ -50,7 +50,7 @@ error ArrayLengthMismatch();
 //////////////////////////////////////////////////////////////////////////*/
 
 /// @title ERC721TLM.sol
-/// @notice Transient Labs ERC-721 Creator Contract with multi-metadata support (EIP-7160)
+/// @notice Transient Labs ERC-721 Creator Contract with multi-metadata support (ERC-7160)
 /// @dev features include
 ///      - ultra efficient batch minting
 ///      - airdrops
@@ -86,7 +86,8 @@ contract ERC721TLM is
 
     /// @dev struct for holding additional metadata used in ERC-7160
     struct MultiMetadata {
-        uint256 index; // an index of 0 indicates that the original metadata should be used
+        bool pinned;
+        uint256 index;
         string[] tokenURIs;
     }
 
@@ -399,6 +400,7 @@ contract ERC721TLM is
     function tokenURIs(uint256 tokenId) external view returns (uint256 index, string[] memory uris, bool pinned) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         MultiMetadata memory multiMetadata = _multiMetadatas[tokenId];
+        // build uris
         uris = new string[](multiMetadata.tokenURIs.length + 1);
         uris[0] = _tokenUris[tokenId];
         if (bytes(uris[0]).length == 0) {
@@ -407,25 +409,24 @@ contract ERC721TLM is
         for (uint256 i = 0; i < multiMetadata.tokenURIs.length; i++) {
             uris[i + 1] = multiMetadata.tokenURIs[i];
         }
-        return (multiMetadata.index, uris, multiMetadata.index != 0);
+        // get if pinned
+        pinned = multiMetadata.pinned;
+        // set index
+        index = pinned ? multiMetadata.index : uris.length - 1;
     }
 
     /// @inheritdoc IERC7160
-    /// @dev pinning to `index` = 0 is the same as unpinning
     function pinTokenURI(uint256 tokenId, uint256 index) external {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (ownerOf(tokenId) != msg.sender) revert CallerNotTokenOwner();
-        if (index == 0) {
-            _multiMetadatas[tokenId].index = 0;
-            emit TokenUriUnpinned(tokenId);
-        } else {
-            if (index > _multiMetadatas[tokenId].tokenURIs.length) {
-                revert InvalidTokenURIIndex();
-            }
-            _multiMetadatas[tokenId].index = index;
-            emit TokenUriPinned(tokenId, index);
+        if (index > _multiMetadatas[tokenId].tokenURIs.length) {
+            revert InvalidTokenURIIndex();
         }
 
+        _multiMetadatas[tokenId].index = index;
+        _multiMetadatas[tokenId].pinned = true;
+
+        emit TokenUriPinned(tokenId, index);
         emit MetadataUpdate(tokenId);
     }
 
@@ -433,7 +434,8 @@ contract ERC721TLM is
     function unpinTokenURI(uint256 tokenId) external {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (ownerOf(tokenId) != msg.sender) revert CallerNotTokenOwner();
-        _multiMetadatas[tokenId].index = 0;
+
+        _multiMetadatas[tokenId].pinned = false;
 
         emit TokenUriUnpinned(tokenId);
         emit MetadataUpdate(tokenId);
@@ -442,7 +444,7 @@ contract ERC721TLM is
     /// @inheritdoc IERC7160
     function hasPinnedTokenURI(uint256 tokenId) external view returns (bool) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
-        return _multiMetadatas[tokenId].index != 0;
+        return _multiMetadatas[tokenId].pinned;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -453,15 +455,25 @@ contract ERC721TLM is
     function tokenURI(uint256 tokenId) public view override(ERC721Upgradeable) returns (string memory uri) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         MultiMetadata memory multiMetadata = _multiMetadatas[tokenId];
-        if (multiMetadata.index == 0) {
-            uri = _tokenUris[tokenId];
-            if (bytes(uri).length == 0) {
-                (, uri) = _getBatchInfo(tokenId);
+        if (multiMetadata.pinned) {
+            if (multiMetadata.index == 0) {
+                uri = _tokenUris[tokenId];
+                if (bytes(uri).length == 0) {
+                    (, uri) = _getBatchInfo(tokenId);
+                }
+            } else {
+                uri = multiMetadata.tokenURIs[multiMetadata.index - 1];
             }
         } else {
-            uri = multiMetadata.tokenURIs[multiMetadata.index - 1];
+            if (multiMetadata.tokenURIs.length == 0) {
+                uri = _tokenUris[tokenId];
+                if (bytes(uri).length == 0) {
+                    (, uri) = _getBatchInfo(tokenId);
+                }
+            } else {
+                uri = multiMetadata.tokenURIs[multiMetadata.tokenURIs.length - 1];
+            }
         }
-        return uri;
     }
 
     /*//////////////////////////////////////////////////////////////////////////

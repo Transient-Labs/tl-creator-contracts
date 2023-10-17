@@ -1611,17 +1611,17 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
     /// @notice test multi-metadata functions
     //  - add token uris access control ✅
     //  - add token uris errors ✅
-    //  - tokenUris errors
-    //  - pinTokenUri access control
-    //  - pinTokenUri errors
-    //  - unpinTokenUri access control
-    //  - unpinTokenUri errors
-    //  - hasPinnedTokenUri errors
-    //  - multi metadata with regular mint
-    //  - multi metadata with batch mint
-    //  - multi metadata with batch mint ultra
-    //  - multi metadata with airdrop
-    //  - multi metadata with external mint
+    //  - tokenUris errors ✅
+    //  - pinTokenUri access control ✅
+    //  - pinTokenUri errors ✅
+    //  - unpinTokenUri access control ✅
+    //  - unpinTokenUri errors ✅
+    //  - hasPinnedTokenUri errors ✅
+    //  - multi metadata with regular mint ✅
+    //  - multi metadata with batch mint ✅
+    //  - multi metadata with batch mint ultra ✅
+    //  - multi metadata with airdrop ✅
+    //  - multi metadata with external mint ✅
     function testAddTokenUrisAccessControl(address user) public {
         vm.assume(user != address(this) && user != address(0));
         address[] memory users = new address[](1);
@@ -1668,7 +1668,7 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         expectedUris[2] = "uri2";
 
         (uint256 index, string[] memory rUris, bool isPinned) = tokenContract.tokenURIs(1);
-        assertEq(index, 0);
+        assertEq(index, 2);
         assertFalse(isPinned);
         assertEq(rUris.length, 3);
         for (uint256 i = 0; i < rUris.length; i++) {
@@ -1761,6 +1761,8 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             uris[i] = string(abi.encodePacked("uri", i.toString()));
             newUris[i] = string(abi.encodePacked("newuri", i.toString()));
             tokenContract.mint(collector, uris[i]);
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
         }
 
         // add token uri to each
@@ -1776,14 +1778,16 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         string[] memory rUris = new string[](0);
         for (uint256 i = 0; i < numTokens; i++) {
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
+            assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
 
-        // pin token uri
+        // pin token uri to 1
         for (uint256 i = 0; i < numTokens; i++) {
             vm.prank(collector);
             vm.expectEmit(true, true, false, false);
@@ -1798,9 +1802,30 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
 
-        // unpin token uri with unpin function
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // unpin token uri
         for (uint256 i = 0; i < numTokens; i++) {
             vm.prank(collector);
             vm.expectEmit(true, false, false, false);
@@ -1810,28 +1835,14 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             tokenContract.unpinTokenURI(tokenIds[i]);
 
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
+            assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
-        }
 
-        // unpin with pin function
-        for (uint256 i = 0; i < numTokens; i++) {
-            vm.prank(collector);
-            vm.expectEmit(true, false, false, false);
-            emit TokenUriUnpinned(tokenIds[i]);
-            vm.expectEmit(true, false, false, false);
-            emit MetadataUpdate(tokenIds[i]);
-            tokenContract.pinTokenURI(tokenIds[i], 0);
-
-            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
-            assertFalse(isPinned);
-            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
-            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
-            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
     }
 
@@ -1852,6 +1863,11 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         }
         tokenContract.batchMint(collector, numTokens, "uri");
 
+        for (uint256 i = 0; i < numTokens; i++) {
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
         // add token uri to each
         for (uint256 i = 0; i < numTokens; i++) {
             vm.expectEmit(true, false, false, false);
@@ -1865,14 +1881,16 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         string[] memory rUris = new string[](0);
         for (uint256 i = 0; i < numTokens; i++) {
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
+            assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
 
-        // pin token uri
+        // pin token uri to 1
         for (uint256 i = 0; i < numTokens; i++) {
             vm.prank(collector);
             vm.expectEmit(true, true, false, false);
@@ -1887,9 +1905,30 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
 
-        // unpin token uri with unpin function
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // unpin token uri
         for (uint256 i = 0; i < numTokens; i++) {
             vm.prank(collector);
             vm.expectEmit(true, false, false, false);
@@ -1899,28 +1938,14 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             tokenContract.unpinTokenURI(tokenIds[i]);
 
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
+            assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
-        }
 
-        // unpin with pin function
-        for (uint256 i = 0; i < numTokens; i++) {
-            vm.prank(collector);
-            vm.expectEmit(true, false, false, false);
-            emit TokenUriUnpinned(tokenIds[i]);
-            vm.expectEmit(true, false, false, false);
-            emit MetadataUpdate(tokenIds[i]);
-            tokenContract.pinTokenURI(tokenIds[i], 0);
-
-            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
-            assertFalse(isPinned);
-            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
-            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
-            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
     }
 
@@ -1941,6 +1966,11 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         }
         tokenContract.batchMintUltra(collector, numTokens, "uri");
 
+        for (uint256 i = 0; i < numTokens; i++) {
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
         // add token uri to each
         for (uint256 i = 0; i < numTokens; i++) {
             vm.expectEmit(true, false, false, false);
@@ -1954,14 +1984,16 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         string[] memory rUris = new string[](0);
         for (uint256 i = 0; i < numTokens; i++) {
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
+            assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
 
-        // pin token uri
+        // pin token uri to 1
         for (uint256 i = 0; i < numTokens; i++) {
             vm.prank(collector);
             vm.expectEmit(true, true, false, false);
@@ -1976,9 +2008,30 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
 
-        // unpin token uri with unpin function
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // unpin token uri
         for (uint256 i = 0; i < numTokens; i++) {
             vm.prank(collector);
             vm.expectEmit(true, false, false, false);
@@ -1988,28 +2041,14 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             tokenContract.unpinTokenURI(tokenIds[i]);
 
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
+            assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
-        }
 
-        // unpin with pin function
-        for (uint256 i = 0; i < numTokens; i++) {
-            vm.prank(collector);
-            vm.expectEmit(true, false, false, false);
-            emit TokenUriUnpinned(tokenIds[i]);
-            vm.expectEmit(true, false, false, false);
-            emit MetadataUpdate(tokenIds[i]);
-            tokenContract.pinTokenURI(tokenIds[i], 0);
-
-            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
-            assertFalse(isPinned);
-            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
-            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
-            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
     }
 
@@ -2031,6 +2070,11 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         }
         tokenContract.airdrop(collectors, "uri");
 
+        for (uint256 i = 0; i < numTokens; i++) {
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
         // add token uri to each
         for (uint256 i = 0; i < numTokens; i++) {
             vm.expectEmit(true, false, false, false);
@@ -2044,14 +2088,16 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         string[] memory rUris = new string[](0);
         for (uint256 i = 0; i < numTokens; i++) {
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
+            assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
 
-        // pin token uri
+        // pin token uri to 1
         for (uint256 i = 0; i < numTokens; i++) {
             vm.prank(collectors[i]);
             vm.expectEmit(true, true, false, false);
@@ -2066,9 +2112,30 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
 
-        // unpin token uri with unpin function
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collectors[i]);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // unpin token uri
         for (uint256 i = 0; i < numTokens; i++) {
             vm.prank(collectors[i]);
             vm.expectEmit(true, false, false, false);
@@ -2078,28 +2145,14 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             tokenContract.unpinTokenURI(tokenIds[i]);
 
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
+            assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
-        }
 
-        // unpin with pin function
-        for (uint256 i = 0; i < numTokens; i++) {
-            vm.prank(collectors[i]);
-            vm.expectEmit(true, false, false, false);
-            emit TokenUriUnpinned(tokenIds[i]);
-            vm.expectEmit(true, false, false, false);
-            emit MetadataUpdate(tokenIds[i]);
-            tokenContract.pinTokenURI(tokenIds[i], 0);
-
-            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
-            assertFalse(isPinned);
-            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
-            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
-            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
     }
 
@@ -2123,6 +2176,8 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             newUris[i] = string(abi.encodePacked("newuri", i.toString()));
             vm.prank(address(1));
             tokenContract.externalMint(collector, uris[i]);
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
         }
 
         // add token uri to each
@@ -2138,14 +2193,16 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         string[] memory rUris = new string[](0);
         for (uint256 i = 0; i < numTokens; i++) {
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
+            assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
 
-        // pin token uri
+        // pin token uri to 1
         for (uint256 i = 0; i < numTokens; i++) {
             vm.prank(collector);
             vm.expectEmit(true, true, false, false);
@@ -2160,9 +2217,30 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
 
-        // unpin token uri with unpin function
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // unpin token uri
         for (uint256 i = 0; i < numTokens; i++) {
             vm.prank(collector);
             vm.expectEmit(true, false, false, false);
@@ -2172,28 +2250,14 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             tokenContract.unpinTokenURI(tokenIds[i]);
 
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
+            assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
             assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
-        }
 
-        // unpin with pin function
-        for (uint256 i = 0; i < numTokens; i++) {
-            vm.prank(collector);
-            vm.expectEmit(true, false, false, false);
-            emit TokenUriUnpinned(tokenIds[i]);
-            vm.expectEmit(true, false, false, false);
-            emit MetadataUpdate(tokenIds[i]);
-            tokenContract.pinTokenURI(tokenIds[i], 0);
-
-            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 0);
-            assertFalse(isPinned);
-            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
-            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
-            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
         }
     }
 
