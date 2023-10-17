@@ -60,6 +60,7 @@ error ArrayLengthMismatch();
 ///      - BlockList
 ///      - Multi-metadata per ERC-7160
 ///      - individual token royalty overrides
+/// @dev When unpinned, the latest metadata added for a token is returned from `tokenURI` and `tokenURIs`
 /// @author transientlabs.xyz
 /// @custom:version 2.8.0
 contract ERC721TLM is
