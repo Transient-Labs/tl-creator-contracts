@@ -9,7 +9,6 @@ import {TRACESigUtils} from "../utils/TRACESigUtils.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 
 contract TRACETest is Test {
-
     using Strings for address;
 
     event Story(uint256 indexed tokenId, address indexed senderAddress, string senderName, string story);

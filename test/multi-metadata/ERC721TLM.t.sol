@@ -1607,7 +1607,7 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         assertEq(recp, newRecipient);
         assertEq(amt, newPercentage);
     }
-    
+
     /// @notice test multi-metadata functions
     //  - add token uris access control ✅
     //  - add token uris errors ✅
@@ -1630,8 +1630,7 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         // token uris
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
-        string[] memory uris = new string[](1);
-        uris[0] = "uri2";
+        string memory baseUri = "uri2";
 
         // mint token
         tokenContract.mint(user, "uri1");
@@ -1639,33 +1638,33 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         // verify user can't add
         vm.prank(user);
         vm.expectRevert();
-        tokenContract.addTokenUris(tokenIds, uris);
+        tokenContract.addTokenUris(tokenIds, baseUri);
 
         // verify admin can add
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
         vm.prank(user);
         vm.expectEmit(true, false, false, false);
         emit MetadataUpdate(1);
-        tokenContract.addTokenUris(tokenIds, uris);
+        tokenContract.addTokenUris(tokenIds, baseUri);
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
 
         // verify minter can't add
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.prank(user);
         vm.expectRevert();
-        tokenContract.addTokenUris(tokenIds, uris);
+        tokenContract.addTokenUris(tokenIds, baseUri);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
 
         // verify contract owner can add
         vm.expectEmit(true, false, false, false);
         emit MetadataUpdate(1);
-        tokenContract.addTokenUris(tokenIds, uris);
+        tokenContract.addTokenUris(tokenIds, baseUri);
 
         // check tokenUris
         string[] memory expectedUris = new string[](3);
         expectedUris[0] = "uri1";
-        expectedUris[1] = "uri2";
-        expectedUris[2] = "uri2";
+        expectedUris[1] = "uri2/1";
+        expectedUris[2] = "uri2/1";
 
         (uint256 index, string[] memory rUris, bool isPinned) = tokenContract.tokenURIs(1);
         assertEq(index, 2);
@@ -1674,34 +1673,25 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         for (uint256 i = 0; i < rUris.length; i++) {
             assertEq(keccak256(bytes(expectedUris[i])), keccak256(bytes(rUris[i])));
         }
-
     }
 
     function testAddTokenUrisErrors() public {
         // token uris
         uint256[] memory tokenIds = new uint256[](1);
         tokenIds[0] = 1;
-        string[] memory uris = new string[](0);
-
-        // array length mismatch
-        vm.expectRevert(ArrayLengthMismatch.selector);
-        tokenContract.addTokenUris(tokenIds, uris);
-
-        // get equal length arrays
-        uris = new string[](1);
-        uris[0] = "uri2";
+        string memory baseUri = "baseUri";
 
         // token doesn't exist
         vm.expectRevert(TokenDoesntExist.selector);
-        tokenContract.addTokenUris(tokenIds, uris);
+        tokenContract.addTokenUris(tokenIds, baseUri);
 
         // mint token
         tokenContract.mint(address(this), "uri1");
 
         // empty token uri
-        uris[0] = "";
+        baseUri = "";
         vm.expectRevert(EmptyTokenURI.selector);
-        tokenContract.addTokenUris(tokenIds, uris);
+        tokenContract.addTokenUris(tokenIds, baseUri);
     }
 
     function testTokenUrisErrors() public {
@@ -1710,6 +1700,8 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
     }
 
     function testPinTokenUriErrors(address user) public {
+        vm.assume(user != address(this));
+
         // token doesn't exist
         vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.pinTokenURI(1, 0);
@@ -1728,6 +1720,8 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
     }
 
     function testUnpinTokenUriErrors(address user) public {
+        vm.assume(user != address(this));
+
         // token doesn't exist
         vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.unpinTokenURI(1);
@@ -1753,13 +1747,14 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         if (numTokens > 300) numTokens = numTokens % 300;
 
         // mint tokens
+        string memory baseUri = "newuri";
         uint256[] memory tokenIds = new uint256[](numTokens);
         string[] memory uris = new string[](numTokens);
         string[] memory newUris = new string[](numTokens);
         for (uint256 i = 0; i < numTokens; i++) {
             tokenIds[i] = i + 1;
             uris[i] = string(abi.encodePacked("uri", i.toString()));
-            newUris[i] = string(abi.encodePacked("newuri", i.toString()));
+            newUris[i] = string(abi.encodePacked(baseUri, "/", (i + 1).toString()));
             tokenContract.mint(collector, uris[i]);
             // token uri
             assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
@@ -1770,9 +1765,9 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             vm.expectEmit(true, false, false, false);
             emit MetadataUpdate(tokenIds[i]);
         }
-        tokenContract.addTokenUris(tokenIds, newUris);
+        tokenContract.addTokenUris(tokenIds, baseUri);
 
-        // get token uris and check 
+        // get token uris and check
         uint256 index;
         bool isPinned;
         string[] memory rUris = new string[](0);
@@ -1853,13 +1848,14 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         if (numTokens < 2) numTokens = 2;
 
         // mint tokens
+        string memory baseUri = "newuri";
         uint256[] memory tokenIds = new uint256[](numTokens);
         string[] memory uris = new string[](numTokens);
         string[] memory newUris = new string[](numTokens);
         for (uint256 i = 0; i < numTokens; i++) {
             tokenIds[i] = i + 1;
             uris[i] = string(abi.encodePacked("uri/", i.toString()));
-            newUris[i] = string(abi.encodePacked("newuri/", i.toString()));
+            newUris[i] = string(abi.encodePacked(baseUri, "/", (i + 1).toString()));
         }
         tokenContract.batchMint(collector, numTokens, "uri");
 
@@ -1873,9 +1869,9 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             vm.expectEmit(true, false, false, false);
             emit MetadataUpdate(tokenIds[i]);
         }
-        tokenContract.addTokenUris(tokenIds, newUris);
+        tokenContract.addTokenUris(tokenIds, baseUri);
 
-        // get token uris and check 
+        // get token uris and check
         uint256 index;
         bool isPinned;
         string[] memory rUris = new string[](0);
@@ -1956,13 +1952,14 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         if (numTokens < 2) numTokens = 2;
 
         // mint tokens
+        string memory baseUri = "newuri";
         uint256[] memory tokenIds = new uint256[](numTokens);
         string[] memory uris = new string[](numTokens);
         string[] memory newUris = new string[](numTokens);
         for (uint256 i = 0; i < numTokens; i++) {
             tokenIds[i] = i + 1;
             uris[i] = string(abi.encodePacked("uri/", i.toString()));
-            newUris[i] = string(abi.encodePacked("newuri/", i.toString()));
+            newUris[i] = string(abi.encodePacked(baseUri, "/", (i + 1).toString()));
         }
         tokenContract.batchMintUltra(collector, numTokens, "uri");
 
@@ -1976,9 +1973,9 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             vm.expectEmit(true, false, false, false);
             emit MetadataUpdate(tokenIds[i]);
         }
-        tokenContract.addTokenUris(tokenIds, newUris);
+        tokenContract.addTokenUris(tokenIds, baseUri);
 
-        // get token uris and check 
+        // get token uris and check
         uint256 index;
         bool isPinned;
         string[] memory rUris = new string[](0);
@@ -2058,6 +2055,7 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         if (numTokens < 2) numTokens = 2;
 
         // mint tokens
+        string memory baseUri = "newuri";
         address[] memory collectors = new address[](numTokens);
         uint256[] memory tokenIds = new uint256[](numTokens);
         string[] memory uris = new string[](numTokens);
@@ -2065,7 +2063,7 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         for (uint256 i = 0; i < numTokens; i++) {
             tokenIds[i] = i + 1;
             uris[i] = string(abi.encodePacked("uri/", i.toString()));
-            newUris[i] = string(abi.encodePacked("newuri/", i.toString()));
+            newUris[i] = string(abi.encodePacked(baseUri, "/", (i + 1).toString()));
             collectors[i] = makeAddr(i.toString());
         }
         tokenContract.airdrop(collectors, "uri");
@@ -2080,9 +2078,9 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             vm.expectEmit(true, false, false, false);
             emit MetadataUpdate(tokenIds[i]);
         }
-        tokenContract.addTokenUris(tokenIds, newUris);
+        tokenContract.addTokenUris(tokenIds, baseUri);
 
-        // get token uris and check 
+        // get token uris and check
         uint256 index;
         bool isPinned;
         string[] memory rUris = new string[](0);
@@ -2167,13 +2165,14 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
 
         // mint tokens
+        string memory baseUri = "newuri";
         uint256[] memory tokenIds = new uint256[](numTokens);
         string[] memory uris = new string[](numTokens);
         string[] memory newUris = new string[](numTokens);
         for (uint256 i = 0; i < numTokens; i++) {
             tokenIds[i] = i + 1;
             uris[i] = string(abi.encodePacked("uri", i.toString()));
-            newUris[i] = string(abi.encodePacked("newuri", i.toString()));
+            newUris[i] = string(abi.encodePacked(baseUri, "/", (i + 1).toString()));
             vm.prank(address(1));
             tokenContract.externalMint(collector, uris[i]);
             // token uri
@@ -2185,9 +2184,9 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             vm.expectEmit(true, false, false, false);
             emit MetadataUpdate(tokenIds[i]);
         }
-        tokenContract.addTokenUris(tokenIds, newUris);
+        tokenContract.addTokenUris(tokenIds, baseUri);
 
-        // get token uris and check 
+        // get token uris and check
         uint256 index;
         bool isPinned;
         string[] memory rUris = new string[](0);

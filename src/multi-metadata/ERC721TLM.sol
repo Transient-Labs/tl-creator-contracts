@@ -89,7 +89,7 @@ contract ERC721TLM is
     struct MultiMetadata {
         bool pinned;
         uint256 index;
-        string[] tokenURIs;
+        uint256[] baseUriIndices;
     }
 
     /// @dev string representation of uint256
@@ -106,6 +106,7 @@ contract ERC721TLM is
     mapping(uint256 => bool) private _burned; // flag to see if a token is burned or not -- needed for burning batch mints
     mapping(uint256 => string) private _tokenUris;
     mapping(uint256 => MultiMetadata) private _multiMetadatas;
+    string[] private _multiMetadataBaseUris;
     BatchMint[] private _batchMints; // dynamic array for batch mints
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -385,14 +386,17 @@ contract ERC721TLM is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice function to add token uris
-    /// @dev written to take in many token ids and uris
-    function addTokenUris(uint256[] calldata tokenIds, string[] calldata uris) external onlyRoleOrOwner(ADMIN_ROLE) {
-        if (tokenIds.length != uris.length) revert ArrayLengthMismatch();
+    /// @dev written to take in many token ids and a base uri that contains metadata files with file names matching the token id
+    /// @dev no trailing slash on the base uri
+    /// @param tokenIds: array of token ids that get metadata added to them
+    /// @param baseUri: the base uri of a folder containing metadata - file names are the same as token ids and no file extension
+    function addTokenUris(uint256[] calldata tokenIds, string calldata baseUri) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (bytes(baseUri).length == 0) revert EmptyTokenURI();
+        uint256 baseUriIndex = _multiMetadataBaseUris.length;
+        _multiMetadataBaseUris.push(baseUri);
         for (uint256 i = 0; i < tokenIds.length; i++) {
             if (!_exists(tokenIds[i])) revert TokenDoesntExist();
-            if (bytes(uris[i]).length == 0) revert EmptyTokenURI();
-
-            _multiMetadatas[tokenIds[i]].tokenURIs.push(uris[i]);
+            _multiMetadatas[tokenIds[i]].baseUriIndices.push(baseUriIndex);
             emit MetadataUpdate(tokenIds[i]);
         }
     }
@@ -402,13 +406,15 @@ contract ERC721TLM is
         if (!_exists(tokenId)) revert TokenDoesntExist();
         MultiMetadata memory multiMetadata = _multiMetadatas[tokenId];
         // build uris
-        uris = new string[](multiMetadata.tokenURIs.length + 1);
+        uris = new string[](multiMetadata.baseUriIndices.length + 1);
         uris[0] = _tokenUris[tokenId];
         if (bytes(uris[0]).length == 0) {
             (, uris[0]) = _getBatchInfo(tokenId);
         }
-        for (uint256 i = 0; i < multiMetadata.tokenURIs.length; i++) {
-            uris[i + 1] = multiMetadata.tokenURIs[i];
+        for (uint256 i = 0; i < multiMetadata.baseUriIndices.length; i++) {
+            uris[i + 1] = string(
+                abi.encodePacked(_multiMetadataBaseUris[multiMetadata.baseUriIndices[i]], "/", tokenId.toString())
+            );
         }
         // get if pinned
         pinned = multiMetadata.pinned;
@@ -420,7 +426,7 @@ contract ERC721TLM is
     function pinTokenURI(uint256 tokenId, uint256 index) external {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (ownerOf(tokenId) != msg.sender) revert CallerNotTokenOwner();
-        if (index > _multiMetadatas[tokenId].tokenURIs.length) {
+        if (index > _multiMetadatas[tokenId].baseUriIndices.length) {
             revert InvalidTokenURIIndex();
         }
 
@@ -463,16 +469,28 @@ contract ERC721TLM is
                     (, uri) = _getBatchInfo(tokenId);
                 }
             } else {
-                uri = multiMetadata.tokenURIs[multiMetadata.index - 1];
+                uri = string(
+                    abi.encodePacked(
+                        _multiMetadataBaseUris[multiMetadata.baseUriIndices[multiMetadata.index - 1]],
+                        "/",
+                        tokenId.toString()
+                    )
+                );
             }
         } else {
-            if (multiMetadata.tokenURIs.length == 0) {
+            if (multiMetadata.baseUriIndices.length == 0) {
                 uri = _tokenUris[tokenId];
                 if (bytes(uri).length == 0) {
                     (, uri) = _getBatchInfo(tokenId);
                 }
             } else {
-                uri = multiMetadata.tokenURIs[multiMetadata.tokenURIs.length - 1];
+                uri = string(
+                    abi.encodePacked(
+                        _multiMetadataBaseUris[multiMetadata.baseUriIndices[multiMetadata.baseUriIndices.length - 1]],
+                        "/",
+                        tokenId.toString()
+                    )
+                );
             }
         }
     }
