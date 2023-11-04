@@ -53,6 +53,11 @@ deploy_shatter_testnets:
 	forge script script/Deployments.s.sol:DeployShatter --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify
 	forge script script/Deployments.s.sol:DeployShatter --rpc-url base_goerli --ledger --sender ${SENDER} --broadcast --verify
 
+deploy_erc721tlm_testnets:
+	forge script script/Deployments.s.sol:DeployERC721TLM --rpc-url goerli --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployERC721TLM --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployERC721TLM --rpc-url base_goerli --ledger --sender ${SENDER} --broadcast --verify
+
 deploy_tl_creator_contract_factory_testnets:
 	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url goerli --ledger --sender ${SENDER} --broadcast --verify
 	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify

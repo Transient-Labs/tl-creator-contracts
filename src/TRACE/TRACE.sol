@@ -19,7 +19,6 @@ import {TRACERSRegistry} from "./TRACERSRegistry.sol";
 /// @author transientlabs.xyz
 /// @custom:version 2.7.0
 contract TRACE is ERC1967Proxy, EIP712 {
-
     using Strings for address;
 
     /*//////////////////////////////////////////////////////////////////////////

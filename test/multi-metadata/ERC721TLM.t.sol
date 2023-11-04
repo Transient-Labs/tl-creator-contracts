@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {IERC2309Upgradeable} from "openzeppelin-upgradeable/interfaces/IERC2309Upgradeable.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {
-    ERC721TL,
+    ERC721TLM,
     OwnableAccessControlUpgradeable,
     EmptyTokenURI,
     MintToZeroAddress,
@@ -14,15 +14,16 @@ import {
     AirdropTooFewAddresses,
     CallerNotApprovedOrOwner,
     CallerNotTokenOwner,
-    NoTokenUriUpdateAvailable
-} from "tl-creator-contracts/core/ERC721TL.sol";
+    InvalidTokenURIIndex,
+    ArrayLengthMismatch
+} from "tl-creator-contracts/multi-metadata/ERC721TLM.sol";
 import {NotRoleOrOwner, NotSpecifiedRole} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {BlockListRegistry} from "tl-blocklist/BlockListRegistry.sol";
 
-contract ERC721TLUnitTest is IERC2309Upgradeable, Test {
+contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
     using Strings for uint256;
 
-    ERC721TL public tokenContract;
+    ERC721TLM public tokenContract;
     address public royaltyRecipient = makeAddr("royaltyRecipient");
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -30,15 +31,14 @@ contract ERC721TLUnitTest is IERC2309Upgradeable, Test {
     event BlockListRegistryUpdated(address indexed caller, address indexed oldRegistry, address indexed newRegistry);
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
     event MetadataUpdate(uint256 tokenId);
-    event SynergyStatusChange(
-        address indexed from, uint256 indexed tokenId, ERC721TL.SynergyAction indexed action, string uri
-    );
+    event TokenUriPinned(uint256 indexed tokenId, uint256 indexed index);
+    event TokenUriUnpinned(uint256 indexed tokenId);
     event CreatorStory(uint256 indexed tokenId, address indexed creatorAddress, string creatorName, string story);
     event Story(uint256 indexed tokenId, address indexed collectorAddress, string collectorName, string story);
 
     function setUp() public {
         address[] memory admins = new address[](0);
-        tokenContract = new ERC721TL(false);
+        tokenContract = new ERC721TLM(false);
         tokenContract.initialize("Test721", "T721", royaltyRecipient, 1000, address(this), admins, true, address(0));
     }
 
@@ -60,7 +60,7 @@ contract ERC721TLUnitTest is IERC2309Upgradeable, Test {
         }
 
         // create contract
-        tokenContract = new ERC721TL(false);
+        tokenContract = new ERC721TLM(false);
         // initialize and verify events thrown (order matters)
         vm.expectEmit(true, true, false, false);
         emit OwnershipTransferred(address(0), address(this));
@@ -1608,357 +1608,656 @@ contract ERC721TLUnitTest is IERC2309Upgradeable, Test {
         assertEq(amt, newPercentage);
     }
 
-    /// @notice test synergy functions
-    // - access control ✅
-    // - regular mint ✅
-    // - batch mint ✅
-    // - airdrop ✅
-    // - external mint ✅
-    // - propose token uri as owner of token ✅
-    // - propose token uri for collector ✅
-    // - proper events ✅
-    // - accept update with proper event & access ✅
-    // - reject update with proper event & access ✅
-    function testCustomErrors() public {
-        vm.expectRevert(TokenDoesntExist.selector);
-        tokenContract.proposeNewTokenUri(1, "uri");
-        tokenContract.mint(address(this), "uri");
-        vm.expectRevert(EmptyTokenURI.selector);
-        tokenContract.proposeNewTokenUri(1, "");
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.startPrank(address(1), address(1));
-        vm.expectRevert(CallerNotTokenOwner.selector);
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(CallerNotTokenOwner.selector);
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.stopPrank();
+    /// @notice test multi-metadata functions
+    //  - add token uris access control ✅
+    //  - add token uris errors ✅
+    //  - tokenUris errors ✅
+    //  - pinTokenUri access control ✅
+    //  - pinTokenUri errors ✅
+    //  - unpinTokenUri access control ✅
+    //  - unpinTokenUri errors ✅
+    //  - hasPinnedTokenUri errors ✅
+    //  - multi metadata with regular mint ✅
+    //  - multi metadata with batch mint ✅
+    //  - multi metadata with batch mint ultra ✅
+    //  - multi metadata with airdrop ✅
+    //  - multi metadata with external mint ✅
+    function testAddTokenUrisAccessControl(address user) public {
+        vm.assume(user != address(this) && user != address(0));
+        address[] memory users = new address[](1);
+        users[0] = user;
+
+        // token uris
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+        string memory baseUri = "uri2";
+
+        // mint token
+        tokenContract.mint(user, "uri1");
+
+        // verify user can't add
+        vm.prank(user);
+        vm.expectRevert();
+        tokenContract.addTokenUris(tokenIds, baseUri);
+
+        // verify admin can add
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.prank(user);
+        vm.expectEmit(true, false, false, false);
+        emit MetadataUpdate(1);
+        tokenContract.addTokenUris(tokenIds, baseUri);
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+
+        // verify minter can't add
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.prank(user);
+        vm.expectRevert();
+        tokenContract.addTokenUris(tokenIds, baseUri);
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+
+        // verify contract owner can add
+        vm.expectEmit(true, false, false, false);
+        emit MetadataUpdate(1);
+        tokenContract.addTokenUris(tokenIds, baseUri);
+
+        // check tokenUris
+        string[] memory expectedUris = new string[](3);
+        expectedUris[0] = "uri1";
+        expectedUris[1] = "uri2/1";
+        expectedUris[2] = "uri2/1";
+
+        (uint256 index, string[] memory rUris, bool isPinned) = tokenContract.tokenURIs(1);
+        assertEq(index, 2);
+        assertFalse(isPinned);
+        assertEq(rUris.length, 3);
+        for (uint256 i = 0; i < rUris.length; i++) {
+            assertEq(keccak256(bytes(expectedUris[i])), keccak256(bytes(rUris[i])));
+        }
     }
 
-    function testProposeAccessControl() public {
-        tokenContract.mint(address(this), "uri");
+    function testAddTokenUrisErrors() public {
+        // token uris
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+        string memory baseUri = "baseUri";
+
+        // token doesn't exist
+        vm.expectRevert(TokenDoesntExist.selector);
+        tokenContract.addTokenUris(tokenIds, baseUri);
+
+        // mint token
+        tokenContract.mint(address(this), "uri1");
+
+        // empty token uri
+        baseUri = "";
+        vm.expectRevert(EmptyTokenURI.selector);
+        tokenContract.addTokenUris(tokenIds, baseUri);
+    }
+
+    function testTokenUrisErrors() public {
+        vm.expectRevert(TokenDoesntExist.selector);
+        tokenContract.tokenURIs(1);
+    }
+
+    function testPinTokenUriErrors(address user) public {
+        vm.assume(user != address(this));
+
+        // token doesn't exist
+        vm.expectRevert(TokenDoesntExist.selector);
+        tokenContract.pinTokenURI(1, 0);
+
+        // mint token
+        tokenContract.mint(address(this), "uri1");
+
+        // not token owner
+        vm.prank(user);
+        vm.expectRevert(CallerNotTokenOwner.selector);
+        tokenContract.pinTokenURI(1, 0);
+
+        // invalid token uri index
+        vm.expectRevert(InvalidTokenURIIndex.selector);
+        tokenContract.pinTokenURI(1, 1);
+    }
+
+    function testUnpinTokenUriErrors(address user) public {
+        vm.assume(user != address(this));
+
+        // token doesn't exist
+        vm.expectRevert(TokenDoesntExist.selector);
+        tokenContract.unpinTokenURI(1);
+
+        // mint token
+        tokenContract.mint(address(this), "uri1");
+
+        // not token owner
+        vm.prank(user);
+        vm.expectRevert(CallerNotTokenOwner.selector);
+        tokenContract.unpinTokenURI(1);
+    }
+
+    function testHasPinnedTokenURIErrors() public {
+        // token doesn't exist
+        vm.expectRevert(TokenDoesntExist.selector);
+        tokenContract.hasPinnedTokenURI(1);
+    }
+
+    function testMultiMetadataWithRegularMint(uint256 numTokens, address collector) public {
+        // limit inputs
+        vm.assume(collector != address(0));
+        if (numTokens > 300) numTokens = numTokens % 300;
+
+        // mint tokens
+        string memory baseUri = "newuri";
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        string[] memory uris = new string[](numTokens);
+        string[] memory newUris = new string[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            uris[i] = string(abi.encodePacked("uri", i.toString()));
+            newUris[i] = string(abi.encodePacked(baseUri, "/", (i + 1).toString()));
+            tokenContract.mint(collector, uris[i]);
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // add token uri to each
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+        }
+        tokenContract.addTokenUris(tokenIds, baseUri);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, false, false, false);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
+    }
+
+    function testMultiMetdataWithBatchMint(uint256 numTokens, address collector) public {
+        // limit inputs
+        vm.assume(collector != address(0));
+        if (numTokens > 300) numTokens = numTokens % 300;
+        if (numTokens < 2) numTokens = 2;
+
+        // mint tokens
+        string memory baseUri = "newuri";
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        string[] memory uris = new string[](numTokens);
+        string[] memory newUris = new string[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            uris[i] = string(abi.encodePacked("uri/", i.toString()));
+            newUris[i] = string(abi.encodePacked(baseUri, "/", (i + 1).toString()));
+        }
+        tokenContract.batchMint(collector, numTokens, "uri");
+
+        for (uint256 i = 0; i < numTokens; i++) {
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // add token uri to each
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+        }
+        tokenContract.addTokenUris(tokenIds, baseUri);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, false, false, false);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
+    }
+
+    function testMultiMetadataWithBatchMintUltra(uint256 numTokens, address collector) public {
+        // limit inputs
+        vm.assume(collector != address(0));
+        if (numTokens > 300) numTokens = numTokens % 300;
+        if (numTokens < 2) numTokens = 2;
+
+        // mint tokens
+        string memory baseUri = "newuri";
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        string[] memory uris = new string[](numTokens);
+        string[] memory newUris = new string[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            uris[i] = string(abi.encodePacked("uri/", i.toString()));
+            newUris[i] = string(abi.encodePacked(baseUri, "/", (i + 1).toString()));
+        }
+        tokenContract.batchMintUltra(collector, numTokens, "uri");
+
+        for (uint256 i = 0; i < numTokens; i++) {
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // add token uri to each
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+        }
+        tokenContract.addTokenUris(tokenIds, baseUri);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, false, false, false);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
+    }
+
+    function testMultiMetadataWithAirdrop(uint256 numTokens) public {
+        // limit inputs
+        if (numTokens > 300) numTokens = numTokens % 300;
+        if (numTokens < 2) numTokens = 2;
+
+        // mint tokens
+        string memory baseUri = "newuri";
+        address[] memory collectors = new address[](numTokens);
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        string[] memory uris = new string[](numTokens);
+        string[] memory newUris = new string[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            uris[i] = string(abi.encodePacked("uri/", i.toString()));
+            newUris[i] = string(abi.encodePacked(baseUri, "/", (i + 1).toString()));
+            collectors[i] = makeAddr(i.toString());
+        }
+        tokenContract.airdrop(collectors, "uri");
+
+        for (uint256 i = 0; i < numTokens; i++) {
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // add token uri to each
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+        }
+        tokenContract.addTokenUris(tokenIds, baseUri);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collectors[i]);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collectors[i]);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collectors[i]);
+            vm.expectEmit(true, false, false, false);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
+    }
+
+    function testMultiMetadataWithExternalMint(uint256 numTokens, address collector) public {
+        // limit inputs
+        vm.assume(collector != address(0));
+        if (numTokens > 300) numTokens = numTokens % 300;
+
+        // add mint contract
         address[] memory users = new address[](1);
         users[0] = address(1);
-        // verify that user can't propose
-        vm.startPrank(address(1), address(1));
-        vm.expectRevert();
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        vm.stopPrank();
-        // verify that admin can propose
-        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
-        vm.startPrank(address(1), address(1));
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "newUri");
-        vm.stopPrank();
-        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
-        // verify that minters can't propose
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-        vm.startPrank(address(1), address(1));
-        vm.expectRevert();
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        vm.stopPrank();
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
-        // verify owner can propose
-        tokenContract.proposeNewTokenUri(1, "newUriAgain");
-        assertEq(tokenContract.tokenURI(1), "newUriAgain");
-    }
-
-    function testProposeCreatorIsOwner() public {
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(this);
-        addresses[1] = address(this);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
 
-        // mint
-        tokenContract.mint(address(this), "uri");
-        vm.expectEmit(true, false, false, false);
-        emit MetadataUpdate(1);
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "newUri");
+        // mint tokens
+        string memory baseUri = "newuri";
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        string[] memory uris = new string[](numTokens);
+        string[] memory newUris = new string[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            uris[i] = string(abi.encodePacked("uri", i.toString()));
+            newUris[i] = string(abi.encodePacked(baseUri, "/", (i + 1).toString()));
+            vm.prank(address(1));
+            tokenContract.externalMint(collector, uris[i]);
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
 
-        // batch mint
-        tokenContract.batchMint(address(this), 2, "uri");
-        vm.expectEmit(true, false, false, false);
-        emit MetadataUpdate(2);
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "newUri2");
-        vm.expectEmit(true, false, false, false);
-        emit MetadataUpdate(3);
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "newUri3");
+        // add token uri to each
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+        }
+        tokenContract.addTokenUris(tokenIds, baseUri);
 
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, false, false, false);
-        emit MetadataUpdate(4);
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "newUri4");
-        vm.expectEmit(true, false, false, false);
-        emit MetadataUpdate(5);
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "newUri5");
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
 
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(this), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, false, false, false);
-        emit MetadataUpdate(6);
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "newUri6");
-    }
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
 
-    function testProposeCreatorIsNotOwner() public {
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
 
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ERC721TL.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
 
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ERC721TL.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ERC721TL.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(uris[i])));
+        }
 
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ERC721TL.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ERC721TL.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, false, false, false);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, false, false, false);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
 
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ERC721TL.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-    }
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256(bytes(uris[i])));
+            assert(keccak256(bytes(rUris[1])) == keccak256(bytes(newUris[i])));
 
-    function testAcceptUpdate() public {
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ERC721TL.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, false, false, false);
-        emit MetadataUpdate(1);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 1, ERC721TL.SynergyAction.Accepted, "newUri");
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(1), "newUri");
-
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ERC721TL.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, false, false, false);
-        emit MetadataUpdate(2);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 2, ERC721TL.SynergyAction.Accepted, "newUri2");
-        tokenContract.acceptTokenUriUpdate(2);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(2);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(2), "newUri2");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ERC721TL.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, false, false, false);
-        emit MetadataUpdate(3);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 3, ERC721TL.SynergyAction.Accepted, "newUri3");
-        tokenContract.acceptTokenUriUpdate(3);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(3);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(3), "newUri3");
-
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ERC721TL.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, false, false, false);
-        emit MetadataUpdate(4);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 4, ERC721TL.SynergyAction.Accepted, "newUri4");
-        tokenContract.acceptTokenUriUpdate(4);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(4);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(4), "newUri4");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ERC721TL.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-        vm.startPrank(address(2), address(2));
-        vm.expectEmit(true, false, false, false);
-        emit MetadataUpdate(5);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(2), 5, ERC721TL.SynergyAction.Accepted, "newUri5");
-        tokenContract.acceptTokenUriUpdate(5);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(5);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(5), "newUri5");
-
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ERC721TL.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, false, false, false);
-        emit MetadataUpdate(6);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 6, ERC721TL.SynergyAction.Accepted, "newUri6");
-        tokenContract.acceptTokenUriUpdate(6);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(6);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(6), "newUri6");
-    }
-
-    function testRejectUpdate() public {
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ERC721TL.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 1, ERC721TL.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(1), "uri");
-
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ERC721TL.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 2, ERC721TL.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(2);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(2);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ERC721TL.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 3, ERC721TL.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(3);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(3);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ERC721TL.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 4, ERC721TL.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(4);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(4);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ERC721TL.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-        vm.startPrank(address(2), address(2));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(2), 5, ERC721TL.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(5);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(5);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ERC721TL.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 6, ERC721TL.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(6);
-        vm.expectRevert(NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(6);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(6), "uri");
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256(bytes(newUris[i])));
+        }
     }
 
     /// @notice test story functions
@@ -2368,5 +2667,6 @@ contract ERC721TLUnitTest is IERC2309Upgradeable, Test {
         assertTrue(tokenContract.supportsInterface(0x2a55205a)); // 2981
         assertTrue(tokenContract.supportsInterface(0x0d23ecb9)); // Story
         assertTrue(tokenContract.supportsInterface(0x01ffc9a7)); // 165
+        assertTrue(tokenContract.supportsInterface(0x06e1bc5b)); // 7160
     }
 }
