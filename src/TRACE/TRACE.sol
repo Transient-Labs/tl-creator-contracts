@@ -59,7 +59,7 @@ error Unauthorized();
 ///      - Story Contract backed by T.R.A.C.E. chip functionality
 ///      - individual token royalty overrides
 /// @author transientlabs.xyz
-/// @custom:version 2.9.0
+/// @custom:version 2.9.1
 contract TRACE is
     Initializable,
     ERC721Upgradeable,
@@ -97,7 +97,7 @@ contract TRACE is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "2.9.0";
+    string public constant VERSION = "2.9.1";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     TRACERSRegistry public tracersRegistry;
     uint256 private _counter; // token ids
@@ -186,6 +186,7 @@ contract TRACE is
         _counter++;
         _tokenUris[_counter] = uri;
         _mint(recipient, _counter);
+        emit CreatorStory(_counter, msg.sender, "", "# TRACE_AUTHENTICATION");
     }
 
     /// @notice function to mint a single token with specific token royalty
@@ -203,6 +204,7 @@ contract TRACE is
         _tokenUris[_counter] = uri;
         _overrideTokenRoyaltyInfo(_counter, royaltyAddress, royaltyPercent);
         _mint(recipient, _counter);
+        emit CreatorStory(_counter, msg.sender, "", "# TRACE_AUTHENTICATION");
     }
 
     /// @notice function to airdrop tokens to addresses
@@ -223,6 +225,7 @@ contract TRACE is
         _batchMints.push(BatchMint(start, start + addresses.length, baseUri));
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], start + i);
+            emit CreatorStory(start + i, msg.sender, "", "# TRACE_AUTHENTICATION");
         }
     }
 
@@ -260,6 +263,7 @@ contract TRACE is
     /// @param tokenId the token to transfer
     function transferToken(address from, address to, uint256 tokenId) external onlyRoleOrOwner(ADMIN_ROLE) {
         _transfer(from, to, tokenId);
+        emit CreatorStory(tokenId, msg.sender, "", "# TRACE_AUTHENTICATION");
     }
 
     /// @notice function to set a new TRACERS registry

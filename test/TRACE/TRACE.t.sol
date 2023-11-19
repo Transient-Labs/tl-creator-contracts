@@ -178,6 +178,8 @@ contract TRACETest is Test {
             string memory uri = string(abi.encodePacked("uri_", i.toString()));
             vm.expectEmit(true, true, true, false);
             emit Transfer(address(0), recipient, i);
+            vm.expectEmit(true, true, false, false);
+            emit CreatorStory(i, address(this), "", "# TRACE_AUTHENTICATION");
             trace.mint(recipient, uri);
             assertEq(trace.balanceOf(recipient), i);
             assertEq(trace.ownerOf(i), recipient);
@@ -200,6 +202,8 @@ contract TRACETest is Test {
             string memory uri = string(abi.encodePacked("uri_", i.toString()));
             vm.expectEmit(true, true, true, false);
             emit Transfer(address(0), recipient, i);
+            vm.expectEmit(true, true, false, false);
+            emit CreatorStory(i, address(this), "", "# TRACE_AUTHENTICATION");
             trace.mint(recipient, uri, royaltyAddress, royaltyPercent);
             assertEq(trace.balanceOf(recipient), i);
             assertEq(trace.ownerOf(i), recipient);
@@ -312,6 +316,8 @@ contract TRACETest is Test {
         for (uint256 i = 1; i <= numAddresses; i++) {
             vm.expectEmit(true, true, true, false);
             emit Transfer(address(0), addresses[i - 1], i);
+            vm.expectEmit(true, true, false, false);
+            emit CreatorStory(i, address(this), "", "# TRACE_AUTHENTICATION");
         }
         trace.airdrop(addresses, "baseUri");
         for (uint256 i = 1; i <= numAddresses; i++) {
@@ -393,12 +399,16 @@ contract TRACETest is Test {
         // transfer tokens
         vm.expectEmit(true, true, true, false);
         emit Transfer(address(1), address(this), 1);
+        vm.expectEmit(true, true, false, false);
+        emit CreatorStory(1, address(this), "", "# TRACE_AUTHENTICATION");
         trace.transferToken(address(1), address(this), 1);
         assert(trace.ownerOf(1) == address(this));
 
         for (uint256 i = 2; i <= numAddresses + 1; i++) {
             vm.expectEmit(true, true, true, false);
             emit Transfer(addresses[i-2], address(this), i);
+            vm.expectEmit(true, true, false, false);
+            emit CreatorStory(i, address(this), "", "# TRACE_AUTHENTICATION");
             trace.transferToken(addresses[i-2], address(this), i);
             assert(trace.ownerOf(i) == address(this));
         }
