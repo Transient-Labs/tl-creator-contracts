@@ -1,17 +1,11 @@
-name: Run tests
+on: [push]
 
-on:
-  # Support calling this workflow from other workflows
-  workflow_call:
-  push:
-    # Run this workflow when pushing any branch other than main.
-    branches-ignore: [main]
+name: Test
 
 jobs:
-  run-tests:
+  check:
+    name: Transient Labs Creator Contracts
     runs-on: ubuntu-latest
-    environment: testing
-
     steps:
       - uses: actions/checkout@v3
         with:
