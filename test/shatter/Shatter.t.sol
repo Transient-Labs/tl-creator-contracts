@@ -426,7 +426,12 @@ contract ShatterUnitTest is IERC2309Upgradeable, Test {
     }
 
     function testTokenUri(uint256 numShatters) public {
-        vm.assume(numShatters < 101 && numShatters > 0);
+        if (numShatters > 100) {
+            numShatters = numShatters % 100 + 1;
+        }
+        if (numShatters == 0) {
+            numShatters = 1;
+        }
         // unminted token
         vm.expectRevert(TokenDoesntExist.selector);
         tokenContract.tokenURI(0);
