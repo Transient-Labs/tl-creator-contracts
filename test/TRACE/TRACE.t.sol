@@ -179,7 +179,7 @@ contract TRACETest is Test {
             vm.expectEmit(true, true, true, false);
             emit Transfer(address(0), recipient, i);
             vm.expectEmit(true, true, false, false);
-            emit CreatorStory(i, address(this), "", "# TRACE_AUTHENTICATION");
+            emit CreatorStory(i, address(this), "", "{\n\"trace\": {\"type\": \"trace_authentication\"}\n}");
             trace.mint(recipient, uri);
             assertEq(trace.balanceOf(recipient), i);
             assertEq(trace.ownerOf(i), recipient);
@@ -203,7 +203,7 @@ contract TRACETest is Test {
             vm.expectEmit(true, true, true, false);
             emit Transfer(address(0), recipient, i);
             vm.expectEmit(true, true, false, false);
-            emit CreatorStory(i, address(this), "", "# TRACE_AUTHENTICATION");
+            emit CreatorStory(i, address(this), "", "{\n\"trace\": {\"type\": \"trace_authentication\"}\n}");
             trace.mint(recipient, uri, royaltyAddress, royaltyPercent);
             assertEq(trace.balanceOf(recipient), i);
             assertEq(trace.ownerOf(i), recipient);
@@ -317,7 +317,7 @@ contract TRACETest is Test {
             vm.expectEmit(true, true, true, false);
             emit Transfer(address(0), addresses[i - 1], i);
             vm.expectEmit(true, true, false, false);
-            emit CreatorStory(i, address(this), "", "# TRACE_AUTHENTICATION");
+            emit CreatorStory(i, address(this), "", "{\n\"trace\": {\"type\": \"trace_authentication\"}\n}");
         }
         trace.airdrop(addresses, "baseUri");
         for (uint256 i = 1; i <= numAddresses; i++) {
@@ -400,7 +400,7 @@ contract TRACETest is Test {
         vm.expectEmit(true, true, true, false);
         emit Transfer(address(1), address(this), 1);
         vm.expectEmit(true, true, false, false);
-        emit CreatorStory(1, address(this), "", "# TRACE_AUTHENTICATION");
+        emit CreatorStory(1, address(this), "", "{\n\"trace\": {\"type\": \"trace_authentication\"}\n}");
         trace.transferToken(address(1), address(this), 1);
         assert(trace.ownerOf(1) == address(this));
 
@@ -408,7 +408,7 @@ contract TRACETest is Test {
             vm.expectEmit(true, true, true, false);
             emit Transfer(addresses[i-2], address(this), i);
             vm.expectEmit(true, true, false, false);
-            emit CreatorStory(i, address(this), "", "# TRACE_AUTHENTICATION");
+            emit CreatorStory(i, address(this), "", "{\n\"trace\": {\"type\": \"trace_authentication\"}\n}");
             trace.transferToken(addresses[i-2], address(this), i);
             assert(trace.ownerOf(i) == address(this));
         }
