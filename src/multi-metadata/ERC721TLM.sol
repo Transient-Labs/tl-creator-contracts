@@ -42,8 +42,8 @@ error TokenDoesntExist();
 /// @dev index given for ERC-7160 is invalid
 error InvalidTokenURIIndex();
 
-/// @dev mismatching array length
-error ArrayLengthMismatch();
+/// @dev no tokens in tokenIds array
+error NoTokensSpecified();
 
 /*//////////////////////////////////////////////////////////////////////////
                             ERC721TLM
@@ -62,7 +62,7 @@ error ArrayLengthMismatch();
 ///      - individual token royalty overrides
 /// @dev When unpinned, the latest metadata added for a token is returned from `tokenURI` and `tokenURIs`
 /// @author transientlabs.xyz
-/// @custom:version 2.8.0
+/// @custom:version 2.10.0
 contract ERC721TLM is
     Initializable,
     ERC721Upgradeable,
@@ -85,11 +85,17 @@ contract ERC721TLM is
         string baseUri;
     }
 
+    /// @dev struct for specifying base uri index and folder index
+    struct MetadataLoc {
+        uint128 baseUriIndex;
+        uint128 folderIndex;
+    }
+
     /// @dev struct for holding additional metadata used in ERC-7160
     struct MultiMetadata {
         bool pinned;
         uint256 index;
-        uint256[] baseUriIndices;
+        MetadataLoc[] metadataLocs;
     }
 
     /// @dev string representation of uint256
@@ -99,7 +105,7 @@ contract ERC721TLM is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "2.8.0";
+    string public constant VERSION = "2.10.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
@@ -386,17 +392,19 @@ contract ERC721TLM is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice function to add token uris
-    /// @dev written to take in many token ids and a base uri that contains metadata files with file names matching the token id
+    /// @dev written to take in many token ids and a base uri that contains metadata files with file names matching the index of each token id in the `tokenIds` array (aka folderIndex)
     /// @dev no trailing slash on the base uri
     /// @param tokenIds: array of token ids that get metadata added to them
-    /// @param baseUri: the base uri of a folder containing metadata - file names are the same as token ids and no file extension
+    /// @param baseUri: the base uri of a folder containing metadata - file names start at 0 and increase monotonically
     function addTokenUris(uint256[] calldata tokenIds, string calldata baseUri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (bytes(baseUri).length == 0) revert EmptyTokenURI();
-        uint256 baseUriIndex = _multiMetadataBaseUris.length;
+        if (tokenIds.length == 0) revert NoTokensSpecified();
+        uint128 baseUriIndex = uint128(_multiMetadataBaseUris.length);
         _multiMetadataBaseUris.push(baseUri);
         for (uint256 i = 0; i < tokenIds.length; i++) {
             if (!_exists(tokenIds[i])) revert TokenDoesntExist();
-            _multiMetadatas[tokenIds[i]].baseUriIndices.push(baseUriIndex);
+            MetadataLoc memory m = MetadataLoc(baseUriIndex, uint128(i));
+            _multiMetadatas[tokenIds[i]].metadataLocs.push(m);
             emit MetadataUpdate(tokenIds[i]);
         }
     }
@@ -406,15 +414,10 @@ contract ERC721TLM is
         if (!_exists(tokenId)) revert TokenDoesntExist();
         MultiMetadata memory multiMetadata = _multiMetadatas[tokenId];
         // build uris
-        uris = new string[](multiMetadata.baseUriIndices.length + 1);
-        uris[0] = _tokenUris[tokenId];
-        if (bytes(uris[0]).length == 0) {
-            (, uris[0]) = _getBatchInfo(tokenId);
-        }
-        for (uint256 i = 0; i < multiMetadata.baseUriIndices.length; i++) {
-            uris[i + 1] = string(
-                abi.encodePacked(_multiMetadataBaseUris[multiMetadata.baseUriIndices[i]], "/", tokenId.toString())
-            );
+        uris = new string[](multiMetadata.metadataLocs.length + 1);
+        uris[0] = _getMintedMetadatUri(tokenId);
+        for (uint256 i = 0; i < multiMetadata.metadataLocs.length; i++) {
+            uris[i + 1] = _getMultiMetadataUri(multiMetadata, i);
         }
         // get if pinned
         pinned = multiMetadata.pinned;
@@ -426,7 +429,7 @@ contract ERC721TLM is
     function pinTokenURI(uint256 tokenId, uint256 index) external {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (ownerOf(tokenId) != msg.sender) revert CallerNotTokenOwner();
-        if (index > _multiMetadatas[tokenId].baseUriIndices.length) {
+        if (index > _multiMetadatas[tokenId].metadataLocs.length) {
             revert InvalidTokenURIIndex();
         }
 
@@ -454,45 +457,48 @@ contract ERC721TLM is
         return _multiMetadatas[tokenId].pinned;
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Token Uri Override
-    //////////////////////////////////////////////////////////////////////////*/
-
     /// @inheritdoc ERC721Upgradeable
     function tokenURI(uint256 tokenId) public view override(ERC721Upgradeable) returns (string memory uri) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         MultiMetadata memory multiMetadata = _multiMetadatas[tokenId];
         if (multiMetadata.pinned) {
             if (multiMetadata.index == 0) {
-                uri = _tokenUris[tokenId];
-                if (bytes(uri).length == 0) {
-                    (, uri) = _getBatchInfo(tokenId);
-                }
+                uri = _getMintedMetadatUri(tokenId);
             } else {
-                uri = string(
-                    abi.encodePacked(
-                        _multiMetadataBaseUris[multiMetadata.baseUriIndices[multiMetadata.index - 1]],
-                        "/",
-                        tokenId.toString()
-                    )
-                );
+                uri = _getMultiMetadataUri(multiMetadata, multiMetadata.index - 1);
             }
         } else {
-            if (multiMetadata.baseUriIndices.length == 0) {
-                uri = _tokenUris[tokenId];
-                if (bytes(uri).length == 0) {
-                    (, uri) = _getBatchInfo(tokenId);
-                }
+            if (multiMetadata.metadataLocs.length == 0) {
+                uri = _getMintedMetadatUri(tokenId);
             } else {
-                uri = string(
-                    abi.encodePacked(
-                        _multiMetadataBaseUris[multiMetadata.baseUriIndices[multiMetadata.baseUriIndices.length - 1]],
-                        "/",
-                        tokenId.toString()
-                    )
-                );
+                uri = _getMultiMetadataUri(multiMetadata, multiMetadata.metadataLocs.length - 1);
             }
         }
+    }
+
+    /// @notice internal function to get original metadata uri from mint
+    function _getMintedMetadatUri(uint256 tokenId) internal view returns (string memory uri) {
+        uri = _tokenUris[tokenId];
+        if (bytes(uri).length == 0) {
+            (, uri) = _getBatchInfo(tokenId);
+        }
+    }
+
+    /// @notice internal function to help get metadata from multi-metadata struct
+    /// @param multiMetadata The multimMtadata struct in memory
+    /// @param index The index of the multiMetadataLoc
+    function _getMultiMetadataUri(MultiMetadata memory multiMetadata, uint256 index)
+        internal
+        view
+        returns (string memory uri)
+    {
+        uri = string(
+            abi.encodePacked(
+                _multiMetadataBaseUris[multiMetadata.metadataLocs[index].baseUriIndex],
+                "/",
+                uint256(multiMetadata.metadataLocs[index].folderIndex).toString()
+            )
+        );
     }
 
     /*//////////////////////////////////////////////////////////////////////////
