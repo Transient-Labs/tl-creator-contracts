@@ -165,7 +165,6 @@ contract TRACETest is Test {
         vm.expectRevert(abi.encodeWithSelector(NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
         trace.mint(address(this), "uriOne");
         vm.stopPrank();
-
     }
 
     function testMint(uint16 tokenId, address recipient) public {
@@ -301,7 +300,6 @@ contract TRACETest is Test {
         vm.expectRevert(abi.encodeWithSelector(NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
         trace.airdrop(addresses, "baseUri");
         vm.stopPrank();
-
     }
 
     function testAirdrop(uint16 numAddresses) public {
@@ -368,7 +366,7 @@ contract TRACETest is Test {
 
     /// @notice test TRACE functions
     // - access control ✅
-    // - transfer tokens 
+    // - transfer tokens
     // - set tracers registry ✅
     // - add verified story
 
@@ -393,7 +391,7 @@ contract TRACETest is Test {
         // airdrop
         trace.airdrop(addresses, "baseUri");
         for (uint256 i = 2; i <= numAddresses + 1; i++) {
-            assertEq(trace.ownerOf(i), addresses[i-2]);
+            assertEq(trace.ownerOf(i), addresses[i - 2]);
         }
 
         // transfer tokens
@@ -406,10 +404,10 @@ contract TRACETest is Test {
 
         for (uint256 i = 2; i <= numAddresses + 1; i++) {
             vm.expectEmit(true, true, true, false);
-            emit Transfer(addresses[i-2], address(this), i);
+            emit Transfer(addresses[i - 2], address(this), i);
             vm.expectEmit(true, true, false, false);
             emit CreatorStory(i, address(this), "", "{\n\"trace\": {\"type\": \"trace_authentication\"}\n}");
-            trace.transferToken(addresses[i-2], address(this), i);
+            trace.transferToken(addresses[i - 2], address(this), i);
             assert(trace.ownerOf(i) == address(this));
         }
     }
@@ -651,7 +649,7 @@ contract TRACETest is Test {
         (recp, amt) = trace.royaltyInfo(1, 10000);
         assert(recp == address(2));
         assert(amt == 1000);
-        
+
         // verify owner can set token royalty
         trace.setTokenRoyalty(1, address(1), 100);
         (recp, amt) = trace.royaltyInfo(1, 10000);
@@ -731,12 +729,12 @@ contract TRACETest is Test {
         }
 
         for (uint256 i = 1; i <= numAddresses; i++) {
-            string memory uri = string(abi.encodePacked("ipfs://", (i-1).toString()));
+            string memory uri = string(abi.encodePacked("ipfs://", (i - 1).toString()));
             trace.updateTokenUri(i, uri);
             assertEq(trace.tokenURI(i), uri);
         }
     }
-    
+
     /// @notice test story functions
     // - enable/disable story access control ✅
     // - regular mint ✅
@@ -842,5 +840,4 @@ contract TRACETest is Test {
         vm.expectRevert();
         trace.addStory(2, "NOT XCOPY", "I AM NOT XCOPY");
     }
-
 }
