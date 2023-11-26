@@ -58,11 +58,6 @@ deploy_erc721tlm_testnets:
 	forge script script/Deployments.s.sol:DeployERC721TLM --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify
 	forge script script/Deployments.s.sol:DeployERC721TLM --rpc-url base_goerli --ledger --sender ${SENDER} --broadcast --verify
 
-deploy_tl_creator_contract_factory_testnets:
-	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url goerli --ledger --sender ${SENDER} --broadcast --verify
-	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify
-	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url base_goerli --ledger --sender ${SENDER} --broadcast --verify
-
 deploy_trace_testnets:
 	forge script script/Deployments.s.sol:DeployTRACE --rpc-url arb_goerli --ledger --sender ${SENDER} --broadcast --verify
 
@@ -82,10 +77,10 @@ deploy_shatter:
 	forge script script/Deployments.s.sol:DeployShatter --rpc-url arb --ledger --sender ${SENDER} --broadcast --verify
 	forge script script/Deployments.s.sol:DeployShatter --rpc-url base --ledger --sender ${SENDER} --broadcast --verify
 
-deploy_tl_creator_contract_factory:
-	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url mainnet --ledger --sender ${SENDER} --broadcast --verify
-	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url arb --ledger --sender ${SENDER} --broadcast --verify
-	forge script script/Deployments.s.sol:DeployTLCreatorContractFactory --rpc-url base --ledger --sender ${SENDER} --broadcast --verify
+deploy_erc721tlm:
+	forge script script/Deployments.s.sol:DeployERC721TLM --rpc-url mainnet --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployERC721TLM --rpc-url arb --ledger --sender ${SENDER} --broadcast --verify
+	forge script script/Deployments.s.sol:DeployERC721TLM --rpc-url base --ledger --sender ${SENDER} --broadcast --verify
 
 deploy_trace:
 	forge script script/Deployments.s.sol:DeployTRACE --rpc-url arb --ledger --sender ${SENDER} --broadcast --verify
