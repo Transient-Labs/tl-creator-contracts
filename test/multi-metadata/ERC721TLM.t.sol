@@ -376,6 +376,11 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             assertEq(tokenContract.ownerOf(i), recipient);
             assertEq(tokenContract.tokenURI(i), uri);
         }
+
+        // test mint after metadata
+        tokenContract.mint(address(this), "newUri");
+        assertEq(tokenContract.ownerOf(numTokens + 1), address(this));
+        assertEq(tokenContract.tokenURI(numTokens + 1), "newUri");
     }
 
     function testBatchMintTransfers(uint256 numTokens, address recipient, address secondRecipient) public {
@@ -511,6 +516,11 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             assertEq(tokenContract.ownerOf(i), recipient);
             assertEq(tokenContract.tokenURI(i), uri);
         }
+
+        // test mint after metadata
+        tokenContract.mint(address(this), "newUri");
+        assertEq(tokenContract.ownerOf(numTokens + 1), address(this));
+        assertEq(tokenContract.tokenURI(numTokens + 1), "newUri");
     }
 
     function testBatchMintUltraTransfers(uint256 numTokens, address recipient, address secondRecipient) public {
@@ -652,6 +662,11 @@ contract ERC721TLMUnitTest is IERC2309Upgradeable, Test {
             assertEq(tokenContract.ownerOf(i), addresses[i - 1]);
             assertEq(tokenContract.tokenURI(i), uri);
         }
+
+        // test mint after metadata
+        tokenContract.mint(address(this), "newUri");
+        assertEq(tokenContract.ownerOf(numAddresses + 1), address(this));
+        assertEq(tokenContract.tokenURI(numAddresses + 1), "newUri");
     }
 
     function testAirdropTransfers(uint16 numAddresses, address recipient) public {

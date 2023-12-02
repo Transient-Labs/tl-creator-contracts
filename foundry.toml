@@ -13,7 +13,7 @@ gas_reports = ["ERC721TL", "ERC1155TL", "Doppelganger", "CollectorsChoice", "OnC
 fs_permissions = [{ access = "read", path = "./"}]
 
 [fuzz]
-runs = 512
+runs = 1024
 
 [rpc_endpoints]
 goerli = "${GOERLI_RPC_URL}"

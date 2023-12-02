@@ -98,14 +98,14 @@ contract ERC1155TL is
                                 Initializer
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @param name_: the name of the 1155 contract
-    /// @param symbol_: the symbol for the 1155 contract
-    /// @param defaultRoyaltyRecipient: the default address for royalty payments
-    /// @param defaultRoyaltyPercentage: the default royalty percentage of basis points (out of 10,000)
-    /// @param initOwner: the owner of the contract
-    /// @param admins: array of admin addresses to add to the contract
-    /// @param enableStory: a bool deciding whether to add story fuctionality or not
-    /// @param blockListRegistry: address of the blocklist registry to use
+    /// @param name_ the name of the 1155 contract
+    /// @param symbol_ the symbol for the 1155 contract
+    /// @param defaultRoyaltyRecipient the default address for royalty payments
+    /// @param defaultRoyaltyPercentage the default royalty percentage of basis points (out of 10,000)
+    /// @param initOwner the owner of the contract
+    /// @param admins array of admin addresses to add to the contract
+    /// @param enableStory a bool deciding whether to add story fuctionality or not
+    /// @param blockListRegistry address of the blocklist registry to use
     function initialize(
         string memory name_,
         string memory symbol_,
@@ -136,7 +136,7 @@ contract ERC1155TL is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice function to get token creation details
-    /// @param tokenId: the token to lookup
+    /// @param tokenId the token to lookup
     function getTokenDetails(uint256 tokenId) external view returns (Token memory) {
         return _tokens[tokenId];
     }
@@ -147,8 +147,8 @@ contract ERC1155TL is
 
     /// @notice function to set approved mint contracts
     /// @dev access to owner or admin
-    /// @param minters: array of minters to grant approval to
-    /// @param status: status for the minters
+    /// @param minters array of minters to grant approval to
+    /// @param status status for the minters
     function setApprovedMintContracts(address[] calldata minters, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
         _setRole(APPROVED_MINT_CONTRACT, minters, status);
     }
@@ -159,9 +159,9 @@ contract ERC1155TL is
 
     /// @notice function to create a token that can be minted to creator or airdropped
     /// @dev requires owner or admin
-    /// @param newUri: the uri for the token to create
-    /// @param addresses: the addresses to mint the new token to
-    /// @param amounts: the amount of the new token to mint to each address
+    /// @param newUri the uri for the token to create
+    /// @param addresses the addresses to mint the new token to
+    /// @param amounts the amount of the new token to mint to each address
     function createToken(string calldata newUri, address[] calldata addresses, uint256[] calldata amounts)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
@@ -172,11 +172,11 @@ contract ERC1155TL is
     /// @notice function to create a token that can be minted to creator or airdropped
     /// @dev overloaded function where you can set the token royalty config in this tx
     /// @dev requires owner or admin
-    /// @param newUri: the uri for the token to create
-    /// @param addresses: the addresses to mint the new token to
-    /// @param amounts: the amount of the new token to mint to each address
-    /// @param royaltyAddress: royalty payout address for the created token
-    /// @param royaltyPercent: royalty percentage for this token
+    /// @param newUri the uri for the token to create
+    /// @param addresses the addresses to mint the new token to
+    /// @param amounts the amount of the new token to mint to each address
+    /// @param royaltyAddress royalty payout address for the created token
+    /// @param royaltyPercent royalty percentage for this token
     function createToken(
         string calldata newUri,
         address[] calldata addresses,
@@ -190,9 +190,9 @@ contract ERC1155TL is
 
     /// @notice function to batch create tokens that can be minted to creator or airdropped
     /// @dev requires owner or admin
-    /// @param newUris: the uris for the tokens to create
-    /// @param addresses: 2d dynamic array holding the addresses to mint the new tokens to
-    /// @param amounts: 2d dynamic array holding the amounts of the new tokens to mint to each address
+    /// @param newUris the uris for the tokens to create
+    /// @param addresses 2d dynamic array holding the addresses to mint the new tokens to
+    /// @param amounts 2d dynamic array holding the amounts of the new tokens to mint to each address
     function batchCreateToken(string[] calldata newUris, address[][] calldata addresses, uint256[][] calldata amounts)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
@@ -206,11 +206,11 @@ contract ERC1155TL is
     /// @notice function to batch create tokens that can be minted to creator or airdropped
     /// @dev overloaded function where you can set the token royalty config in this tx
     /// @dev requires owner or admin
-    /// @param newUris: the uris for the tokens to create
-    /// @param addresses: 2d dynamic array holding the addresses to mint the new tokens to
-    /// @param amounts: 2d dynamic array holding the amounts of the new tokens to mint to each address
-    /// @param royaltyAddresses: royalty payout addresses for the tokens
-    /// @param royaltyPercents: royalty payout percents for the tokens
+    /// @param newUris the uris for the tokens to create
+    /// @param addresses 2d dynamic array holding the addresses to mint the new tokens to
+    /// @param amounts 2d dynamic array holding the amounts of the new tokens to mint to each address
+    /// @param royaltyAddresses royalty payout addresses for the tokens
+    /// @param royaltyPercents royalty payout percents for the tokens
     function batchCreateToken(
         string[] calldata newUris,
         address[][] calldata addresses,
@@ -226,10 +226,10 @@ contract ERC1155TL is
     }
 
     /// @notice private helper function to create a new token
-    /// @param newUri: the uri for the token to create
-    /// @param addresses: the addresses to mint the new token to
-    /// @param amounts: the amount of the new token to mint to each address
-    /// @return _counter: token id created
+    /// @param newUri the uri for the token to create
+    /// @param addresses the addresses to mint the new token to
+    /// @param amounts the amount of the new token to mint to each address
+    /// @return _counter token id created
     function _createToken(string memory newUri, address[] memory addresses, uint256[] memory amounts)
         private
         returns (uint256)
@@ -247,7 +247,7 @@ contract ERC1155TL is
     }
 
     /// @notice private helper function to verify a token exists
-    /// @param tokenId: the token to check existence for
+    /// @param tokenId the token to check existence for
     function _exists(uint256 tokenId) private view returns (bool) {
         return _tokens[tokenId].created;
     }
@@ -258,9 +258,9 @@ contract ERC1155TL is
 
     /// @notice function to mint existing token to recipients
     /// @dev requires owner or admin
-    /// @param tokenId: the token to mint
-    /// @param addresses: the addresses to mint to
-    /// @param amounts: amounts of the token to mint to each address
+    /// @param tokenId the token to mint
+    /// @param addresses the addresses to mint to
+    /// @param amounts amounts of the token to mint to each address
     function mintToken(uint256 tokenId, address[] calldata addresses, uint256[] calldata amounts)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
@@ -270,9 +270,9 @@ contract ERC1155TL is
 
     /// @notice external mint function
     /// @dev requires caller to be an approved mint contract
-    /// @param tokenId: the token to mint
-    /// @param addresses: the addresses to mint to
-    /// @param amounts: amounts of the token to mint to each address
+    /// @param tokenId the token to mint
+    /// @param addresses the addresses to mint to
+    /// @param amounts amounts of the token to mint to each address
     function externalMint(uint256 tokenId, address[] calldata addresses, uint256[] calldata amounts)
         external
         onlyRole(APPROVED_MINT_CONTRACT)
@@ -281,9 +281,9 @@ contract ERC1155TL is
     }
 
     /// @notice private helper function
-    /// @param tokenId: the token to mint
-    /// @param addresses: the addresses to mint to
-    /// @param amounts: amounts of the token to mint to each address
+    /// @param tokenId the token to mint
+    /// @param addresses the addresses to mint to
+    /// @param amounts amounts of the token to mint to each address
     function _mintToken(uint256 tokenId, address[] calldata addresses, uint256[] calldata amounts) private {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (addresses.length == 0) revert MintToZeroAddresses();
@@ -301,9 +301,9 @@ contract ERC1155TL is
     /// @dev msg.sender must be owner or operator
     /// @dev if this function is called from another contract as part of a burn/redeem,
     ///      the contract must ensure that no amount is '0' or if it is, that it isn't a vulnerability.
-    /// @param from: address to burn from
-    /// @param tokenIds: array of tokens to burn
-    /// @param amounts: amount of each token to burn
+    /// @param from address to burn from
+    /// @param tokenIds array of tokens to burn
+    /// @param amounts amount of each token to burn
     function burn(address from, uint256[] calldata tokenIds, uint256[] calldata amounts) external {
         if (tokenIds.length == 0) revert BurnZeroTokens();
         if (msg.sender != from && !isApprovedForAll(from, msg.sender)) revert CallerNotApprovedOrOwner();
@@ -316,17 +316,17 @@ contract ERC1155TL is
 
     /// @notice function to set the default royalty specification
     /// @dev requires owner
-    /// @param newRecipient: the new royalty payout address
-    /// @param newPercentage: the new royalty percentage in basis (out of 10,000)
+    /// @param newRecipient the new royalty payout address
+    /// @param newPercentage the new royalty percentage in basis (out of 10,000)
     function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyOwner {
         _setDefaultRoyaltyInfo(newRecipient, newPercentage);
     }
 
     /// @notice function to override a token's royalty info
     /// @dev requires owner
-    /// @param tokenId: the token to override royalty for
-    /// @param newRecipient: the new royalty payout address for the token id
-    /// @param newPercentage: the new royalty percentage in basis (out of 10,000) for the token id
+    /// @param tokenId the token to override royalty for
+    /// @param newRecipient the new royalty payout address for the token id
+    /// @param newPercentage the new royalty percentage in basis (out of 10,000) for the token id
     function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyOwner {
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
@@ -337,8 +337,8 @@ contract ERC1155TL is
 
     /// @notice function to set token Uri for a token
     /// @dev requires owner or admin
-    /// @param tokenId: token to set a uri for
-    /// @param newUri: the new uri for the token
+    /// @param tokenId token to set a uri for
+    /// @param newUri the new uri for the token
     function setTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
@@ -347,7 +347,7 @@ contract ERC1155TL is
     }
 
     /// @notice function for token uris
-    /// @param tokenId: token for which to get the uri
+    /// @param tokenId token for which to get the uri
     function uri(uint256 tokenId) public view override(ERC1155Upgradeable) returns (string memory) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         return _tokens[tokenId].uri;

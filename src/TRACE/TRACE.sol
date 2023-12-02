@@ -59,7 +59,7 @@ error Unauthorized();
 ///      - Story Contract backed by T.R.A.C.E. chip functionality
 ///      - individual token royalty overrides
 /// @author transientlabs.xyz
-/// @custom:version 2.9.2
+/// @custom:version 2.10.1
 contract TRACE is
     Initializable,
     ERC721Upgradeable,
@@ -97,7 +97,7 @@ contract TRACE is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "2.9.2";
+    string public constant VERSION = "2.10.1";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     TRACERSRegistry public tracersRegistry;
     uint256 private _counter; // token ids
@@ -134,13 +134,13 @@ contract TRACE is
                                 Initializer
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @param name: the name of the contract
-    /// @param symbol: the symbol of the contract
-    /// @param defaultRoyaltyRecipient: the default address for royalty payments
-    /// @param defaultRoyaltyPercentage: the default royalty percentage of basis points (out of 10,000)
-    /// @param initOwner: the owner of the contract
-    /// @param admins: array of admin addresses to add to the contract
-    /// @param defaultTracersRegistry: address of the TRACERS registry to use
+    /// @param name the name of the contract
+    /// @param symbol the symbol of the contract
+    /// @param defaultRoyaltyRecipient the default address for royalty payments
+    /// @param defaultRoyaltyPercentage the default royalty percentage of basis points (out of 10,000)
+    /// @param initOwner the owner of the contract
+    /// @param admins array of admin addresses to add to the contract
+    /// @param defaultTracersRegistry address of the TRACERS registry to use
     function initialize(
         string memory name,
         string memory symbol,
@@ -191,7 +191,7 @@ contract TRACE is
 
     /// @notice function to mint a single token with specific token royalty
     /// @dev requires owner or admin
-    /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
+    /// @param recipient the recipient of the token - assumed as able to receive 721 tokens
     /// @param uri the token uri to mint
     /// @param royaltyAddress royalty payout address for this new token
     /// @param royaltyPercent royalty percentage for this new token
@@ -221,8 +221,9 @@ contract TRACE is
         if (addresses.length < 2) revert AirdropTooFewAddresses();
 
         uint256 start = _counter + 1;
+        uint256 end = start + addresses.length - 1;
         _counter += addresses.length;
-        _batchMints.push(BatchMint(start, start + addresses.length, baseUri));
+        _batchMints.push(BatchMint(start, end, baseUri));
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], start + i);
             emit CreatorStory(start + i, msg.sender, "", "{\n\"trace\": {\"type\": \"trace_authentication\"}\n}");
