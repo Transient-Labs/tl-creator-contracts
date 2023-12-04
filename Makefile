@@ -29,7 +29,10 @@ build:
 
 # Tests
 quick_test:
-	forge test --fuzz-runs 512
+	forge test --fuzz-runs 256
+
+std_test:
+	forge test
 
 gas_test:
 	forge test --gas-report

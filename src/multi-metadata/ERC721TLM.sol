@@ -62,7 +62,7 @@ error NoTokensSpecified();
 ///      - individual token royalty overrides
 /// @dev When unpinned, the latest metadata added for a token is returned from `tokenURI` and `tokenURIs`
 /// @author transientlabs.xyz
-/// @custom:version 2.10.0
+/// @custom:version 2.10.1
 contract ERC721TLM is
     Initializable,
     ERC721Upgradeable,
@@ -105,7 +105,7 @@ contract ERC721TLM is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "2.10.0";
+    string public constant VERSION = "2.10.1";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
@@ -135,7 +135,7 @@ contract ERC721TLM is
                                 Constructor
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @param disable: boolean to disable initialization for the implementation contract
+    /// @param disable boolean to disable initialization for the implementation contract
     constructor(bool disable) {
         if (disable) _disableInitializers();
     }
@@ -144,14 +144,14 @@ contract ERC721TLM is
                                 Initializer
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @param name: the name of the 721 contract
-    /// @param symbol: the symbol of the 721 contract
-    /// @param defaultRoyaltyRecipient: the default address for royalty payments
-    /// @param defaultRoyaltyPercentage: the default royalty percentage of basis points (out of 10,000)
-    /// @param initOwner: the owner of the contract
-    /// @param admins: array of admin addresses to add to the contract
-    /// @param enableStory: a bool deciding whether to add story fuctionality or not
-    /// @param blockListRegistry: address of the blocklist registry to use
+    /// @param name the name of the 721 contract
+    /// @param symbol the symbol of the 721 contract
+    /// @param defaultRoyaltyRecipient the default address for royalty payments
+    /// @param defaultRoyaltyPercentage the default royalty percentage of basis points (out of 10,000)
+    /// @param initOwner the owner of the contract
+    /// @param admins array of admin addresses to add to the contract
+    /// @param enableStory a bool deciding whether to add story fuctionality or not
+    /// @param blockListRegistry address of the blocklist registry to use
     function initialize(
         string memory name,
         string memory symbol,
@@ -188,8 +188,8 @@ contract ERC721TLM is
 
     /// @notice function to set approved mint contracts
     /// @dev access to owner or admin
-    /// @param minters: array of minters to grant approval to
-    /// @param status: status for the minters
+    /// @param minters array of minters to grant approval to
+    /// @param status status for the minters
     function setApprovedMintContracts(address[] calldata minters, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
         _setRole(APPROVED_MINT_CONTRACT, minters, status);
     }
@@ -200,8 +200,8 @@ contract ERC721TLM is
 
     /// @notice function to mint a single token
     /// @dev requires owner or admin
-    /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
-    /// @param uri: the token uri to mint
+    /// @param recipient the recipient of the token - assumed as able to receive 721 tokens
+    /// @param uri the token uri to mint
     function mint(address recipient, string calldata uri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (bytes(uri).length == 0) revert EmptyTokenURI();
         _counter++;
@@ -211,10 +211,10 @@ contract ERC721TLM is
 
     /// @notice function to mint a single token with specific token royalty
     /// @dev requires owner or admin
-    /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
-    /// @param uri: the token uri to mint
-    /// @param royaltyAddress: royalty payout address for this new token
-    /// @param royaltyPercent: royalty percentage for this new token
+    /// @param recipient the recipient of the token - assumed as able to receive 721 tokens
+    /// @param uri the token uri to mint
+    /// @param royaltyAddress royalty payout address for this new token
+    /// @param royaltyPercent royalty percentage for this new token
     function mint(address recipient, string calldata uri, address royaltyAddress, uint256 royaltyPercent)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
@@ -228,9 +228,9 @@ contract ERC721TLM is
 
     /// @notice function to batch mint tokens
     /// @dev requires owner or admin
-    /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
-    /// @param numTokens: number of tokens in the batch mint
-    /// @param baseUri: the base uri for the batch, expecting json to be in order and starting at 0
+    /// @param recipient the recipient of the token - assumed as able to receive 721 tokens
+    /// @param numTokens number of tokens in the batch mint
+    /// @param baseUri the base uri for the batch, expecting json to be in order and starting at 0
     ///                 NOTE: this folder should have the same number of json files in it as numTokens
     ///                 NOTE: files should be named without any file extension
     ///                 NOTE: baseUri should NOT have a trailing `/`
@@ -256,9 +256,9 @@ contract ERC721TLM is
     /// @notice function to batch mint tokens, ultra gas savings with ERC-2309
     /// @dev requires owner or admin
     /// @dev uses ERC-2309. BEWARE may not be compatible with all platforms
-    /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
-    /// @param numTokens: number of tokens in the batch mint
-    /// @param baseUri: the base uri for the batch, expecting json to be in order and starting at 0
+    /// @param recipient the recipient of the token - assumed as able to receive 721 tokens
+    /// @param numTokens number of tokens in the batch mint
+    /// @param baseUri the base uri for the batch, expecting json to be in order and starting at 0
     ///                 NOTE: this folder should have the same number of json files in it as numTokens
     ///                 NOTE: files should be named without any file extension
     ///                 NOTE: baseUri should NOT have a trailing `/`
@@ -283,8 +283,8 @@ contract ERC721TLM is
     /// @dev requires owner or admin
     /// @dev utilizes batch mint token uri values to save some gas
     ///      but still ultimately mints individual tokens to people
-    /// @param addresses: dynamic array of addresses to mint to
-    /// @param baseUri: the base uri for the batch, expecting json to be in order and starting at 0
+    /// @param addresses dynamic array of addresses to mint to
+    /// @param baseUri the base uri for the batch, expecting json to be in order and starting at 0
     ///                 NOTE: the number of json files in this folder should be equal to the number of addresses
     ///                 NOTE: files should be named without any file extension
     ///                 NOTE: baseUri should not have a trailing `/`
@@ -293,8 +293,9 @@ contract ERC721TLM is
         if (addresses.length < 2) revert AirdropTooFewAddresses();
 
         uint256 start = _counter + 1;
+        uint256 end = start + addresses.length - 1;
         _counter += addresses.length;
-        _batchMints.push(BatchMint(address(0), start, start + addresses.length, baseUri));
+        _batchMints.push(BatchMint(address(0), start, end, baseUri));
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], start + i);
         }
@@ -302,8 +303,8 @@ contract ERC721TLM is
 
     /// @notice function to allow an approved mint contract to mint
     /// @dev requires the contract to be an approved mint contract
-    /// @param recipient: the recipient of the token - assumed as able to receive 721 tokens
-    /// @param uri: the token uri to mint
+    /// @param recipient the recipient of the token - assumed as able to receive 721 tokens
+    /// @param uri the token uri to mint
     function externalMint(address recipient, string calldata uri) external onlyRole(APPROVED_MINT_CONTRACT) {
         if (bytes(uri).length == 0) revert EmptyTokenURI();
         _counter++;
@@ -316,7 +317,7 @@ contract ERC721TLM is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice function to get batch mint info
-    /// @param tokenId: token id to look up for batch mint info
+    /// @param tokenId token id to look up for batch mint info
     /// @return owner of the token (address)
     /// @return string of the uri for the tokenId
     function _getBatchInfo(uint256 tokenId) internal view returns (address, string memory) {

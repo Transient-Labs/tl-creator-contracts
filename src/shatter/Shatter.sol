@@ -134,10 +134,10 @@ contract Shatter is
     /// @param symbol is the token tracker symbol
     /// @param royaltyRecipient is the default royalty recipient
     /// @param royaltyPercentage is the default royalty percentage
-    /// @param initOwner: the owner of the contract
-    /// @param admins: array of admin addresses to add to the contract
-    /// @param enableStory: a bool deciding whether to add story fuctionality or not
-    /// @param blockListRegistry: address of the blocklist registry to use
+    /// @param initOwner the owner of the contract
+    /// @param admins array of admin addresses to add to the contract
+    /// @param enableStory a bool deciding whether to add story fuctionality or not
+    /// @param blockListRegistry address of the blocklist registry to use
     function initialize(
         string memory name,
         string memory symbol,
@@ -175,12 +175,12 @@ contract Shatter is
     /// @dev requires that shatters is equal to 0 -> meaning no piece has been minted
     /// @dev using _mint function so the recipient should be verified to be able to receive ERC721 tokens prior to calling
     /// @dev parameters like uri, min, max, and time cannot be changed after the transaction goes through
-    /// @param recipient: the address to mint to token to
-    /// @param uri: the base uri to be used for the shatter folder
+    /// @param recipient the address to mint to token to
+    /// @param uri the base uri to be used for the shatter folder
     ///     NOTE: there is no trailing "/" expected on this uri but it is expected to be a folder uri
-    /// @param min: the minimum number of shatters
-    /// @param max: the maximum number of shatters
-    /// @param time: time after which shatter can occur
+    /// @param min the minimum number of shatters
+    /// @param max the maximum number of shatters
+    /// @param time time after which shatter can occur
     function mint(address recipient, string memory uri, uint256 min, uint256 max, uint256 time)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
@@ -274,9 +274,9 @@ contract Shatter is
     /// @notice function to batch mint upon shatter
     /// @dev only mints tokenIds 1 -> quantity to recipient
     /// @dev does not check if the recipient ifs the zero address or can receive ERC-721 tokens
-    /// @param recipient: address to receive the tokens
-    /// @param quantity: amount of tokens to batch mint
-    /// @param ultra: bool specifying to use ERC-2309 or the regular `Transfer` event
+    /// @param recipient address to receive the tokens
+    /// @param quantity amount of tokens to batch mint
+    /// @param ultra bool specifying to use ERC-2309 or the regular `Transfer` event
     function _batchMint(address recipient, uint256 quantity, bool ultra) internal {
         _shatterAddress = recipient;
         __unsafe_increaseBalance(_shatterAddress, quantity);
@@ -311,17 +311,17 @@ contract Shatter is
 
     /// @notice function to set the default royalty specification
     /// @dev requires owner
-    /// @param newRecipient: the new royalty payout address
-    /// @param newPercentage: the new royalty percentage in basis (out of 10,000)
+    /// @param newRecipient the new royalty payout address
+    /// @param newPercentage the new royalty percentage in basis (out of 10,000)
     function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyOwner {
         _setDefaultRoyaltyInfo(newRecipient, newPercentage);
     }
 
     /// @notice function to override a token's royalty info
     /// @dev requires owner
-    /// @param tokenId: the token to override royalty for
-    /// @param newRecipient: the new royalty payout address for the token id
-    /// @param newPercentage: the new royalty percentage in basis (out of 10,000) for the token id
+    /// @param tokenId the token to override royalty for
+    /// @param newRecipient the new royalty payout address for the token id
+    /// @param newPercentage the new royalty percentage in basis (out of 10,000) for the token id
     function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyOwner {
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
@@ -333,8 +333,8 @@ contract Shatter is
     /// @notice function to propose a token uri update for a specific token
     /// @dev requires owner
     /// @dev if the owner of the contract is the owner of the token, the change takes hold right away
-    /// @param tokenId: the token to propose new metadata for
-    /// @param newUri: the new token uri proposed
+    /// @param tokenId the token to propose new metadata for
+    /// @param newUri the new token uri proposed
     function proposeNewTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
@@ -351,7 +351,7 @@ contract Shatter is
 
     /// @notice function to accept a proposed token uri update for a specific token
     /// @dev requires owner of the token to call the function
-    /// @param tokenId: the token to accept the metadata update for
+    /// @param tokenId the token to accept the metadata update for
     function acceptTokenUriUpdate(uint256 tokenId) external {
         if (ownerOf(tokenId) != msg.sender) revert CallerNotTokenOwner();
         string memory uri = _proposedTokenUris[tokenId];
@@ -364,7 +364,7 @@ contract Shatter is
 
     /// @notice function to reject a proposed token uri update for a specific token
     /// @dev requires owner of the token to call the function
-    /// @param tokenId: the token to reject the metadata update for
+    /// @param tokenId the token to reject the metadata update for
     function rejectTokenUriUpdate(uint256 tokenId) external {
         if (ownerOf(tokenId) != msg.sender) revert CallerNotTokenOwner();
         string memory uri = _proposedTokenUris[tokenId];

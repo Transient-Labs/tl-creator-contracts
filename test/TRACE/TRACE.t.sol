@@ -324,6 +324,11 @@ contract TRACETest is Test {
             assertEq(trace.ownerOf(i), addresses[i - 1]);
             assertEq(trace.tokenURI(i), uri);
         }
+
+        // test mint after metadata
+        trace.mint(address(this), "newUri");
+        assertEq(trace.ownerOf(numAddresses + 1), address(this));
+        assertEq(trace.tokenURI(numAddresses + 1), "newUri");
     }
 
     function testAirdropTransfers(uint16 numAddresses, address recipient) public {
