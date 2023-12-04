@@ -28,6 +28,9 @@ build:
 	forge fmt && forge clean && forge build
 
 # Tests
+quick_test:
+	forge test --fuzz-runs 256
+
 std_test:
 	forge test
 
