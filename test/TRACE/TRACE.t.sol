@@ -58,7 +58,7 @@ contract TRACETest is Test {
         trace.initialize("Test TRACE", "TRACE", royaltyRecipient, 1000, address(this), admins, address(registry));
 
         // sig utils
-        sigUtils = new TRACESigUtils("Test TRACE", "1", address(trace));
+        sigUtils = new TRACESigUtils("1", address(trace));
     }
 
     /// @notice Initialization Tests
@@ -579,7 +579,7 @@ contract TRACETest is Test {
         trace.setTracersRegistry(address(registry));
 
         // sig utils
-        sigUtils = new TRACESigUtils(name, "1", address(trace));
+        sigUtils = new TRACESigUtils("1", address(trace));
 
         // get nonce
         uint256 nonce = trace.getTokenNonce(1);

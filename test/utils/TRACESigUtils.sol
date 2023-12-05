@@ -4,11 +4,11 @@ pragma solidity 0.8.19;
 contract TRACESigUtils {
     bytes32 internal DOMAIN_SEPARATOR;
 
-    constructor(string memory name, string memory version, address verifyingContract) {
+    constructor(string memory version, address verifyingContract) {
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
-                keccak256(bytes(name)),
+                keccak256("T.R.A.C.E."),
                 keccak256(bytes(version)),
                 block.chainid,
                 verifyingContract

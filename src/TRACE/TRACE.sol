@@ -59,7 +59,7 @@ error Unauthorized();
 ///      - Story Contract backed by T.R.A.C.E. chip functionality
 ///      - individual token royalty overrides
 /// @author transientlabs.xyz
-/// @custom:version 2.10.1
+/// @custom:version 2.10.2
 contract TRACE is
     Initializable,
     ERC721Upgradeable,
@@ -97,7 +97,7 @@ contract TRACE is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "2.10.1";
+    string public constant VERSION = "2.10.2";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     TRACERSRegistry public tracersRegistry;
     uint256 private _counter; // token ids
@@ -155,7 +155,7 @@ contract TRACE is
         __EIP2981TL_init(defaultRoyaltyRecipient, defaultRoyaltyPercentage);
         __OwnableAccessControl_init(initOwner);
         __StoryContractUpgradeable_init(true);
-        __EIP712_init(name, "1");
+        __EIP712_init("T.R.A.C.E.", "1");
 
         // add admins
         _setRole(ADMIN_ROLE, admins, true);
