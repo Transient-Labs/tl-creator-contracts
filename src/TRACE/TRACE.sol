@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import {Initializable} from "openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 import {ERC721Upgradeable, ERC165Upgradeable} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {EIP712Upgradeable, ECDSAUpgradeable} from "openzeppelin-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
-import {StringsUpgradeable} from "openzeppelin-upgradeable/utils/StringsUpgradeable.sol";
+import {Strings} from "openzeppelin/utils/Strings.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {StoryContractUpgradeable} from "tl-story/upgradeable/StoryContractUpgradeable.sol";
@@ -59,7 +59,7 @@ error Unauthorized();
 ///      - Story Contract backed by T.R.A.C.E. chip functionality
 ///      - individual token royalty overrides
 /// @author transientlabs.xyz
-/// @custom:version 2.10.2
+/// @custom:version 3.0.0
 contract TRACE is
     Initializable,
     ERC721Upgradeable,
@@ -88,16 +88,16 @@ contract TRACE is
     }
 
     /// @dev string representation of uint256
-    using StringsUpgradeable for uint256;
+    using Strings for uint256;
 
     /// @dev string representation for address
-    using StringsUpgradeable for address;
+    using Strings for address;
 
     /*//////////////////////////////////////////////////////////////////////////
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "2.10.2";
+    string public constant VERSION = "3.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     TRACERSRegistry public tracersRegistry;
     uint256 private _counter; // token ids

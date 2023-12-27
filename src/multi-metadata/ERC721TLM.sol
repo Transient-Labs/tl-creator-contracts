@@ -3,8 +3,8 @@ pragma solidity 0.8.22;
 
 import {Initializable} from "openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 import {ERC721Upgradeable, ERC165Upgradeable} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {IERC2309Upgradeable} from "openzeppelin-upgradeable/interfaces/IERC2309Upgradeable.sol";
-import {StringsUpgradeable} from "openzeppelin-upgradeable/utils/StringsUpgradeable.sol";
+import {IERC2309} from "openzeppelin/interfaces/IERC2309.sol";
+import {Strings} from "openzeppelin/utils/Strings.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {StoryContractUpgradeable} from "tl-story/upgradeable/StoryContractUpgradeable.sol";
@@ -70,7 +70,7 @@ contract ERC721TLM is
     OwnableAccessControlUpgradeable,
     StoryContractUpgradeable,
     BlockListUpgradeable,
-    IERC2309Upgradeable,
+    IERC2309,
     IERC7160
 {
     /*//////////////////////////////////////////////////////////////////////////
@@ -99,7 +99,7 @@ contract ERC721TLM is
     }
 
     /// @dev string representation of uint256
-    using StringsUpgradeable for uint256;
+    using Strings for uint256;
 
     /*//////////////////////////////////////////////////////////////////////////
                                 State Variables

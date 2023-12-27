@@ -1,0 +1,6 @@
+[submodule "lib/forge-std"]
+	path = lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "lib/tl-sol-tools"]
+	path = lib/tl-sol-tools
+	url = https://github.com/Transient-Labs/tl-sol-tools

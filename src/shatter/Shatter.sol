@@ -4,8 +4,8 @@ pragma solidity 0.8.22;
 import {Initializable} from "openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 import {ERC721Upgradeable, ERC165Upgradeable} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
-import {StringsUpgradeable} from "openzeppelin-upgradeable/utils/StringsUpgradeable.sol";
-import {IERC2309Upgradeable} from "openzeppelin-upgradeable/interfaces/IERC2309Upgradeable.sol";
+import {Strings} from "openzeppelin/utils/Strings.sol";
+import {IERC2309} from "openzeppelin/interfaces/IERC2309.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {StoryContractUpgradeable} from "tl-story/upgradeable/StoryContractUpgradeable.sol";
 import {BlockListUpgradeable} from "tl-blocklist/BlockListUpgradeable.sol";
@@ -55,7 +55,7 @@ error TokenDoesntExist();
 /// @title Shatter
 /// @notice Shatter implementation. Turns 1/1 into a multiple sub-pieces.
 /// @author transientlabs.xyz
-/// @custom:version 2.5.0
+/// @custom:version 3.0.0
 contract Shatter is
     Initializable,
     ERC721Upgradeable,
@@ -84,7 +84,7 @@ contract Shatter is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "2.5.0";
+    string public constant VERSION = "3.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bool public isShattered;
     bool public isFused;
