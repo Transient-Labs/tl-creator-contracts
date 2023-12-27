@@ -55,7 +55,7 @@ error BurnZeroTokens();
 ///      - BlockList
 ///      - individual token royalties
 /// @author transientlabs.xyz
-/// @custom:version 2.3.0
+/// @custom:version 3.0.0
 contract ERC1155TL is
     ERC1155Upgradeable,
     EIP2981TLUpgradeable,
@@ -77,7 +77,7 @@ contract ERC1155TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "2.3.0";
+    string public constant VERSION = "3.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter;
