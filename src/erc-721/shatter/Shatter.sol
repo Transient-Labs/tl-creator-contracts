@@ -1,84 +1,40 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {Initializable} from "openzeppelin-upgradeable/proxy/utils/Initializable.sol";
-import {ERC721Upgradeable, ERC165Upgradeable} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
-import {Strings} from "openzeppelin/utils/Strings.sol";
 import {IERC2309} from "openzeppelin/interfaces/IERC2309.sol";
+import {IERC4906} from "openzeppelin/interfaces/IERC4906.sol";
+import {Strings} from "openzeppelin/utils/Strings.sol";
+import {ERC721Upgradeable, IERC165} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
-import {StoryContractUpgradeable} from "tl-story/upgradeable/StoryContractUpgradeable.sol";
-import {BlockListUpgradeable} from "tl-blocklist/BlockListUpgradeable.sol";
-import {IShatter} from "./IShatter.sol";
+import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
+import {IShatter} from "src/erc-721/shatter/IShatter.sol";
+import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
+import {ICreatorBase} from "src/interfaces/ICreatorBase.sol";
+import {IStory} from "src/interfaces/IStory.sol";
+import {ISynergy} from "src/interfaces/ISynergy.sol";
+import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 
-/*//////////////////////////////////////////////////////////////////////////
-                            Custom Errors
-//////////////////////////////////////////////////////////////////////////*/
-
-/// @dev token uri is an empty string
-error EmptyTokenURI();
-
-/// @dev already minted the first token and can't mint another token to this contract
-error AlreadyMinted();
-
-/// @dev not shattered
-error NotShattered();
-
-/// @dev token is shattered
-error IsShattered();
-
-/// @dev token is fused
-error IsFused();
-
-/// @dev caller is not the owner of the specific token
-error CallerNotTokenOwner();
-
-/// @dev caller does not own all shatters for fusing
-error CallerDoesNotOwnAllTokens();
-
-/// @dev number shatters requested is invalid
-error InvalidNumShatters();
-
-/// @dev calling shatter prior to shatter time
-error CallPriorToShatterTime();
-
-/// @dev no proposed token uri to change to
-error NoTokenUriUpdateAvailable();
-
-/// @dev token does not exist
-error TokenDoesntExist();
-
-/*//////////////////////////////////////////////////////////////////////////
-                            Shatter
-//////////////////////////////////////////////////////////////////////////*/
-
-/// @title Shatter
+/// @title Shatter.sol
 /// @notice Shatter implementation. Turns 1/1 into a multiple sub-pieces.
 /// @author transientlabs.xyz
 /// @custom:version 3.0.0
 contract Shatter is
-    Initializable,
     ERC721Upgradeable,
     EIP2981TLUpgradeable,
     OwnableAccessControlUpgradeable,
-    StoryContractUpgradeable,
-    BlockListUpgradeable,
-    IERC2309Upgradeable,
-    IShatter
+    IShatter,
+    ICreatorBase,
+    ISynergy,
+    IStory,
+    IERC2309,
+    IERC4906
 {
     /*//////////////////////////////////////////////////////////////////////////
                                 Custom Types
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev enum defining Synergy actions
-    enum SynergyAction {
-        Created,
-        Accepted,
-        Rejected
-    }
-
     /// @dev string representation of uint256
-    using StringsUpgradeable for uint256;
+    using Strings for uint256;
 
     /*//////////////////////////////////////////////////////////////////////////
                                 State Variables
@@ -88,9 +44,12 @@ contract Shatter is
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bool public isShattered;
     bool public isFused;
-    uint256 public minShatters;
-    uint256 public maxShatters;
-    uint256 public shatters;
+    bool public storyEnabled;
+    ITLNftDelegationRegistry public tlNftDelegationRegistry;
+    IBlockListRegistry public blocklistRegistry;
+    uint128 public minShatters;
+    uint128 public maxShatters;
+    uint128 public shatters;
     uint256 public shatterTime;
     address private _shatterAddress;
     string private _baseUri;
@@ -98,30 +57,47 @@ contract Shatter is
     mapping(uint256 => string) private _tokenUris; // established token uri overrides
 
     /*//////////////////////////////////////////////////////////////////////////
-                                Events
+                                Custom Errors
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev This event emits when the metadata of a token is changed
-    ///      so that the third-party platforms such as NFT market can
-    ///      timely update the images and related attributes of the NFT.
-    /// @dev see EIP-4906
-    event MetadataUpdate(uint256 tokenId);
+    /// @dev token uri is an empty string
+    error EmptyTokenURI();
 
-    /// @dev This event emits when the metadata of a range of tokens is changed
-    ///      so that the third-party platforms such as NFT market could
-    ///      timely update the images and related attributes of the NFTs.
-    /// @dev see EIP-4906
-    event BatchMetadataUpdate(uint256 fromTokenId, uint256 toTokenId);
+    /// @dev already minted the first token and can't mint another token to this contract
+    error AlreadyMinted();
 
-    /// @dev This event is for changing the status of a proposed metadata update.
-    /// @dev Options include creation, accepted, rejected.
-    event SynergyStatusChange(address indexed from, uint256 indexed tokenId, SynergyAction indexed action, string uri);
+    /// @dev not shattered
+    error NotShattered();
+
+    /// @dev token is shattered
+    error IsShattered();
+
+    /// @dev token is fused
+    error IsFused();
+
+    /// @dev caller is not the owner of the specific token
+    error CallerNotTokenOwner();
+
+    /// @dev caller does not own all shatters for fusing
+    error CallerDoesNotOwnAllTokens();
+
+    /// @dev number shatters requested is invalid
+    error InvalidNumShatters();
+
+    /// @dev calling shatter prior to shatter time
+    error CallPriorToShatterTime();
+
+    /// @dev no proposed token uri to change to
+    error NoTokenUriUpdateAvailable();
+
+    /// @dev token does not exist
+    error TokenDoesntExist();
 
     /*//////////////////////////////////////////////////////////////////////////
                                     Constructor
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @param disable: boolean to disable initialization for the implementation contract
+    /// @param disable Boolean to disable initialization for the implementation contract
     constructor(bool disable) {
         if (disable) _disableInitializers();
     }
@@ -130,14 +106,14 @@ contract Shatter is
                                     Initializer
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @param name is the name of the collection
-    /// @param symbol is the token tracker symbol
-    /// @param royaltyRecipient is the default royalty recipient
-    /// @param royaltyPercentage is the default royalty percentage
-    /// @param initOwner the owner of the contract
-    /// @param admins array of admin addresses to add to the contract
-    /// @param enableStory a bool deciding whether to add story fuctionality or not
-    /// @param blockListRegistry address of the blocklist registry to use
+    /// @param name The name of the collection
+    /// @param symbol The token tracker symbol
+    /// @param royaltyRecipient The default royalty recipient
+    /// @param royaltyPercentage The default royalty percentage
+    /// @param initOwner The owner of the contract
+    /// @param admins Array of admin addresses to add to the contract
+    /// @param enableStory Bool deciding whether to add story fuctionality or not
+    /// @param blockListRegistry Address of the blocklist registry to use
     function initialize(
         string memory name,
         string memory symbol,
@@ -151,8 +127,6 @@ contract Shatter is
         __ERC721_init(name, symbol);
         __EIP2981TL_init(royaltyRecipient, royaltyPercentage);
         __OwnableAccessControl_init(initOwner);
-        __StoryContractUpgradeable_init(enableStory);
-        __BlockList_init(blockListRegistry);
 
         _setRole(ADMIN_ROLE, admins, true);
     }
@@ -167,21 +141,27 @@ contract Shatter is
     }
 
     /*//////////////////////////////////////////////////////////////////////////
+                                Access Control Functions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function setApprovedMintContracts(address[] calldata /*minters*/, bool /*status*/) external {
+        revert("N/A");
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
                                 Mint Function
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice function for minting the 1/1
-    /// @dev requires contract owner or admin
-    /// @dev requires that shatters is equal to 0 -> meaning no piece has been minted
-    /// @dev using _mint function so the recipient should be verified to be able to receive ERC721 tokens prior to calling
-    /// @dev parameters like uri, min, max, and time cannot be changed after the transaction goes through
-    /// @param recipient the address to mint to token to
-    /// @param uri the base uri to be used for the shatter folder
-    ///     NOTE: there is no trailing "/" expected on this uri but it is expected to be a folder uri
-    /// @param min the minimum number of shatters
-    /// @param max the maximum number of shatters
-    /// @param time time after which shatter can occur
-    function mint(address recipient, string memory uri, uint256 min, uint256 max, uint256 time)
+    /// @notice Function for minting the 1/1
+    /// @dev Requires contract owner or admin
+    /// @dev Requires that shatters is equal to 0 -> meaning no piece has been minted
+    /// @param recipient The address to mint to token to
+    /// @param uri The base uri to be used for the shatter folder WITHOUT trailing "/" 
+    /// @param min The minimum number of shatters
+    /// @param max The maximum number of shatters
+    /// @param time Time after which shatter can occur
+    function mint(address recipient, string memory uri, uint128 min, uint128 max, uint256 time)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -206,7 +186,7 @@ contract Shatter is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IShatter
-    function shatter(uint256 numShatters) external {
+    function shatter(uint128 numShatters) external {
         if (isShattered) revert IsShattered();
         if (msg.sender != ownerOf(0)) revert CallerNotTokenOwner();
         if (numShatters < minShatters || numShatters > maxShatters) revert InvalidNumShatters();
@@ -227,10 +207,9 @@ contract Shatter is
         shatters = numShatters;
     }
 
-    /// @notice function to shatter using ERC-2309
-    /// @dev same requirements as `shatter` in {IShatter}
-    /// @dev uses ERC-2309. BEWARE - this may not be supported by all platforms.
-    function shatterUltra(uint256 numShatters) external {
+    /// @inheritdoc IShatter
+    /// @dev Uses ERC-2309. BEWARE - this may not be supported by all platforms.
+    function shatterUltra(uint128 numShatters) external {
         if (isShattered) revert IsShattered();
         if (msg.sender != ownerOf(0)) revert CallerNotTokenOwner();
         if (numShatters < minShatters || numShatters > maxShatters) revert InvalidNumShatters();
@@ -265,44 +244,6 @@ contract Shatter is
         _mint(msg.sender, 0);
 
         emit Fused(msg.sender, block.timestamp);
-    }
-
-    /*//////////////////////////////////////////////////////////////////////////
-                            Batch Mint Functions 
-    //////////////////////////////////////////////////////////////////////////*/
-
-    /// @notice function to batch mint upon shatter
-    /// @dev only mints tokenIds 1 -> quantity to recipient
-    /// @dev does not check if the recipient ifs the zero address or can receive ERC-721 tokens
-    /// @param recipient address to receive the tokens
-    /// @param quantity amount of tokens to batch mint
-    /// @param ultra bool specifying to use ERC-2309 or the regular `Transfer` event
-    function _batchMint(address recipient, uint256 quantity, bool ultra) internal {
-        _shatterAddress = recipient;
-        __unsafe_increaseBalance(_shatterAddress, quantity);
-
-        if (ultra) {
-            emit ConsecutiveTransfer(1, quantity, address(0), recipient);
-        } else {
-            for (uint256 id = 1; id < quantity + 1; ++id) {
-                emit Transfer(address(0), recipient, id);
-            }
-        }
-    }
-
-    /// @inheritdoc ERC721Upgradeable
-    /// @notice function to override { ERC721Upgradeable._ownerOf } to allow for batch minting/shatter
-    function _ownerOf(uint256 tokenId) internal view virtual override returns (address) {
-        if (isShattered && !isFused) {
-            if (tokenId > shatters) {
-                return address(0);
-            }
-            if (tokenId > 0 && ERC721Upgradeable._ownerOf(tokenId) == address(0)) {
-                return _shatterAddress;
-            }
-        }
-
-        return ERC721Upgradeable._ownerOf(tokenId);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -389,81 +330,74 @@ contract Shatter is
     }
 
     /*//////////////////////////////////////////////////////////////////////////
-                                Story Contract Hooks
+                                Story Inscriptions
     //////////////////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc StoryContractUpgradeable
-    /// @dev restricted to the owner of the contract
-    function _isStoryAdmin(address potentialAdmin) internal view override(StoryContractUpgradeable) returns (bool) {
-        return potentialAdmin == owner() || hasRole(ADMIN_ROLE, potentialAdmin);
-    }
-
-    /// @inheritdoc StoryContractUpgradeable
-    function _tokenExists(uint256 tokenId) internal view override(StoryContractUpgradeable) returns (bool) {
-        return _exists(tokenId);
-    }
-
-    /// @inheritdoc StoryContractUpgradeable
-    function _isTokenOwner(address potentialOwner, uint256 tokenId)
-        internal
-        view
-        override(StoryContractUpgradeable)
-        returns (bool)
-    {
-        address tokenOwner = ownerOf(tokenId);
-        return tokenOwner == potentialOwner;
-    }
-
-    /// @inheritdoc StoryContractUpgradeable
-    /// @dev restricted to the owner of the contract
-    function _isCreator(address potentialCreator, uint256 /* tokenId */ )
-        internal
-        view
-        override(StoryContractUpgradeable)
-        returns (bool)
-    {
-        return potentialCreator == owner() || hasRole(ADMIN_ROLE, potentialCreator);
-    }
 
     /*//////////////////////////////////////////////////////////////////////////
-                                BlockList Functions & Overrides
+                                    BlockList
     //////////////////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc BlockListUpgradeable
-    /// @dev restricted to the owner of the contract
-    function isBlockListAdmin(address potentialAdmin) public view override(BlockListUpgradeable) returns (bool) {
-        return potentialAdmin == owner();
-    }
-
-    /// @inheritdoc ERC721Upgradeable
-    /// @dev added the `notBlocked` modifier for blocklist
-    function approve(address to, uint256 tokenId) public override(ERC721Upgradeable) notBlocked(to) {
-        ERC721Upgradeable.approve(to, tokenId);
-    }
-
-    /// @inheritdoc ERC721Upgradeable
-    /// @dev added the `notBlocked` modifier for blocklist
-    function setApprovalForAll(address operator, bool approved)
-        public
-        override(ERC721Upgradeable)
-        notBlocked(operator)
-    {
-        ERC721Upgradeable.setApprovalForAll(operator, approved);
-    }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 ERC-165 Support
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc ERC165Upgradeable
+    /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(EIP2981TLUpgradeable, ERC721Upgradeable, StoryContractUpgradeable)
+        override(ERC721Upgradeable, EIP2981TLUpgradeable, IERC165)
         returns (bool)
     {
-        return interfaceId == bytes4(0x49064906) || interfaceId == type(IShatter).interfaceId
-            || ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
-            || StoryContractUpgradeable.supportsInterface(interfaceId);
+        return (
+            ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
+                || interfaceId == type(IERC2309).interfaceId
+                || interfaceId == type(IERC4906).interfaceId 
+                || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
+                || interfaceId == type(IShatter).interfaceId
+        );
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Internal Functions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Function to batch mint upon shatter
+    /// @dev Only mints tokenIds 1 -> quantity to recipient
+    /// @dev Does not check if the recipient ifs the zero address or can receive ERC-721 tokens
+    /// @param recipient Address to receive the tokens
+    /// @param quantity Amount of tokens to batch mint
+    /// @param ultra Bool specifying to use ERC-2309 or the regular `Transfer` event
+    function _batchMint(address recipient, uint128 quantity, bool ultra) internal {
+        _shatterAddress = recipient;
+        _increaseBalance(_shatterAddress, quantity);
+
+        if (ultra) {
+            emit ConsecutiveTransfer(1, quantity, address(0), recipient);
+        } else {
+            for (uint256 id = 1; id < quantity + 1; ++id) {
+                emit Transfer(address(0), recipient, id);
+            }
+        }
+    }
+
+    /// @inheritdoc ERC721Upgradeable
+    /// @notice function to override { ERC721Upgradeable._ownerOf } to allow for batch minting/shatter
+    function _ownerOf(uint256 tokenId) internal view virtual override returns (address) {
+        if (isShattered && !isFused) {
+            if (tokenId > shatters) {
+                return address(0);
+            }
+            if (tokenId > 0 && ERC721Upgradeable._ownerOf(tokenId) == address(0)) {
+                return _shatterAddress;
+            }
+        }
+
+        return ERC721Upgradeable._ownerOf(tokenId);
+    }
+
+    /// @notice Function to check if a token exists
+    /// @param tokenId The token id to check
+    function _exists(uint256 tokenId) internal view returns (bool) {
+        return _ownerOf(tokenId) != address(0);
     }
 }

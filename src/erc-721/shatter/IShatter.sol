@@ -26,7 +26,7 @@ interface IShatter {
     ///     - block.timestamp is past the shatter time (if applicable)
     ///     - numShatters is an allowed value as set by the creator
     /// @param numShatters is the total number of shatters to make
-    function shatter(uint256 numShatters) external;
+    function shatter(uint128 numShatters) external;
 
     /// @notice function to fuse shatters back into a 1/1
     /// @dev care should be taken to ensure that the following conditions are met

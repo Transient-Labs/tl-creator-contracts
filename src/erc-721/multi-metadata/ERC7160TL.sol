@@ -1,0 +1,488 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.22;
+
+import {IERC2309} from "openzeppelin/interfaces/IERC2309.sol";
+import {IERC4906} from "openzeppelin/interfaces/IERC4906.sol";
+import {Strings} from "openzeppelin/utils/Strings.sol";
+import {ERC721Upgradeable, IERC165} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
+import {IERC721TL} from "src/erc-721/IERC721TL.sol";
+import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
+import {ICreatorBase} from "src/interfaces/ICreatorBase.sol";
+import {IERC7160} from "src/interfaces/IERC7160.sol";
+import {IStory} from "src/interfaces/IStory.sol";
+import {ISynergy} from "src/interfaces/ISynergy.sol";
+import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
+
+/// @title ERC7160TL.sol
+/// @notice Transient Labs ERC-721 Creator Contract with multi-metadata support (ERC-7160)
+/// @dev When unpinned, the latest metadata added for a token is returned from `tokenURI` and `tokenURIs`
+/// @author transientlabs.xyz
+/// @custom:version 3.0.0
+contract ERC7160TL is
+    ERC721Upgradeable,
+    EIP2981TLUpgradeable,
+    OwnableAccessControlUpgradeable,
+    ICreatorBase,
+    IERC721TL,
+    ISynergy,
+    IStory,
+    IERC2309,
+    IERC4906,
+    IERC7160
+{
+    /*//////////////////////////////////////////////////////////////////////////
+                                Custom Types
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Struct defining a batch mint
+    struct BatchMint {
+        address creator;
+        uint256 fromTokenId;
+        uint256 toTokenId;
+        string baseUri;
+    }
+
+    /// @dev Struct for specifying base uri index and folder index
+    struct MetadataLoc {
+        uint128 baseUriIndex;
+        uint128 folderIndex;
+    }
+
+    /// @dev Struct for holding additional metadata used in ERC-7160
+    struct MultiMetadata {
+        bool pinned;
+        uint256 index;
+        MetadataLoc[] metadataLocs;
+    }
+
+    /// @dev String representation of uint256
+    using Strings for uint256;
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                State Variables
+    //////////////////////////////////////////////////////////////////////////*/
+
+    string public constant VERSION = "3.0.0";
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
+    uint256 private _counter; // token ids
+    bool public storyEnabled;
+    ITLNftDelegationRegistry public tlNftDelegationRegistry;
+    IBlockListRegistry public blocklistRegistry;
+    mapping(uint256 => bool) private _burned; // flag to see if a token is burned or not -- needed for burning batch mints
+    mapping(uint256 => string) private _tokenUris;
+    mapping(uint256 => MultiMetadata) private _multiMetadatas;
+    string[] private _multiMetadataBaseUris;
+    BatchMint[] private _batchMints; // dynamic array for batch mints
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Custom Errors
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev Token uri is an empty string
+    error EmptyTokenURI();
+
+    /// @dev Mint to zero address
+    error MintToZeroAddress();
+
+    /// @dev batch size too small
+    error BatchSizeTooSmall();
+
+    /// @dev airdrop to too few addresses
+    error AirdropTooFewAddresses();
+
+    /// @dev token not owned by the owner of the contract
+    error TokenNotOwnedByOwner();
+
+    /// @dev caller is not the owner of the specific token
+    error CallerNotTokenOwner();
+
+    /// @dev caller is not approved or owner
+    error CallerNotApprovedOrOwner();
+
+    /// @dev token does not exist
+    error TokenDoesntExist();
+
+    /// @dev index given for ERC-7160 is invalid
+    error InvalidTokenURIIndex();
+
+    /// @dev no tokens in tokenIds array
+    error NoTokensSpecified();
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Constructor
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @param disable Boolean to disable initialization for the implementation contract
+    constructor(bool disable) {
+        if (disable) _disableInitializers();
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Initializer
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @param name The name of the 721 contract
+    /// @param symbol The symbol of the 721 contract
+    /// @param defaultRoyaltyRecipient The default address for royalty payments
+    /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
+    /// @param initOwner The owner of the contract
+    /// @param admins Array of admin addresses to add to the contract
+    /// @param enableStory A bool deciding whether to add story fuctionality or not
+    /// @param blockListRegistry Address of the blocklist registry to use
+    function initialize(
+        string memory name,
+        string memory symbol,
+        address defaultRoyaltyRecipient,
+        uint256 defaultRoyaltyPercentage,
+        address initOwner,
+        address[] memory admins,
+        bool enableStory,
+        address blockListRegistry
+    ) external initializer {
+        // initialize parent contracts
+        __ERC721_init(name, symbol);
+        __EIP2981TL_init(defaultRoyaltyRecipient, defaultRoyaltyPercentage);
+        __OwnableAccessControl_init(initOwner);
+
+        // add admins
+        _setRole(ADMIN_ROLE, admins, true);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                General Functions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function totalSupply() external view returns (uint256) {
+        return _counter;
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Access Control Functions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function setApprovedMintContracts(address[] calldata minters, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
+        _setRole(APPROVED_MINT_CONTRACT, minters, status);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Mint Functions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IERC721TL
+    function mint(address recipient, string calldata uri) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (bytes(uri).length == 0) revert EmptyTokenURI();
+        _counter++;
+        _tokenUris[_counter] = uri;
+        _mint(recipient, _counter);
+    }
+
+    /// @inheritdoc IERC721TL
+    function mint(address recipient, string calldata uri, address royaltyAddress, uint256 royaltyPercent)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
+        if (bytes(uri).length == 0) revert EmptyTokenURI();
+        _counter++;
+        _tokenUris[_counter] = uri;
+        _overrideTokenRoyaltyInfo(_counter, royaltyAddress, royaltyPercent);
+        _mint(recipient, _counter);
+    }
+
+    /// @inheritdoc IERC721TL
+    function batchMint(address recipient, uint128 numTokens, string calldata baseUri)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
+        if (recipient == address(0)) revert MintToZeroAddress();
+        if (bytes(baseUri).length == 0) revert EmptyTokenURI();
+        if (numTokens < 2) revert BatchSizeTooSmall();
+        uint256 start = _counter + 1;
+        uint256 end = start + numTokens - 1;
+        _counter += numTokens;
+        _batchMints.push(BatchMint(recipient, start, end, baseUri));
+
+        _increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
+
+        for (uint256 id = start; id < end + 1; ++id) {
+            emit Transfer(address(0), recipient, id);
+        }
+    }
+
+    /// @inheritdoc IERC721TL
+    function batchMintUltra(address recipient, uint128 numTokens, string calldata baseUri)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
+        if (recipient == address(0)) revert MintToZeroAddress();
+        if (bytes(baseUri).length == 0) revert EmptyTokenURI();
+        if (numTokens < 2) revert BatchSizeTooSmall();
+        uint256 start = _counter + 1;
+        uint256 end = start + numTokens - 1;
+        _counter += numTokens;
+        _batchMints.push(BatchMint(recipient, start, end, baseUri));
+
+        _increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
+
+        emit ConsecutiveTransfer(start, end, address(0), recipient);
+    }
+
+    /// @inheritdoc IERC721TL
+    function airdrop(address[] calldata addresses, string calldata baseUri) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (bytes(baseUri).length == 0) revert EmptyTokenURI();
+        if (addresses.length < 2) revert AirdropTooFewAddresses();
+
+        uint256 start = _counter + 1;
+        uint256 end = start + addresses.length - 1;
+        _counter += addresses.length;
+        _batchMints.push(BatchMint(address(0), start, end, baseUri));
+        for (uint256 i = 0; i < addresses.length; i++) {
+            _mint(addresses[i], start + i);
+        }
+    }
+
+    /// @inheritdoc IERC721TL
+    function externalMint(address recipient, string calldata uri) external onlyRole(APPROVED_MINT_CONTRACT) {
+        if (bytes(uri).length == 0) revert EmptyTokenURI();
+        _counter++;
+        _tokenUris[_counter] = uri;
+        _mint(recipient, _counter);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Burn Functions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IERC721TL
+    function burn(uint256 tokenId) external {
+        address owner = ownerOf(tokenId);
+        if (!_isAuthorized(owner, msg.sender, tokenId)) revert CallerNotApprovedOrOwner();
+        _burn(tokenId);
+        _burned[tokenId] = true;
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Royalty Functions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyOwner {
+        _setDefaultRoyaltyInfo(newRecipient, newPercentage);
+    }
+
+    /// @inheritdoc ICreatorBase
+    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyOwner {
+        _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                ERC-7160 Functions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Function to add token uris
+    /// @dev Written to take in many token ids and a base uri that contains metadata files with file names matching the index of each token id in the `tokenIds` array (aka folderIndex)
+    /// @dev No trailing slash on the base uri
+    /// @param tokenIds Array of token ids that get metadata added to them
+    /// @param baseUri The base uri of a folder containing metadata - file names start at 0 and increase monotonically
+    function addTokenUris(uint256[] calldata tokenIds, string calldata baseUri) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (bytes(baseUri).length == 0) revert EmptyTokenURI();
+        if (tokenIds.length == 0) revert NoTokensSpecified();
+        uint128 baseUriIndex = uint128(_multiMetadataBaseUris.length);
+        _multiMetadataBaseUris.push(baseUri);
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            if (!_exists(tokenIds[i])) revert TokenDoesntExist();
+            MetadataLoc memory m = MetadataLoc(baseUriIndex, uint128(i));
+            _multiMetadatas[tokenIds[i]].metadataLocs.push(m);
+            emit MetadataUpdate(tokenIds[i]);
+        }
+    }
+
+    /// @inheritdoc IERC7160
+    function tokenURIs(uint256 tokenId) external view returns (uint256 index, string[] memory uris, bool pinned) {
+        if (!_exists(tokenId)) revert TokenDoesntExist();
+        MultiMetadata memory multiMetadata = _multiMetadatas[tokenId];
+        // build uris
+        uris = new string[](multiMetadata.metadataLocs.length + 1);
+        uris[0] = _getMintedMetadataUri(tokenId);
+        for (uint256 i = 0; i < multiMetadata.metadataLocs.length; i++) {
+            uris[i + 1] = _getMultiMetadataUri(multiMetadata, i);
+        }
+        // get if pinned
+        pinned = multiMetadata.pinned;
+        // set index
+        index = pinned ? multiMetadata.index : uris.length - 1;
+    }
+
+    /// @inheritdoc IERC7160
+    function pinTokenURI(uint256 tokenId, uint256 index) external {
+        if (!_exists(tokenId)) revert TokenDoesntExist();
+        if (ownerOf(tokenId) != msg.sender) revert CallerNotTokenOwner();
+        if (index > _multiMetadatas[tokenId].metadataLocs.length) {
+            revert InvalidTokenURIIndex();
+        }
+
+        _multiMetadatas[tokenId].index = index;
+        _multiMetadatas[tokenId].pinned = true;
+
+        emit TokenUriPinned(tokenId, index);
+        emit MetadataUpdate(tokenId);
+    }
+
+    /// @inheritdoc IERC7160
+    function unpinTokenURI(uint256 tokenId) external {
+        if (!_exists(tokenId)) revert TokenDoesntExist();
+        if (ownerOf(tokenId) != msg.sender) revert CallerNotTokenOwner();
+
+        _multiMetadatas[tokenId].pinned = false;
+
+        emit TokenUriUnpinned(tokenId);
+        emit MetadataUpdate(tokenId);
+    }
+
+    /// @inheritdoc IERC7160
+    function hasPinnedTokenURI(uint256 tokenId) external view returns (bool) {
+        if (!_exists(tokenId)) revert TokenDoesntExist();
+        return _multiMetadatas[tokenId].pinned;
+    }
+
+    /// @inheritdoc ERC721Upgradeable
+    function tokenURI(uint256 tokenId) public view override(ERC721Upgradeable) returns (string memory uri) {
+        if (!_exists(tokenId)) revert TokenDoesntExist();
+        MultiMetadata memory multiMetadata = _multiMetadatas[tokenId];
+        if (multiMetadata.pinned) {
+            if (multiMetadata.index == 0) {
+                uri = _getMintedMetadataUri(tokenId);
+            } else {
+                uri = _getMultiMetadataUri(multiMetadata, multiMetadata.index - 1);
+            }
+        } else {
+            if (multiMetadata.metadataLocs.length == 0) {
+                uri = _getMintedMetadataUri(tokenId);
+            } else {
+                uri = _getMultiMetadataUri(multiMetadata, multiMetadata.metadataLocs.length - 1);
+            }
+        }
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Story Inscriptions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                    BlockList
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /*//////////////////////////////////////////////////////////////////////////
+                            TL NFT Delegation Registry
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                ERC-165 Support
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IERC165
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721Upgradeable, EIP2981TLUpgradeable, IERC165)
+        returns (bool)
+    {
+        return (
+            ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
+                || interfaceId == type(IERC2309).interfaceId
+                || interfaceId == type(IERC4906).interfaceId 
+                || interfaceId == type(IERC7160).interfaceId
+                || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
+                || interfaceId == type(IERC721TL).interfaceId
+        );
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Internal Functions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Function to get batch mint info
+    /// @param tokenId Token id to look up for batch mint info
+    /// @return adress The token owner
+    /// @return string The uri for the tokenId
+    function _getBatchInfo(uint256 tokenId) internal view returns (address, string memory) {
+        uint256 i = 0;
+        for (i; i < _batchMints.length; i++) {
+            if (tokenId >= _batchMints[i].fromTokenId && tokenId <= _batchMints[i].toTokenId) {
+                break;
+            }
+        }
+        if (i >= _batchMints.length) {
+            return (address(0), "");
+        }
+        string memory tokenUri =
+            string(abi.encodePacked(_batchMints[i].baseUri, "/", (tokenId - _batchMints[i].fromTokenId).toString()));
+        return (_batchMints[i].creator, tokenUri);
+    }
+
+    /// @notice Function to override { ERC721Upgradeable._ownerOf } to allow for batch minting
+    /// @inheritdoc ERC721Upgradeable
+    function _ownerOf(uint256 tokenId) internal view override(ERC721Upgradeable) returns (address) {
+        if (_burned[tokenId]) {
+            return address(0);
+        } else {
+            if (tokenId > 0 && tokenId <= _counter) {
+                address owner = ERC721Upgradeable._ownerOf(tokenId);
+                if (owner == address(0)) {
+                    // see if can find token in a batch mint
+                    (owner,) = _getBatchInfo(tokenId);
+                }
+                return owner;
+            } else {
+                return address(0);
+            }
+        }
+    }
+
+    /// @notice internal function to get original metadata uri from mint
+    function _getMintedMetadataUri(uint256 tokenId) internal view returns (string memory uri) {
+        uri = _tokenUris[tokenId];
+        if (bytes(uri).length == 0) {
+            (, uri) = _getBatchInfo(tokenId);
+        }
+    }
+
+    /// @notice internal function to help get metadata from multi-metadata struct
+    /// @param multiMetadata The multimMtadata struct in memory
+    /// @param index The index of the multiMetadataLoc
+    function _getMultiMetadataUri(MultiMetadata memory multiMetadata, uint256 index)
+        internal
+        view
+        returns (string memory uri)
+    {
+        uri = string(
+            abi.encodePacked(
+                _multiMetadataBaseUris[multiMetadata.metadataLocs[index].baseUriIndex],
+                "/",
+                uint256(multiMetadata.metadataLocs[index].folderIndex).toString()
+            )
+        );
+    }
+
+    /// @notice Function to check if a token exists
+    /// @param tokenId The token id to check
+    function _exists(uint256 tokenId) internal view returns (bool) {
+        return _ownerOf(tokenId) != address(0);
+    }
+
+    /// @notice Function to get if msg.sender is the token owner or delegated owner
+    function _isTokenOwnerOrDelegate(uint256 tokenId) internal view returns (bool) {
+        address owner = _ownerOf(tokenId);
+        if (msg.sender == owner) {
+            return true;
+        } else if (address(tlNftDelegationRegistry) == address(0)) {
+            return false;
+        } else {
+            return tlNftDelegationRegistry.checkDelegateForERC721(msg.sender, owner, address(this), tokenId);
+        }
+    }
+}
