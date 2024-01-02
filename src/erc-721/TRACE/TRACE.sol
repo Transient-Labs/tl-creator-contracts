@@ -10,7 +10,7 @@ import {
 } from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
-import {ITRACE} from "src/trace/ITRACE.sol";
+import {ITRACE} from "src/erc-721/trace/ITRACE.sol";
 import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "src/interfaces/ICreatorBase.sol";
 import {IStory} from "src/interfaces/IStory.sol";
@@ -39,25 +39,24 @@ contract TRACE is
                                 Custom Types
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev struct defining a batch mint - used for airdrops
+    /// @dev Struct defining a batch mint - used for airdrops
     struct BatchMint {
         uint256 fromTokenId;
         uint256 toTokenId;
         string baseUri;
     }
 
-    /// @dev struct for verified story & signed EIP-712 message
+    /// @dev Struct for verified story & signed EIP-712 message
     struct VerifiedStory {
-        uint256 nonce;
+        address nftContract;
         uint256 tokenId;
-        address sender;
         string story;
     }
 
-    /// @dev string representation of uint256
+    /// @dev String representation of uint256
     using Strings for uint256;
 
-    /// @dev string representation for address
+    /// @dev String representation for address
     using Strings for address;
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -66,47 +65,51 @@ contract TRACE is
 
     string public constant VERSION = "3.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     ITRACERSRegistry public tracersRegistry;
     uint256 private _counter; // token ids
     mapping(uint256 => string) private _tokenUris; // established token uris
-    mapping(uint256 => uint256) private _tokenNonces; // token nonces to prevent replay attacks
+    mapping(bytes32 => bool) private _verifiedStoryHashUsed; // prevent replay attacks
     BatchMint[] private _batchMints; // dynamic array for batch mints
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Custom Errors
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev token uri is an empty string
+    /// @dev Token uri is an empty string
     error EmptyTokenURI();
 
-    /// @dev batch mint to zero address
+    /// @dev Batch mint to zero address
     error MintToZeroAddress();
 
-    /// @dev batch size too small
+    /// @dev Batch size too small
     error BatchSizeTooSmall();
 
-    /// @dev airdrop to too few addresses
+    /// @dev Airdrop to too few addresses
     error AirdropTooFewAddresses();
 
-    /// @dev token not owned by the owner of the contract
+    /// @dev Token not owned by the owner of the contract
     error TokenNotOwnedByOwner();
 
-    /// @dev caller is not the owner of the specific token
+    /// @dev Caller is not the owner of the specific token
     error CallerNotTokenOwner();
 
-    /// @dev caller is not approved or owner
+    /// @dev Caller is not approved or owner
     error CallerNotApprovedOrOwner();
 
-    /// @dev token does not exist
+    /// @dev Token does not exist
     error TokenDoesntExist();
 
-    /// @dev no proposed token uri to change to
-    error NoTokenUriUpdateAvailable();
+    /// @dev Verified story already written for token
+    error VerifiedStoryAlreadyWritten();
 
-    /// @dev invalid signature
+    /// @dev Array length mismatch
+    error ArrayLengthMismatch();
+
+    /// @dev Invalid signature
     error InvalidSignature();
 
-    /// @dev unauthorized to add a verified story
+    /// @dev Unauthorized to add a verified story
     error Unauthorized();
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -165,8 +168,8 @@ contract TRACE is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICreatorBase
-    function setApprovedMintContracts(address[] calldata /*minters*/, bool /*status*/) external {
-        revert("N/A");
+    function setApprovedMintContracts(address[] calldata minters, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
+        _setRole(APPROVED_MINT_CONTRACT, minters, status);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -210,6 +213,14 @@ contract TRACE is
         }
     }
 
+    /// @inheritdoc ITRACE
+    function externalMint(address recipient, string calldata uri) external onlyRole(APPROVED_MINT_CONTRACT) {
+        if (bytes(uri).length == 0) revert EmptyTokenURI();
+        _counter++;
+        _tokenUris[_counter] = uri;
+        _mint(recipient, _counter);
+    }
+
     /*//////////////////////////////////////////////////////////////////////////
                                 T.R.A.C.E. Functions
     //////////////////////////////////////////////////////////////////////////*/
@@ -227,47 +238,23 @@ contract TRACE is
 
     /// @inheritdoc ITRACE
     function addVerifiedStory(uint256 tokenId, string calldata story, bytes calldata signature) external {
-        // default name to hex address
-        string memory registeredAgentName = msg.sender.toHexString();
-
-        // only check registered agent if the registry is not the zero address
-        if (address(tracersRegistry) != address(0)) {
-            if (address(tracersRegistry).code.length == 0) revert Unauthorized();
-            bool isRegisteredAgent;
-            (isRegisteredAgent, registeredAgentName) = tracersRegistry.isRegisteredAgent(msg.sender);
-            if (!isRegisteredAgent) revert Unauthorized();
-        }
-
-        // verify signature
-        address tokenOwner = ownerOf(tokenId);
-        bytes32 digest = _hashTypedDataV4(_hashVerifiedStory(tokenId, _tokenNonces[tokenId]++, msg.sender, story));
-        if (tokenOwner != ECDSA.recover(digest, signature)) revert InvalidSignature();
-
-        // emit story
-        emit Story(tokenId, msg.sender, registeredAgentName, story);
+        _addVerifiedStory(tokenId, story, signature);
     }
 
     /// @inheritdoc ITRACE
-    function getTokenNonce(uint256 tokenId) external view returns (uint256) {
-        return _tokenNonces[tokenId];
-    }
+    function addVerifiedStoryBatch(uint256[] calldata tokenIds, string[] calldata stories, bytes[] calldata signatures) external {
+        if (tokenIds.length != stories.length && stories.length != signatures.length) {
+            revert ArrayLengthMismatch();
+        }
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            // get variables
+            uint256 tokenId = tokenIds[i];
+            string memory story = stories[i];
+            bytes memory signature = signatures[i];
 
-    /// @notice function to hash the typed data
-    function _hashVerifiedStory(uint256 tokenId, uint256 nonce, address sender, string memory story)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(
-            abi.encode(
-                // keccak256("VerifiedStory(uint256 nonce,uint256 tokenId,address sender,string story)"),
-                0x3ea278f3e0e25a71281e489b82695f448ae01ef3fc312598f1e61ac9956ab954,
-                nonce,
-                tokenId,
-                sender,
-                keccak256(bytes(story))
-            )
-        );
+            // add verified story
+            _addVerifiedStory(tokenId, story, signature);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -363,5 +350,47 @@ contract TRACE is
     /// @param tokenId The token id to check
     function _exists(uint256 tokenId) internal view returns (bool) {
         return _ownerOf(tokenId) != address(0);
+    }
+
+    /// @notice Function to add a verified story in a reusable way
+    function _addVerifiedStory(uint256 tokenId, string memory story, bytes memory signature) internal {
+        // default name to hex address
+        string memory registeredAgentName = msg.sender.toHexString();
+
+        // only check registered agent if the registry is not the zero address
+        if (address(tracersRegistry) != address(0)) {
+            if (address(tracersRegistry).code.length == 0) revert Unauthorized();
+            bool isRegisteredAgent;
+            (isRegisteredAgent, registeredAgentName) = tracersRegistry.isRegisteredAgent(msg.sender);
+            if (!isRegisteredAgent) revert Unauthorized();
+        }
+
+        // verify signature
+        bytes32 verifiedStoryHash = _hashVerifiedStory(address(this), tokenId, story);
+        if (_verifiedStoryHashUsed[verifiedStoryHash]) revert VerifiedStoryAlreadyWritten();
+        _verifiedStoryHashUsed[verifiedStoryHash] = true;
+        address tokenOwner = ownerOf(tokenId);
+        bytes32 digest = _hashTypedDataV4(verifiedStoryHash);
+        if (tokenOwner != ECDSA.recover(digest, signature)) revert InvalidSignature();
+
+        // emit story
+        emit Story(tokenId, msg.sender, registeredAgentName, story);
+    }
+
+    /// @notice Function to hash the typed data
+    function _hashVerifiedStory(address nftContract, uint256 tokenId, string memory story)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(
+            abi.encode(
+                // keccak256("VerifiedStory(address nftContract,uint256 tokenId,string story)"),
+                0x76b12200216600191228eb643bc7cba6e319d03951a863e3306595415759682b,
+                nftContract,
+                tokenId,
+                keccak256(bytes(story))
+            )
+        );
     }
 }

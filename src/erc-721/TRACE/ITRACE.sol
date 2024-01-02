@@ -34,6 +34,12 @@ interface ITRACE {
     /// @param baseUri The base uri for the batch, expecting json to be in order, starting at file name 0, and SHOULD NOT have a trailing `/`
     function airdrop(address[] calldata addresses, string calldata baseUri) external;
 
+    /// @notice Function to allow an approved mint contract to mint
+    /// @dev Requires the caller to be an approved mint contract
+    /// @param recipient The recipient of the token - assumed as able to receive 721 tokens
+    /// @param uri The token uri to mint
+    function externalMint(address recipient, string calldata uri) external;
+
     /// @notice Function to transfer token to another wallet
     /// @dev Callable only by owner or admin
     /// @dev Useful if a chip fails or an alteration damages a chip in some way
@@ -55,10 +61,13 @@ interface ITRACE {
     /// @param signature The signtature from the chip to verify physical presence
     function addVerifiedStory(uint256 tokenId, string calldata story, bytes calldata signature) external;
 
-    /// @notice Function to return the nonce for a token
-    /// @param tokenId The token to query
-    /// @return uint256 The token nonce
-    function getTokenNonce(uint256 tokenId) external view returns (uint256);
+    /// @notice Function to write a batch of stories for tokens
+    /// @dev Requires that the passed signature is signed by the token owner, which is the ARX Halo Chip (physical)
+    /// @dev Uses EIP-712 for the signature
+    /// @param tokenIds The tokens to add a stories to
+    /// @param stories The story text
+    /// @param signatures The signtatures from the chip to verify physical presence
+    function addVerifiedStoryBatch(uint256[] calldata tokenIds, string[] calldata stories, bytes[] calldata signatures) external;
 
     /// @notice Function to update a token uri for a specific token
     /// @dev Requires owner or admin
