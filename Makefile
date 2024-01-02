@@ -13,7 +13,7 @@ remove:
 # Install the Modules
 install:
 	forge install foundry-rs/forge-std --no-commit
-	forge install Transient-Labs/tl-sol-tools@3.0.0 --no-commit
+	forge install Transient-Labs/tl-sol-tools@3.1.0 --no-commit
 
 # Update the modules
 update: remove install
