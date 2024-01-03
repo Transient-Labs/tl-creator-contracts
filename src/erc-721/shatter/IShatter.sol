@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 /// @title IShatter.sol
 /// @notice interface defining the Shatter standard
-/// @dev shatter turns a 1/1 into a multiple sub-pieces.
+/// Interface id = 0x01c5bfc1
 /// @author transientlabs.xyz
 /// @custom:version 2.4.0
 interface IShatter {

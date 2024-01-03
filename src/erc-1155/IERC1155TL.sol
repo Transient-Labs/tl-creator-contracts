@@ -93,4 +93,10 @@ interface IERC1155TL {
     /// @param tokenIds Array of tokens to burn
     /// @param amounts Amount of each token to burn
     function burn(address from, uint256[] calldata tokenIds, uint256[] calldata amounts) external;
+
+    /// @notice Function to set a token uri
+    /// @dev Requires owner or admin
+    /// @param tokenId The token to mint
+    /// @param newUri The new token uri
+    function setTokenUri(uint256 tokenId, string calldata newUri) external;
 }

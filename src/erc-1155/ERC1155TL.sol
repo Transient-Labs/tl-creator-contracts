@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {
-    ERC1155Upgradeable,
-    IERC1155,
-    IERC165
-} from "openzeppelin-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
+import {Strings} from "openzeppelin/utils/Strings.sol";
+import {ERC1155Upgradeable, IERC1155, IERC165} from "openzeppelin-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IStory} from "src/interfaces/IStory.sol";
@@ -18,7 +15,21 @@ import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.
 /// @notice Transient Labs ERC-1155 Creator Contract
 /// @author transientlabs.xyz
 /// @custom:version 3.0.0
-contract ERC1155TL is ERC1155Upgradeable, EIP2981TLUpgradeable, OwnableAccessControlUpgradeable, ICreatorBase, IERC1155TL, IStory {
+contract ERC1155TL is
+    ERC1155Upgradeable,
+    EIP2981TLUpgradeable,
+    OwnableAccessControlUpgradeable,
+    ICreatorBase,
+    IERC1155TL,
+    IStory
+{
+    /*//////////////////////////////////////////////////////////////////////////
+                                Custom Types
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @dev String representation for address
+    using Strings for address;
+
     /*//////////////////////////////////////////////////////////////////////////
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
@@ -29,6 +40,9 @@ contract ERC1155TL is ERC1155Upgradeable, EIP2981TLUpgradeable, OwnableAccessCon
     uint256 private _counter;
     string public name;
     string public symbol;
+    bool public storyEnabled;
+    ITLNftDelegationRegistry public tlNftDelegationRegistry;
+    IBlockListRegistry public blocklistRegistry;
     mapping(uint256 => Token) private _tokens;
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -107,13 +121,12 @@ contract ERC1155TL is ERC1155Upgradeable, EIP2981TLUpgradeable, OwnableAccessCon
                                 General Functions
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc IERC1155TL
+    /// @inheritdoc ICreatorBase
     function totalSupply() external view returns (uint256) {
         return _counter;
     }
 
-    /// @notice Function to get token creation details
-    /// @param tokenId The token to lookup
+    /// @inheritdoc IERC1155TL
     function getTokenDetails(uint256 tokenId) external view returns (Token memory) {
         return _tokens[tokenId];
     }
@@ -122,7 +135,7 @@ contract ERC1155TL is ERC1155Upgradeable, EIP2981TLUpgradeable, OwnableAccessCon
                                 Access Control Functions
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc IERC1155TL
+    /// @inheritdoc ICreatorBase
     function setApprovedMintContracts(address[] calldata minters, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
         _setRole(APPROVED_MINT_CONTRACT, minters, status);
     }
@@ -212,12 +225,12 @@ contract ERC1155TL is ERC1155Upgradeable, EIP2981TLUpgradeable, OwnableAccessCon
                                 Royalty Functions
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc IERC1155TL
+    /// @inheritdoc ICreatorBase
     function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyOwner {
         _setDefaultRoyaltyInfo(newRecipient, newPercentage);
     }
 
-    /// @inheritdoc IERC1155TL
+    /// @inheritdoc ICreatorBase
     function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyOwner {
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
@@ -244,19 +257,37 @@ contract ERC1155TL is ERC1155Upgradeable, EIP2981TLUpgradeable, OwnableAccessCon
                                 Story Inscriptions
     //////////////////////////////////////////////////////////////////////////*/
 
-    
+    /// @inheritdoc IStory
+    function addCollectionStory(string calldata creatorName, string calldata story)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {}
+
+    /// @inheritdoc IStory
+    function addCreatorStory(uint256 tokenId, string calldata creatorName, string calldata story)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {}
+
+    /// @inheritdoc IStory
+    function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {}
+
+    /// @inheritdoc ICreatorBase
+    function setStoryStatus(bool status) external {}
 
     /*//////////////////////////////////////////////////////////////////////////
-                                BlockList Functions
+                                BlockList
     //////////////////////////////////////////////////////////////////////////*/
 
-
+    /// @inheritdoc ICreatorBase
+    function setBlockListRegistry(address newBlockListRegistry) external {}
 
     /*//////////////////////////////////////////////////////////////////////////
-                            TL NFT Delegation Registry
+                            NFT Delegation Registry
     //////////////////////////////////////////////////////////////////////////*/
 
-
+    /// @inheritdoc ICreatorBase
+    function setNftDelegationRegistry(address newNftDelegationRegistry) external {}
 
     /*//////////////////////////////////////////////////////////////////////////
                                 ERC-165 Support
@@ -271,7 +302,8 @@ contract ERC1155TL is ERC1155Upgradeable, EIP2981TLUpgradeable, OwnableAccessCon
     {
         return (
             ERC1155Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
-                || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
+                || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(IStory).interfaceId
+                || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
                 || interfaceId == type(IERC1155TL).interfaceId
         );
     }

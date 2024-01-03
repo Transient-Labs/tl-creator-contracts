@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {IERC2309} from "openzeppelin/interfaces/IERC2309.sol";
 import {IERC4906} from "openzeppelin/interfaces/IERC4906.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {ERC721Upgradeable, IERC165} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
@@ -26,7 +25,6 @@ contract Shatter is
     ICreatorBase,
     ISynergy,
     IStory,
-    IERC2309,
     IERC4906
 {
     /*//////////////////////////////////////////////////////////////////////////
@@ -35,6 +33,9 @@ contract Shatter is
 
     /// @dev string representation of uint256
     using Strings for uint256;
+
+    /// @dev String representation for address
+    using Strings for address;
 
     /*//////////////////////////////////////////////////////////////////////////
                                 State Variables
@@ -145,7 +146,7 @@ contract Shatter is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICreatorBase
-    function setApprovedMintContracts(address[] calldata /*minters*/, bool /*status*/) external {
+    function setApprovedMintContracts(address[] calldata, /*minters*/ bool /*status*/ ) external pure {
         revert("N/A");
     }
 
@@ -157,7 +158,7 @@ contract Shatter is
     /// @dev Requires contract owner or admin
     /// @dev Requires that shatters is equal to 0 -> meaning no piece has been minted
     /// @param recipient The address to mint to token to
-    /// @param uri The base uri to be used for the shatter folder WITHOUT trailing "/" 
+    /// @param uri The base uri to be used for the shatter folder WITHOUT trailing "/"
     /// @param min The minimum number of shatters
     /// @param max The maximum number of shatters
     /// @param time Time after which shatter can occur
@@ -194,30 +195,12 @@ contract Shatter is
 
         if (numShatters > 1) {
             _burn(0);
-            _batchMint(msg.sender, numShatters, false);
-            emit Shattered(msg.sender, numShatters, block.timestamp);
-        } else {
-            isFused = true;
-            emit Shattered(msg.sender, numShatters, block.timestamp);
-            emit Fused(msg.sender, block.timestamp);
-        }
-        // no reentrancy so can set these after burning and minting
-        // needs to be called here since _burn relies on ownership check
-        isShattered = true;
-        shatters = numShatters;
-    }
+            _shatterAddress = msg.sender;
+            _increaseBalance(_shatterAddress, numShatters);
 
-    /// @inheritdoc IShatter
-    /// @dev Uses ERC-2309. BEWARE - this may not be supported by all platforms.
-    function shatterUltra(uint128 numShatters) external {
-        if (isShattered) revert IsShattered();
-        if (msg.sender != ownerOf(0)) revert CallerNotTokenOwner();
-        if (numShatters < minShatters || numShatters > maxShatters) revert InvalidNumShatters();
-        if (block.timestamp < shatterTime) revert CallPriorToShatterTime();
-
-        if (numShatters > 1) {
-            _burn(0);
-            _batchMint(msg.sender, numShatters, true);
+            for (uint256 id = 1; id < numShatters + 1; ++id) {
+                emit Transfer(address(0), msg.sender, id);
+            }
             emit Shattered(msg.sender, numShatters, block.timestamp);
         } else {
             isFused = true;
@@ -333,9 +316,37 @@ contract Shatter is
                                 Story Inscriptions
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IStory
+    function addCollectionStory(string calldata creatorName, string calldata story)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {}
+
+    /// @inheritdoc IStory
+    function addCreatorStory(uint256 tokenId, string calldata creatorName, string calldata story)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {}
+
+    /// @inheritdoc IStory
+    function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {}
+
+    /// @inheritdoc ICreatorBase
+    function setStoryStatus(bool status) external {}
+
     /*//////////////////////////////////////////////////////////////////////////
-                                    BlockList
+                                BlockList
     //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function setBlockListRegistry(address newBlockListRegistry) external {}
+
+    /*//////////////////////////////////////////////////////////////////////////
+                            NFT Delegation Registry
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function setNftDelegationRegistry(address newNftDelegationRegistry) external {}
 
     /*//////////////////////////////////////////////////////////////////////////
                                 ERC-165 Support
@@ -350,9 +361,10 @@ contract Shatter is
     {
         return (
             ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
-                || interfaceId == type(IERC2309).interfaceId
-                || interfaceId == type(IERC4906).interfaceId 
-                || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
+                || interfaceId == 0x49064906 // ERC-4906
+                || interfaceId == type(ICreatorBase).interfaceId
+                || interfaceId == type(ISynergy).interfaceId || interfaceId == type(IStory).interfaceId
+                || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
                 || interfaceId == type(IShatter).interfaceId
         );
     }
@@ -360,25 +372,6 @@ contract Shatter is
     /*//////////////////////////////////////////////////////////////////////////
                                 Internal Functions
     //////////////////////////////////////////////////////////////////////////*/
-
-    /// @notice Function to batch mint upon shatter
-    /// @dev Only mints tokenIds 1 -> quantity to recipient
-    /// @dev Does not check if the recipient ifs the zero address or can receive ERC-721 tokens
-    /// @param recipient Address to receive the tokens
-    /// @param quantity Amount of tokens to batch mint
-    /// @param ultra Bool specifying to use ERC-2309 or the regular `Transfer` event
-    function _batchMint(address recipient, uint128 quantity, bool ultra) internal {
-        _shatterAddress = recipient;
-        _increaseBalance(_shatterAddress, quantity);
-
-        if (ultra) {
-            emit ConsecutiveTransfer(1, quantity, address(0), recipient);
-        } else {
-            for (uint256 id = 1; id < quantity + 1; ++id) {
-                emit Transfer(address(0), recipient, id);
-            }
-        }
-    }
 
     /// @inheritdoc ERC721Upgradeable
     /// @notice function to override { ERC721Upgradeable._ownerOf } to allow for batch minting/shatter

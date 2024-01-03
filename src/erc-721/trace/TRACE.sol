@@ -1,23 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {IERC2309} from "openzeppelin/interfaces/IERC2309.sol";
 import {IERC4906} from "openzeppelin/interfaces/IERC4906.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {ECDSA} from "openzeppelin/utils/cryptography/ECDSA.sol";
-import {
-    ERC721Upgradeable, IERC165
-} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {ERC721Upgradeable, IERC165} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {EIP712Upgradeable} from "openzeppelin-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
-import {ITRACE} from "src/trace/ITRACE.sol";
+import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {ITRACE} from "src/erc-721/trace/ITRACE.sol";
 import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "src/interfaces/ICreatorBase.sol";
 import {IStory} from "src/interfaces/IStory.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
-import {EIP712Upgradeable} from "openzeppelin-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
-import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {ITRACERSRegistry} from "src/interfaces/ITRACERSRegistry.sol";
 
 /// @title TRACE.sol
@@ -32,32 +27,30 @@ contract TRACE is
     ICreatorBase,
     ITRACE,
     IStory,
-    IERC2309,
     IERC4906
 {
     /*//////////////////////////////////////////////////////////////////////////
                                 Custom Types
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev struct defining a batch mint - used for airdrops
+    /// @dev Struct defining a batch mint - used for airdrops
     struct BatchMint {
         uint256 fromTokenId;
         uint256 toTokenId;
         string baseUri;
     }
 
-    /// @dev struct for verified story & signed EIP-712 message
+    /// @dev Struct for verified story & signed EIP-712 message
     struct VerifiedStory {
-        uint256 nonce;
+        address nftContract;
         uint256 tokenId;
-        address sender;
         string story;
     }
 
-    /// @dev string representation of uint256
+    /// @dev String representation of uint256
     using Strings for uint256;
 
-    /// @dev string representation for address
+    /// @dev String representation for address
     using Strings for address;
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -66,47 +59,36 @@ contract TRACE is
 
     string public constant VERSION = "3.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     ITRACERSRegistry public tracersRegistry;
     uint256 private _counter; // token ids
     mapping(uint256 => string) private _tokenUris; // established token uris
-    mapping(uint256 => uint256) private _tokenNonces; // token nonces to prevent replay attacks
+    mapping(bytes32 => bool) private _verifiedStoryHashUsed; // prevent replay attacks
     BatchMint[] private _batchMints; // dynamic array for batch mints
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Custom Errors
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev token uri is an empty string
+    /// @dev Token uri is an empty string
     error EmptyTokenURI();
 
-    /// @dev batch mint to zero address
-    error MintToZeroAddress();
-
-    /// @dev batch size too small
-    error BatchSizeTooSmall();
-
-    /// @dev airdrop to too few addresses
+    /// @dev Airdrop to too few addresses
     error AirdropTooFewAddresses();
 
-    /// @dev token not owned by the owner of the contract
-    error TokenNotOwnedByOwner();
-
-    /// @dev caller is not the owner of the specific token
-    error CallerNotTokenOwner();
-
-    /// @dev caller is not approved or owner
-    error CallerNotApprovedOrOwner();
-
-    /// @dev token does not exist
+    /// @dev Token does not exist
     error TokenDoesntExist();
 
-    /// @dev no proposed token uri to change to
-    error NoTokenUriUpdateAvailable();
+    /// @dev Verified story already written for token
+    error VerifiedStoryAlreadyWritten();
 
-    /// @dev invalid signature
+    /// @dev Array length mismatch
+    error ArrayLengthMismatch();
+
+    /// @dev Invalid signature
     error InvalidSignature();
 
-    /// @dev unauthorized to add a verified story
+    /// @dev Unauthorized to add a verified story
     error Unauthorized();
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -124,6 +106,7 @@ contract TRACE is
 
     /// @param name The name of the contract
     /// @param symbol The symbol of the contract
+    /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalizaiton of the contract.
     /// @param defaultRoyaltyRecipient The default address for royalty payments
     /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
     /// @param initOwner The owner of the contract
@@ -132,6 +115,7 @@ contract TRACE is
     function initialize(
         string memory name,
         string memory symbol,
+        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
@@ -142,13 +126,18 @@ contract TRACE is
         __ERC721_init(name, symbol);
         __EIP2981TL_init(defaultRoyaltyRecipient, defaultRoyaltyPercentage);
         __OwnableAccessControl_init(initOwner);
-        __EIP712_init("T.R.A.C.E.", "1");
+        __EIP712_init("T.R.A.C.E.", "3");
 
         // add admins
         _setRole(ADMIN_ROLE, admins, true);
 
         // set TRACERS Registry
         tracersRegistry = ITRACERSRegistry(defaultTracersRegistry);
+
+        // emit personalization as collection story
+        if (bytes(personalization).length > 0) {
+            emit CollectionStory(msg.sender, msg.sender.toHexString(), personalization);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -165,8 +154,8 @@ contract TRACE is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICreatorBase
-    function setApprovedMintContracts(address[] calldata /*minters*/, bool /*status*/) external {
-        revert("N/A");
+    function setApprovedMintContracts(address[] calldata minters, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
+        _setRole(APPROVED_MINT_CONTRACT, minters, status);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -210,6 +199,14 @@ contract TRACE is
         }
     }
 
+    /// @inheritdoc ITRACE
+    function externalMint(address recipient, string calldata uri) external onlyRole(APPROVED_MINT_CONTRACT) {
+        if (bytes(uri).length == 0) revert EmptyTokenURI();
+        _counter++;
+        _tokenUris[_counter] = uri;
+        _mint(recipient, _counter);
+    }
+
     /*//////////////////////////////////////////////////////////////////////////
                                 T.R.A.C.E. Functions
     //////////////////////////////////////////////////////////////////////////*/
@@ -222,52 +219,27 @@ contract TRACE is
 
     /// @inheritdoc ITRACE
     function setTracersRegistry(address newTracersRegistry) external onlyRoleOrOwner(ADMIN_ROLE) {
+        address oldTracersRegistry = address(tracersRegistry);
         tracersRegistry = ITRACERSRegistry(newTracersRegistry);
+        emit TRACERSRegistryUpdated(msg.sender, oldTracersRegistry, newTracersRegistry);
     }
 
     /// @inheritdoc ITRACE
-    function addVerifiedStory(uint256 tokenId, string calldata story, bytes calldata signature) external {
-        // default name to hex address
-        string memory registeredAgentName = msg.sender.toHexString();
-
-        // only check registered agent if the registry is not the zero address
-        if (address(tracersRegistry) != address(0)) {
-            if (address(tracersRegistry).code.length == 0) revert Unauthorized();
-            bool isRegisteredAgent;
-            (isRegisteredAgent, registeredAgentName) = tracersRegistry.isRegisteredAgent(msg.sender);
-            if (!isRegisteredAgent) revert Unauthorized();
-        }
-
-        // verify signature
-        address tokenOwner = ownerOf(tokenId);
-        bytes32 digest = _hashTypedDataV4(_hashVerifiedStory(tokenId, _tokenNonces[tokenId]++, msg.sender, story));
-        if (tokenOwner != ECDSA.recover(digest, signature)) revert InvalidSignature();
-
-        // emit story
-        emit Story(tokenId, msg.sender, registeredAgentName, story);
-    }
-
-    /// @inheritdoc ITRACE
-    function getTokenNonce(uint256 tokenId) external view returns (uint256) {
-        return _tokenNonces[tokenId];
-    }
-
-    /// @notice function to hash the typed data
-    function _hashVerifiedStory(uint256 tokenId, uint256 nonce, address sender, string memory story)
-        internal
-        pure
-        returns (bytes32)
+    function addVerifiedStory(uint256[] calldata tokenIds, string[] calldata stories, bytes[] calldata signatures)
+        external
     {
-        return keccak256(
-            abi.encode(
-                // keccak256("VerifiedStory(uint256 nonce,uint256 tokenId,address sender,string story)"),
-                0x3ea278f3e0e25a71281e489b82695f448ae01ef3fc312598f1e61ac9956ab954,
-                nonce,
-                tokenId,
-                sender,
-                keccak256(bytes(story))
-            )
-        );
+        if (tokenIds.length != stories.length && stories.length != signatures.length) {
+            revert ArrayLengthMismatch();
+        }
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            // get variables
+            uint256 tokenId = tokenIds[i];
+            string memory story = stories[i];
+            bytes memory signature = signatures[i];
+
+            // add verified story
+            _addVerifiedStory(tokenId, story, signature);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -292,7 +264,7 @@ contract TRACE is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ITRACE
-    function updateTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function setTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
         _tokenUris[tokenId] = newUri;
@@ -317,6 +289,68 @@ contract TRACE is
                                 Story Inscriptions
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IStory
+    /// @dev ignores the creator name to avoid sybil
+    function addCollectionStory(string calldata, /*creatorName*/ string calldata story)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
+        emit CollectionStory(msg.sender, msg.sender.toHexString(), story);
+    }
+
+    /// @inheritdoc IStory
+    /// @dev ignores the creator name to avoid sybil
+    function addCreatorStory(uint256 tokenId, string calldata /*creatorName*/, string calldata story)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {   
+        if (!_exists(tokenId)) revert TokenDoesntExist();
+        emit CreatorStory(tokenId, msg.sender, msg.sender.toHexString(), story);
+    }
+
+    /// @inheritdoc IStory
+    function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {
+        revert();
+    }
+
+    /// @inheritdoc ICreatorBase
+    function setStoryStatus(bool status) external {
+        revert();
+    }
+
+    /// @inheritdoc ICreatorBase
+    function storyEnabled() external view returns (bool) {
+        return true;
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                BlockList
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function setBlockListRegistry(address newBlockListRegistry) external {
+        revert();
+    }
+
+    /// @inheritdoc ICreatorBase
+    function blocklistRegistry() external view returns (IBlockListRegistry) {
+        return IBlockListRegistry(address(0));
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                            NFT Delegation Registry
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function setNftDelegationRegistry(address newNftDelegationRegistry) external {
+        revert();
+    }
+
+    /// @inheritdoc ICreatorBase
+    function tlNftDelegationRegistry() external view returns (ITLNftDelegationRegistry) {
+        return ITLNftDelegationRegistry(address(0));
+    }
+
     /*//////////////////////////////////////////////////////////////////////////
                                 ERC-165 Support
     //////////////////////////////////////////////////////////////////////////*/
@@ -330,8 +364,8 @@ contract TRACE is
     {
         return (
             ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
-                || interfaceId == type(IERC2309).interfaceId
-                || interfaceId == type(IERC4906).interfaceId 
+                || interfaceId == 0x49064906 // ERC-4906
+                || interfaceId == type(ICreatorBase).interfaceId
                 || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
                 || interfaceId == type(ITRACE).interfaceId
         );
@@ -363,5 +397,46 @@ contract TRACE is
     /// @param tokenId The token id to check
     function _exists(uint256 tokenId) internal view returns (bool) {
         return _ownerOf(tokenId) != address(0);
+    }
+
+    /// @notice Function to add a verified story in a reusable way
+    function _addVerifiedStory(uint256 tokenId, string memory story, bytes memory signature) internal {
+        // default name to hex address
+        string memory registeredAgentName = msg.sender.toHexString();
+
+        // only check registered agent if the registry is not the zero address
+        if (address(tracersRegistry) != address(0)) {
+            bool isRegisteredAgent;
+            (isRegisteredAgent, registeredAgentName) = tracersRegistry.isRegisteredAgent(msg.sender);
+            if (!isRegisteredAgent) revert Unauthorized();
+        }
+
+        // verify signature
+        bytes32 verifiedStoryHash = _hashVerifiedStory(address(this), tokenId, story);
+        if (_verifiedStoryHashUsed[verifiedStoryHash]) revert VerifiedStoryAlreadyWritten();
+        _verifiedStoryHashUsed[verifiedStoryHash] = true;
+        address tokenOwner = ownerOf(tokenId);
+        bytes32 digest = _hashTypedDataV4(verifiedStoryHash);
+        if (tokenOwner != ECDSA.recover(digest, signature)) revert InvalidSignature();
+
+        // emit story
+        emit Story(tokenId, msg.sender, registeredAgentName, story);
+    }
+
+    /// @notice Function to hash the typed data
+    function _hashVerifiedStory(address nftContract, uint256 tokenId, string memory story)
+        internal
+        pure
+        returns (bytes32)
+    {
+        return keccak256(
+            abi.encode(
+                // keccak256("VerifiedStory(address nftContract,uint256 tokenId,string story)"),
+                0x76b12200216600191228eb643bc7cba6e319d03951a863e3306595415759682b,
+                nftContract,
+                tokenId,
+                keccak256(bytes(story))
+            )
+        );
     }
 }
