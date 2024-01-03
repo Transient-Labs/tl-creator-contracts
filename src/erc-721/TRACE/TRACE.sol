@@ -1,23 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {IERC2309} from "openzeppelin/interfaces/IERC2309.sol";
 import {IERC4906} from "openzeppelin/interfaces/IERC4906.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {ECDSA} from "openzeppelin/utils/cryptography/ECDSA.sol";
-import {
-    ERC721Upgradeable, IERC165
-} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {ERC721Upgradeable, IERC165} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {EIP712Upgradeable} from "openzeppelin-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
+import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {ITRACE} from "src/erc-721/trace/ITRACE.sol";
 import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "src/interfaces/ICreatorBase.sol";
 import {IStory} from "src/interfaces/IStory.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
-import {EIP712Upgradeable} from "openzeppelin-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
-import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {ITRACERSRegistry} from "src/interfaces/ITRACERSRegistry.sol";
 
 /// @title TRACE.sol
@@ -32,7 +27,6 @@ contract TRACE is
     ICreatorBase,
     ITRACE,
     IStory,
-    IERC2309,
     IERC4906
 {
     /*//////////////////////////////////////////////////////////////////////////
@@ -79,23 +73,8 @@ contract TRACE is
     /// @dev Token uri is an empty string
     error EmptyTokenURI();
 
-    /// @dev Batch mint to zero address
-    error MintToZeroAddress();
-
-    /// @dev Batch size too small
-    error BatchSizeTooSmall();
-
     /// @dev Airdrop to too few addresses
     error AirdropTooFewAddresses();
-
-    /// @dev Token not owned by the owner of the contract
-    error TokenNotOwnedByOwner();
-
-    /// @dev Caller is not the owner of the specific token
-    error CallerNotTokenOwner();
-
-    /// @dev Caller is not approved or owner
-    error CallerNotApprovedOrOwner();
 
     /// @dev Token does not exist
     error TokenDoesntExist();
@@ -127,6 +106,7 @@ contract TRACE is
 
     /// @param name The name of the contract
     /// @param symbol The symbol of the contract
+    /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalizaiton of the contract.
     /// @param defaultRoyaltyRecipient The default address for royalty payments
     /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
     /// @param initOwner The owner of the contract
@@ -135,6 +115,7 @@ contract TRACE is
     function initialize(
         string memory name,
         string memory symbol,
+        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
@@ -145,13 +126,18 @@ contract TRACE is
         __ERC721_init(name, symbol);
         __EIP2981TL_init(defaultRoyaltyRecipient, defaultRoyaltyPercentage);
         __OwnableAccessControl_init(initOwner);
-        __EIP712_init("T.R.A.C.E.", "1");
+        __EIP712_init("T.R.A.C.E.", "3");
 
         // add admins
         _setRole(ADMIN_ROLE, admins, true);
 
         // set TRACERS Registry
         tracersRegistry = ITRACERSRegistry(defaultTracersRegistry);
+
+        // emit personalization as collection story
+        if (bytes(personalization).length > 0) {
+            emit CollectionStory(msg.sender, msg.sender.toHexString(), personalization);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -233,7 +219,9 @@ contract TRACE is
 
     /// @inheritdoc ITRACE
     function setTracersRegistry(address newTracersRegistry) external onlyRoleOrOwner(ADMIN_ROLE) {
+        address oldTracersRegistry = address(tracersRegistry);
         tracersRegistry = ITRACERSRegistry(newTracersRegistry);
+        emit TRACERSRegistryUpdated(msg.sender, oldTracersRegistry, newTracersRegistry);
     }
 
     /// @inheritdoc ITRACE
@@ -242,7 +230,9 @@ contract TRACE is
     }
 
     /// @inheritdoc ITRACE
-    function addVerifiedStoryBatch(uint256[] calldata tokenIds, string[] calldata stories, bytes[] calldata signatures) external {
+    function addVerifiedStoryBatch(uint256[] calldata tokenIds, string[] calldata stories, bytes[] calldata signatures)
+        external
+    {
         if (tokenIds.length != stories.length && stories.length != signatures.length) {
             revert ArrayLengthMismatch();
         }
@@ -279,7 +269,7 @@ contract TRACE is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ITRACE
-    function updateTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function setTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
         _tokenUris[tokenId] = newUri;
@@ -304,6 +294,68 @@ contract TRACE is
                                 Story Inscriptions
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @inheritdoc IStory
+    /// @dev ignores the creator name to avoid sybil
+    function addCollectionStory(string calldata, /*creatorName*/ string calldata story)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
+        emit CollectionStory(msg.sender, msg.sender.toHexString(), story);
+    }
+
+    /// @inheritdoc IStory
+    /// @dev ignores the creator name to avoid sybil
+    function addCreatorStory(uint256 tokenId, string calldata /*creatorName*/, string calldata story)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {   
+        if (!_exists(tokenId)) revert TokenDoesntExist();
+        emit CreatorStory(tokenId, msg.sender, msg.sender.toHexString(), story);
+    }
+
+    /// @inheritdoc IStory
+    function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {
+        revert();
+    }
+
+    /// @inheritdoc ICreatorBase
+    function setStoryStatus(bool status) external {
+        revert();
+    }
+
+    /// @inheritdoc ICreatorBase
+    function storyEnabled() external view returns (bool) {
+        return true;
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                BlockList
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function setBlockListRegistry(address newBlockListRegistry) external {
+        revert();
+    }
+
+    /// @inheritdoc ICreatorBase
+    function blocklistRegistry() external view returns (IBlockListRegistry) {
+        return IBlockListRegistry(address(0));
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                            NFT Delegation Registry
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function setNftDelegationRegistry(address newNftDelegationRegistry) external {
+        revert();
+    }
+
+    /// @inheritdoc ICreatorBase
+    function tlNftDelegationRegistry() external view returns (ITLNftDelegationRegistry) {
+        return ITLNftDelegationRegistry(address(0));
+    }
+
     /*//////////////////////////////////////////////////////////////////////////
                                 ERC-165 Support
     //////////////////////////////////////////////////////////////////////////*/
@@ -317,8 +369,8 @@ contract TRACE is
     {
         return (
             ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
-                || interfaceId == type(IERC2309).interfaceId
-                || interfaceId == type(IERC4906).interfaceId 
+                || interfaceId == 0x49064906 // ERC-4906
+                || interfaceId == type(ICreatorBase).interfaceId
                 || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
                 || interfaceId == type(ITRACE).interfaceId
         );

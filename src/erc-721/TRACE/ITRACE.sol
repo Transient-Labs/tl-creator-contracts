@@ -3,10 +3,16 @@ pragma solidity 0.8.22;
 
 /// @title ITRACE.sol
 /// @notice Interface for TRACE
-/// @dev Interface id =
+/// @dev Interface id = 0xdd643add
 /// @author transientlabs.xyz
 /// @custom:version 3.0.0
 interface ITRACE {
+    /*//////////////////////////////////////////////////////////////////////////
+                                    Events
+    //////////////////////////////////////////////////////////////////////////*/
+
+    event TRACERSRegistryUpdated(address indexed sender, address indexed oldTracersRegistry, address indexed newTracersRegistry);
+
     /*//////////////////////////////////////////////////////////////////////////
                                     Functions
     //////////////////////////////////////////////////////////////////////////*/
@@ -67,11 +73,12 @@ interface ITRACE {
     /// @param tokenIds The tokens to add a stories to
     /// @param stories The story text
     /// @param signatures The signtatures from the chip to verify physical presence
-    function addVerifiedStoryBatch(uint256[] calldata tokenIds, string[] calldata stories, bytes[] calldata signatures) external;
+    function addVerifiedStoryBatch(uint256[] calldata tokenIds, string[] calldata stories, bytes[] calldata signatures)
+        external;
 
     /// @notice Function to update a token uri for a specific token
     /// @dev Requires owner or admin
     /// @param tokenId The token to propose new metadata for
     /// @param newUri The new token uri proposed
-    function updateTokenUri(uint256 tokenId, string calldata newUri) external;
+    function setTokenUri(uint256 tokenId, string calldata newUri) external;
 }

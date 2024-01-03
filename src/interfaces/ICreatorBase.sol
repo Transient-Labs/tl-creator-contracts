@@ -1,22 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
+import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
+import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
+
 /// @title ICreatorBase.sol
 /// @notice Base interface for creator contracts
-/// @dev Interface id =
+/// @dev Interface id = 0x1c8e024d
 /// @author transientlabs.xyz
 /// @custom:version 3.0.0
 interface ICreatorBase {
-
     /*//////////////////////////////////////////////////////////////////////////
                                     Events
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @dev Event for changing the BlockList registry
-    event BlockListRegistryUpdate(address indexed sender, address indexed prevBlockListRegistry, address indexed newBlockListRegistry);
+    event BlockListRegistryUpdate(
+        address indexed sender, address indexed prevBlockListRegistry, address indexed newBlockListRegistry
+    );
 
     /// @dev Event for changing the NFT Delegation registry
-    event NftDelegationRegistryUpdate(address indexed sender, address indexed prevNftDelegationRegistry, address indexed newNftDelegationRegistry);
+    event NftDelegationRegistryUpdate(
+        address indexed sender, address indexed prevNftDelegationRegistry, address indexed newNftDelegationRegistry
+    );
 
     /*//////////////////////////////////////////////////////////////////////////
                                     Functions
@@ -36,10 +42,16 @@ interface ICreatorBase {
     /// @param newBlockListRegistry The new blocklist registry
     function setBlockListRegistry(address newBlockListRegistry) external;
 
+    /// @notice Function to get the blocklist registry
+    function blocklistRegistry() external view returns (IBlockListRegistry);
+
     /// @notice Function to change the TL NFT delegation registry
     /// @dev Access to owner or admin
     /// @param newNftDelegationRegistry The new blocklist registry
     function setNftDelegationRegistry(address newNftDelegationRegistry) external;
+
+    /// @notice Function to get the delegation registry
+    function tlNftDelegationRegistry() external view returns (ITLNftDelegationRegistry);
 
     /// @notice Function to set the default royalty specification
     /// @dev Requires owner or admin
@@ -58,4 +70,8 @@ interface ICreatorBase {
     /// @dev Requires owner or admin
     /// @param status The status to set for collector story inscriptions
     function setStoryStatus(bool status) external;
+
+    /// @notice Function to get the status of collector stories
+    /// @return bool Status of collector stories being enabled
+    function storyEnabled() external view returns (bool);
 }

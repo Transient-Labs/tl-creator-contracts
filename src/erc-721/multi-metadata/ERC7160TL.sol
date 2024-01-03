@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {IERC2309} from "openzeppelin/interfaces/IERC2309.sol";
 import {IERC4906} from "openzeppelin/interfaces/IERC4906.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 import {ERC721Upgradeable, IERC165} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
@@ -12,7 +11,6 @@ import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "src/interfaces/ICreatorBase.sol";
 import {IERC7160} from "src/interfaces/IERC7160.sol";
 import {IStory} from "src/interfaces/IStory.sol";
-import {ISynergy} from "src/interfaces/ISynergy.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 
 /// @title ERC7160TL.sol
@@ -26,9 +24,7 @@ contract ERC7160TL is
     OwnableAccessControlUpgradeable,
     ICreatorBase,
     IERC721TL,
-    ISynergy,
     IStory,
-    IERC2309,
     IERC4906,
     IERC7160
 {
@@ -59,6 +55,9 @@ contract ERC7160TL is
 
     /// @dev String representation of uint256
     using Strings for uint256;
+
+    /// @dev String representation for address
+    using Strings for address;
 
     /*//////////////////////////////////////////////////////////////////////////
                                 State Variables
@@ -214,24 +213,6 @@ contract ERC7160TL is
     }
 
     /// @inheritdoc IERC721TL
-    function batchMintUltra(address recipient, uint128 numTokens, string calldata baseUri)
-        external
-        onlyRoleOrOwner(ADMIN_ROLE)
-    {
-        if (recipient == address(0)) revert MintToZeroAddress();
-        if (bytes(baseUri).length == 0) revert EmptyTokenURI();
-        if (numTokens < 2) revert BatchSizeTooSmall();
-        uint256 start = _counter + 1;
-        uint256 end = start + numTokens - 1;
-        _counter += numTokens;
-        _batchMints.push(BatchMint(recipient, start, end, baseUri));
-
-        _increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
-
-        emit ConsecutiveTransfer(start, end, address(0), recipient);
-    }
-
-    /// @inheritdoc IERC721TL
     function airdrop(address[] calldata addresses, string calldata baseUri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (bytes(baseUri).length == 0) revert EmptyTokenURI();
         if (addresses.length < 2) revert AirdropTooFewAddresses();
@@ -372,13 +353,37 @@ contract ERC7160TL is
                                 Story Inscriptions
     //////////////////////////////////////////////////////////////////////////*/
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                    BlockList
-    //////////////////////////////////////////////////////////////////////////*/
+    /// @inheritdoc IStory
+    function addCollectionStory(string calldata creatorName, string calldata story)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {}
+
+    /// @inheritdoc IStory
+    function addCreatorStory(uint256 tokenId, string calldata creatorName, string calldata story)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {}
+
+    /// @inheritdoc IStory
+    function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {}
+
+    /// @inheritdoc ICreatorBase
+    function setStoryStatus(bool status) external {}
 
     /*//////////////////////////////////////////////////////////////////////////
-                            TL NFT Delegation Registry
+                                BlockList
     //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function setBlockListRegistry(address newBlockListRegistry) external {}
+
+    /*//////////////////////////////////////////////////////////////////////////
+                            NFT Delegation Registry
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function setNftDelegationRegistry(address newNftDelegationRegistry) external {}
 
     /*//////////////////////////////////////////////////////////////////////////
                                 ERC-165 Support
@@ -393,10 +398,10 @@ contract ERC7160TL is
     {
         return (
             ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
-                || interfaceId == type(IERC2309).interfaceId
-                || interfaceId == type(IERC4906).interfaceId 
+                || interfaceId == 0x49064906 // ERC-4906
                 || interfaceId == type(IERC7160).interfaceId
-                || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
+                || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(IStory).interfaceId
+                || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
                 || interfaceId == type(IERC721TL).interfaceId
         );
     }
