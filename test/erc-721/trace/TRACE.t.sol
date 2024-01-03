@@ -108,7 +108,7 @@ contract TRACETest is Test {
     /// @notice test ERC-165 support
     function test_supportsInterface() public {
         assertTrue(trace.supportsInterface(0x1c8e024d)); // ICreatorBase
-        assertTrue(trace.supportsInterface(0xdd643add)); // ITRACE
+        assertTrue(trace.supportsInterface(0xcfec4f64)); // ITRACE
         assertTrue(trace.supportsInterface(0x2464f17b)); // IStory
         assertTrue(trace.supportsInterface(0x0d23ecb9)); // IStory (old)
         assertTrue(trace.supportsInterface(0x01ffc9a7)); // ERC-165
@@ -555,10 +555,10 @@ contract TRACETest is Test {
 
     /// @notice test TRACE functions
     // - access control ✅
-    // - transfer tokens
+    // - transfer tokens ✅
     // - set tracers registry ✅
-    // - add verified story
-    // - add verified story batch
+    // - add verified story ✅
+    // - add verified story batch ✅
 
     function test_transferToken_accessControl(address user) public {
         // limit fuzz
@@ -644,184 +644,366 @@ contract TRACETest is Test {
         assert(address(trace.tracersRegistry()) == newRegistryTwo);
     }
 
-    // function testAddVerifiedStoryRegularMint(uint256 badSignerPrivateKey, address notAgent) public {
-    //     vm.assume(
-    //         badSignerPrivateKey != chipPrivateKey && badSignerPrivateKey != 0
-    //             && badSignerPrivateKey < 115792089237316195423570985008687907852837564279074904382605163141518161494337
-    //     );
-    //     vm.assume(notAgent != agent);
+    function test_addVerifiedStory_customErrors(uint256 len1, uint256 len2, uint256 len3) public {
+        // limit fuzz
+        if (len1 > 200) {
+            len1 = len1 % 200;
+        }
+        if (len2 > 200) {
+            len2 = len2 % 200;
+        }
+        if (len3 > 200) {
+            len3 = len3 % 200;
+        }
+        uint256[] memory tokenIds = new uint256[](len1);
+        string[] memory stories = new string[](len2);
+        bytes[] memory sigs = new bytes[](len3);
+        if (len1 != len2 && len2 != len3) {
+            vm.expectRevert(TRACE.ArrayLengthMismatch.selector);
+            trace.addVerifiedStory(tokenIds, stories, sigs);
+        }
+    }
 
-    //     uint256 nonce = trace.getTokenNonce(1);
+    function test_addVerifiedStory_mint(uint256 badSignerPrivateKey, address notAgent) public {
+        // limit fuzz
+        vm.assume(
+            badSignerPrivateKey != chipPrivateKey && badSignerPrivateKey != 0
+                && badSignerPrivateKey < 115792089237316195423570985008687907852837564279074904382605163141518161494337
+        );
+        vm.assume(notAgent != agent);
 
-    //     // mint
-    //     trace.mint(chip, "https://arweave.net/tx_id");
+        // set mocks
+        vm.mockCall(
+            tracersRegistry, 
+            abi.encodeWithSelector(
+                ITRACERSRegistry.isRegisteredAgent.selector,
+                notAgent
+            ),
+            abi.encode(false, "")
+        );
+        vm.mockCall(
+            tracersRegistry, 
+            abi.encodeWithSelector(
+                ITRACERSRegistry.isRegisteredAgent.selector,
+                agent
+            ),
+            abi.encode(true, "agent")
+        );
 
-    //     // sender not registered agent fails
-    //     bytes32 digest = sigUtils.getTypedDataHash(1, nonce, notAgent, "This is a story!");
-    //     (uint8 v, bytes32 r, bytes32 s) = vm.sign(chipPrivateKey, digest);
-    //     bytes memory sig = abi.encodePacked(r, s, v);
-    //     vm.expectRevert(Unauthorized.selector);
-    //     vm.prank(notAgent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
+        // variables
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+        string[] memory stories = new string[](1);
+        stories[0] = "This is a story!";
+        bytes[] memory sigs = new bytes[](1);
 
-    //     // registry is an EOA fails
-    //     trace.setTracersRegistry(address(0xC0FFEE));
+        // mint
+        trace.mint(chip, "https://arweave.net/tx_id");
 
-    //     vm.expectRevert(Unauthorized.selector);
-    //     vm.prank(notAgent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
+        // sender not registered agent fails
+        bytes32 digest = sigUtils.getTypedDataHash(address(trace), 1, "This is a story!");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        vm.expectRevert(TRACE.Unauthorized.selector);
+        vm.prank(notAgent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     trace.setTracersRegistry(address(registry));
+        // registry is an EOA fails
+        trace.setTracersRegistry(address(0xC0FFEE));
+        
+        // expect EOA registry to fail
+        vm.expectRevert();
+        vm.prank(notAgent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
+        vm.expectRevert();
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     // bad signer fails
-    //     digest = sigUtils.getTypedDataHash(1, nonce, agent, "This is a story!");
-    //     (v, r, s) = vm.sign(badSignerPrivateKey, digest);
-    //     sig = abi.encodePacked(r, s, v);
-    //     vm.expectRevert(InvalidSignature.selector);
-    //     vm.prank(agent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
+        trace.setTracersRegistry(tracersRegistry);
 
-    //     // non-existent token fails
-    //     digest = sigUtils.getTypedDataHash(2, nonce, agent, "This is a story!");
-    //     (v, r, s) = vm.sign(chipPrivateKey, digest);
-    //     sig = abi.encodePacked(r, s, v);
-    //     vm.expectRevert(InvalidSignature.selector);
-    //     vm.prank(agent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
+        // bad signer fails
+        (v, r, s) = vm.sign(badSignerPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        vm.expectRevert(TRACE.InvalidSignature.selector);
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     // right signer + registered agent passes
-    //     digest = sigUtils.getTypedDataHash(1, nonce, agent, "This is a story!");
-    //     (v, r, s) = vm.sign(chipPrivateKey, digest);
-    //     sig = abi.encodePacked(r, s, v);
-    //     vm.expectEmit(true, true, false, true);
-    //     emit Story(1, agent, "agent", "This is a story!");
-    //     vm.prank(agent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
-    //     assert(trace.getTokenNonce(1) == nonce + 1);
+        // sign for wrong token
+        digest = sigUtils.getTypedDataHash(address(trace), 2, "This is a story!");
+        (v, r, s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        vm.expectRevert(TRACE.InvalidSignature.selector);
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     // fails with replay
-    //     vm.expectRevert(InvalidSignature.selector);
-    //     vm.prank(agent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
-    // }
+        // sign for wrong nft contract
+        digest = sigUtils.getTypedDataHash(tracersRegistry, 1, "This is a story!");
+        (v, r, s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        vm.expectRevert(TRACE.InvalidSignature.selector);
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    // function testAddVerifiedStoryAirdrop(uint256 badSignerPrivateKey, address notAgent) public {
-    //     vm.assume(
-    //         badSignerPrivateKey != chipPrivateKey && badSignerPrivateKey != 0
-    //             && badSignerPrivateKey < 115792089237316195423570985008687907852837564279074904382605163141518161494337
-    //     );
-    //     vm.assume(notAgent != agent);
+        // sign for non-existent token
+        digest = sigUtils.getTypedDataHash(address(trace), 2, "This is a story!");
+        (v, r, s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        tokenIds[0] = 2;
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 2));
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     uint256 nonce = trace.getTokenNonce(1);
+        // right signer + registered agent passes
+        digest = sigUtils.getTypedDataHash(address(trace), 1, "This is a story!");
+        (v, r, s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        tokenIds[0] = 1;
+        vm.expectEmit(true, true, true, true);
+        emit Story(1, agent, "agent", "This is a story!");
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     // airdrop
-    //     address[] memory addresses = new address[](2);
-    //     addresses[0] = chip;
-    //     addresses[1] = chip;
-    //     trace.airdrop(addresses, "baseUri");
+        // fails with replay
+        vm.expectRevert(TRACE.VerifiedStoryAlreadyWritten.selector);
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     // sender not registered agent fails
-    //     bytes32 digest = sigUtils.getTypedDataHash(1, nonce, notAgent, "This is a story!");
-    //     (uint8 v, bytes32 r, bytes32 s) = vm.sign(chipPrivateKey, digest);
-    //     bytes memory sig = abi.encodePacked(r, s, v);
-    //     vm.expectRevert(Unauthorized.selector);
-    //     vm.prank(notAgent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
+        // clear mocks
+        vm.clearMockedCalls();
+    }
 
-    //     // registry is an EOA fails
-    //     trace.setTracersRegistry(address(0xC0FFEE));
+    function test_addVerifiedStory_airdrop(uint256 badSignerPrivateKey, address notAgent) public {
+        // limit fuzz
+        vm.assume(
+            badSignerPrivateKey != chipPrivateKey && badSignerPrivateKey != 0
+                && badSignerPrivateKey < 115792089237316195423570985008687907852837564279074904382605163141518161494337
+        );
+        vm.assume(notAgent != agent);
 
-    //     vm.expectRevert(Unauthorized.selector);
-    //     vm.prank(notAgent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
+        // set mocks
+        vm.mockCall(
+            tracersRegistry, 
+            abi.encodeWithSelector(
+                ITRACERSRegistry.isRegisteredAgent.selector,
+                notAgent
+            ),
+            abi.encode(false, "")
+        );
+        vm.mockCall(
+            tracersRegistry, 
+            abi.encodeWithSelector(
+                ITRACERSRegistry.isRegisteredAgent.selector,
+                agent
+            ),
+            abi.encode(true, "agent")
+        );
 
-    //     trace.setTracersRegistry(address(registry));
+        // variables
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+        string[] memory stories = new string[](1);
+        stories[0] = "This is a story!";
+        bytes[] memory sigs = new bytes[](1);
 
-    //     // bad signer fails
-    //     digest = sigUtils.getTypedDataHash(1, nonce, agent, "This is a story!");
-    //     (v, r, s) = vm.sign(badSignerPrivateKey, digest);
-    //     sig = abi.encodePacked(r, s, v);
-    //     vm.expectRevert(InvalidSignature.selector);
-    //     vm.prank(agent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
+        // airdrop
+        address[] memory addresses = new address[](2);
+        addresses[0] = chip;
+        addresses[1] = chip;
+        trace.airdrop(addresses, "baseUri");
 
-    //     // non-existent token fails
-    //     digest = sigUtils.getTypedDataHash(3, nonce, agent, "This is a story!");
-    //     (v, r, s) = vm.sign(chipPrivateKey, digest);
-    //     sig = abi.encodePacked(r, s, v);
-    //     vm.expectRevert(InvalidSignature.selector);
-    //     vm.prank(agent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
+        // sender not registered agent fails
+        bytes32 digest = sigUtils.getTypedDataHash(address(trace), 1, "This is a story!");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        vm.expectRevert(TRACE.Unauthorized.selector);
+        vm.prank(notAgent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     // right signer + registered agent passes
-    //     digest = sigUtils.getTypedDataHash(1, nonce, agent, "This is a story!");
-    //     (v, r, s) = vm.sign(chipPrivateKey, digest);
-    //     sig = abi.encodePacked(r, s, v);
-    //     vm.expectEmit(true, true, false, true);
-    //     emit Story(1, agent, "agent", "This is a story!");
-    //     vm.prank(agent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
-    //     assert(trace.getTokenNonce(1) == nonce + 1);
+        // registry is an EOA fails
+        trace.setTracersRegistry(address(0xC0FFEE));
+        
+        // expect EOA registry to fail
+        vm.expectRevert();
+        vm.prank(notAgent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
+        vm.expectRevert();
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     // fails with replay
-    //     vm.expectRevert(InvalidSignature.selector);
-    //     vm.prank(agent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
-    // }
+        trace.setTracersRegistry(tracersRegistry);
 
-    // function testAddVerifiedStoryDiffNames(string memory name) public {
-    //     // trace
-    //     address[] memory admins = new address[](1);
-    //     admins[0] = creatorAdmin;
-    //     trace = new TRACE(false);
-    //     trace.initialize(name, "COA", royaltyRecipient, 1000, address(this), admins, address(registry));
+        // bad signer fails
+        (v, r, s) = vm.sign(badSignerPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        vm.expectRevert(TRACE.InvalidSignature.selector);
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     // mint token
-    //     trace.mint(chip, "https://arweave.net/tx_id");
+        // sign for wrong token
+        digest = sigUtils.getTypedDataHash(address(trace), 2, "This is a story!");
+        (v, r, s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        vm.expectRevert(TRACE.InvalidSignature.selector);
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     // set TRACE registry
-    //     trace.setTracersRegistry(address(registry));
+        // sign for wrong nft contract
+        digest = sigUtils.getTypedDataHash(tracersRegistry, 1, "This is a story!");
+        (v, r, s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        vm.expectRevert(TRACE.InvalidSignature.selector);
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     // sig utils
-    //     sigUtils = new TRACESigUtils("1", address(trace));
+        // sign for non-existent token
+        digest = sigUtils.getTypedDataHash(address(trace), 3, "This is a story!");
+        (v, r, s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        tokenIds[0] = 3;
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, 3));
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     // get nonce
-    //     uint256 nonce = trace.getTokenNonce(1);
+        // right signer + registered agent passes
+        digest = sigUtils.getTypedDataHash(address(trace), 1, "This is a story!");
+        (v, r, s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        tokenIds[0] = 1;
+        vm.expectEmit(true, true, true, true);
+        emit Story(1, agent, "agent", "This is a story!");
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    //     // add story
-    //     bytes32 digest = sigUtils.getTypedDataHash(1, nonce, agent, "This is a story!");
-    //     (uint8 v, bytes32 r, bytes32 s) = vm.sign(chipPrivateKey, digest);
-    //     bytes memory sig = abi.encodePacked(r, s, v);
-    //     vm.expectEmit(true, true, false, true);
-    //     emit Story(1, agent, "agent", "This is a story!");
-    //     vm.prank(agent);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
-    //     assert(trace.getTokenNonce(1) == nonce + 1);
-    // }
+        // fails with replay
+        vm.expectRevert(TRACE.VerifiedStoryAlreadyWritten.selector);
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
 
-    // function testAddVerifiedStoryNoRegisteredAgents(address sender) public {
-    //     // change registry to zero address
-    //     trace.setTracersRegistry(address(0));
+        // clear mocks
+        vm.clearMockedCalls();
+    }
 
-    //     // mint
-    //     trace.mint(chip, "https://arweave.net/tx_id");
+    function test_addVerifiedStory_multipleForSameToken() public {
+        // set mock
+        vm.mockCall(
+            tracersRegistry, 
+            abi.encodeWithSelector(
+                ITRACERSRegistry.isRegisteredAgent.selector,
+                agent
+            ),
+            abi.encode(true, "agent")
+        );
 
-    //     // test add story
-    //     uint256 nonce = trace.getTokenNonce(1);
-    //     bytes32 digest = sigUtils.getTypedDataHash(1, nonce, sender, "This is a story!");
-    //     (uint8 v, bytes32 r, bytes32 s) = vm.sign(chipPrivateKey, digest);
-    //     bytes memory sig = abi.encodePacked(r, s, v);
-    //     vm.expectEmit(true, true, false, true);
-    //     emit Story(1, sender, sender.toHexString(), "This is a story!");
-    //     vm.prank(sender);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
-    //     assert(trace.getTokenNonce(1) == nonce + 1);
+        // variables
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = 1;
+        tokenIds[1] = 1;
+        string[] memory stories = new string[](2);
+        stories[0] = "This is the first story!";
+        stories[1] = "This is the second story!";
+        bytes[] memory sigs = new bytes[](2);
 
-    //     // test replay protection
-    //     vm.expectRevert(InvalidSignature.selector);
-    //     vm.prank(sender);
-    //     trace.addVerifiedStory(1, "This is a story!", sig);
-    // }
+        // mint
+        trace.mint(chip, "https://arweave.net/tx_id1");
+
+        // sender not registered agent fails
+        bytes32 digest = sigUtils.getTypedDataHash(address(trace), tokenIds[0], stories[0]);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        digest = sigUtils.getTypedDataHash(address(trace), tokenIds[1], stories[1]);
+        (v, r, s) = vm.sign(chipPrivateKey, digest);
+        sigs[1] = abi.encodePacked(r, s, v);
+        vm.expectEmit(true, true, true, true);
+        emit Story(tokenIds[0], agent, "agent", stories[0]);
+        vm.expectEmit(true, true, true, true);
+        emit Story(tokenIds[1], agent, "agent", stories[1]);
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
+
+        // fails with replay
+        vm.expectRevert(TRACE.VerifiedStoryAlreadyWritten.selector);
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
+
+        // clear mocks
+        vm.clearMockedCalls();
+    }
+
+    function test_addVerifiedStory_multipleForDiffTokens() public {
+        // set mock
+        vm.mockCall(
+            tracersRegistry, 
+            abi.encodeWithSelector(
+                ITRACERSRegistry.isRegisteredAgent.selector,
+                agent
+            ),
+            abi.encode(true, "agent")
+        );
+
+        // variables
+        uint256[] memory tokenIds = new uint256[](2);
+        tokenIds[0] = 1;
+        tokenIds[1] = 2;
+        string[] memory stories = new string[](2);
+        stories[0] = "This is the first story!";
+        stories[1] = "This is the second story!";
+        bytes[] memory sigs = new bytes[](2);
+
+        // mint
+        trace.mint(chip, "https://arweave.net/tx_id1");
+        trace.mint(chip, "https://arweave.net/tx_id2");
+
+        // sender not registered agent fails
+        bytes32 digest = sigUtils.getTypedDataHash(address(trace), tokenIds[0], stories[0]);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        digest = sigUtils.getTypedDataHash(address(trace), tokenIds[1], stories[1]);
+        (v, r, s) = vm.sign(chipPrivateKey, digest);
+        sigs[1] = abi.encodePacked(r, s, v);
+        vm.expectEmit(true, true, true, true);
+        emit Story(tokenIds[0], agent, "agent", stories[0]);
+        vm.expectEmit(true, true, true, true);
+        emit Story(tokenIds[1], agent, "agent", stories[1]);
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
+
+        // fails with replay
+        vm.expectRevert(TRACE.VerifiedStoryAlreadyWritten.selector);
+        vm.prank(agent);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
+
+        // clear mocks
+        vm.clearMockedCalls();
+    }
+
+    function test_addVerifiedStory_traceRegistryZeroAddress(address sender) public {
+        // change registry to zero address
+        trace.setTracersRegistry(address(0));
+
+        // mint
+        trace.mint(chip, "https://arweave.net/tx_id");
+
+        // variables
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+        string[] memory stories = new string[](1);
+        stories[0] = "This is a story!";
+        bytes[] memory sigs = new bytes[](1);
+
+        // test add story
+        bytes32 digest = sigUtils.getTypedDataHash(address(trace), 1, "This is a story!");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(chipPrivateKey, digest);
+        sigs[0] = abi.encodePacked(r, s, v);
+        vm.expectEmit(true, true, true, true);
+        emit Story(1, sender, sender.toHexString(), "This is a story!");
+        vm.prank(sender);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
+
+        // test replay protection
+        vm.expectRevert(TRACE.VerifiedStoryAlreadyWritten.selector);
+        vm.prank(sender);
+        trace.addVerifiedStory(tokenIds, stories, sigs);
+    }
 
     /// @notice test royalty functions
     // - access control ✅

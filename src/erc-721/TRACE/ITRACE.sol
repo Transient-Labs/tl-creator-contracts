@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 /// @title ITRACE.sol
 /// @notice Interface for TRACE
-/// @dev Interface id = 0xdd643add
+/// @dev Interface id = 0xcfec4f64
 /// @author transientlabs.xyz
 /// @custom:version 3.0.0
 interface ITRACE {
@@ -59,21 +59,13 @@ interface ITRACE {
     /// @param newTracersRegistry The new TRACERS Registry
     function setTracersRegistry(address newTracersRegistry) external;
 
-    /// @notice Function to write a story for a token
-    /// @dev Requires that the passed signature is signed by the token owner, which is the ARX Halo Chip (physical)
-    /// @dev Uses EIP-712 for the signature
-    /// @param tokenId The token to add a story to
-    /// @param story The story text
-    /// @param signature The signtature from the chip to verify physical presence
-    function addVerifiedStory(uint256 tokenId, string calldata story, bytes calldata signature) external;
-
-    /// @notice Function to write a batch of stories for tokens
+    /// @notice Function to write stories for tokens
     /// @dev Requires that the passed signature is signed by the token owner, which is the ARX Halo Chip (physical)
     /// @dev Uses EIP-712 for the signature
     /// @param tokenIds The tokens to add a stories to
     /// @param stories The story text
     /// @param signatures The signtatures from the chip to verify physical presence
-    function addVerifiedStoryBatch(uint256[] calldata tokenIds, string[] calldata stories, bytes[] calldata signatures)
+    function addVerifiedStory(uint256[] calldata tokenIds, string[] calldata stories, bytes[] calldata signatures)
         external;
 
     /// @notice Function to update a token uri for a specific token

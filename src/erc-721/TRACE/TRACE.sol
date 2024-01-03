@@ -225,12 +225,7 @@ contract TRACE is
     }
 
     /// @inheritdoc ITRACE
-    function addVerifiedStory(uint256 tokenId, string calldata story, bytes calldata signature) external {
-        _addVerifiedStory(tokenId, story, signature);
-    }
-
-    /// @inheritdoc ITRACE
-    function addVerifiedStoryBatch(uint256[] calldata tokenIds, string[] calldata stories, bytes[] calldata signatures)
+    function addVerifiedStory(uint256[] calldata tokenIds, string[] calldata stories, bytes[] calldata signatures)
         external
     {
         if (tokenIds.length != stories.length && stories.length != signatures.length) {
@@ -411,7 +406,6 @@ contract TRACE is
 
         // only check registered agent if the registry is not the zero address
         if (address(tracersRegistry) != address(0)) {
-            if (address(tracersRegistry).code.length == 0) revert Unauthorized();
             bool isRegisteredAgent;
             (isRegisteredAgent, registeredAgentName) = tracersRegistry.isRegisteredAgent(msg.sender);
             if (!isRegisteredAgent) revert Unauthorized();
