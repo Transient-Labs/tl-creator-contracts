@@ -2195,11 +2195,11 @@ contract ERC721TLTest is Test {
     // - batch mint ✅
     // - airdrop ✅
     // - external mint ✅
-    // - write collection story w/ proper acccess 
+    // - write collection story w/ proper acccess ✅
     // - write creator story to existing token w/ proper acccess ✅
-    // - write collector story to existing token w/ proper access 
+    // - write collector story to existing token w/ proper access ✅
     // - write creator story to non-existent token (reverts) ✅
-    // - write collector story to non-existent token (reverts) 
+    // - write collector story to non-existent token (reverts) ✅
     function test_story_accessControl(address user) public {
         vm.assume(user != address(this));
         address[] memory users = new address[](1);
@@ -2500,7 +2500,7 @@ contract ERC721TLTest is Test {
     // - airdrop ✅
     // - external mint ✅
     // - test blocked ✅
-    // - test not blocked
+    // - test not blocked ✅
     // - test access control for changing the registry ✅
     function test_setBlockListRegistry_accessControl(address user) public {
         vm.assume(user != address(this));

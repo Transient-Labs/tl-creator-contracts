@@ -177,21 +177,14 @@ contract Shatter is
 
     /// @inheritdoc ICreatorBase
     function setApprovedMintContracts(address[] calldata, /*minters*/ bool /*status*/ ) external pure {
-        revert("N/A");
+        revert();
     }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Mint Function
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @notice Function for minting the 1/1
-    /// @dev Requires contract owner or admin
-    /// @dev Requires that shatters is equal to 0 -> meaning no piece has been minted
-    /// @param recipient The address to mint to token to
-    /// @param uri The base uri to be used for the shatter folder WITHOUT trailing "/"
-    /// @param min The minimum number of shatters
-    /// @param max The maximum number of shatters
-    /// @param time Time after which shatter can occur
+    /// @inheritdoc IShatter
     function mint(address recipient, string memory uri, uint128 min, uint128 max, uint256 time)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
@@ -223,20 +216,15 @@ contract Shatter is
         if (numShatters < minShatters || numShatters > maxShatters) revert InvalidNumShatters();
         if (block.timestamp < shatterTime) revert CallPriorToShatterTime();
 
-        if (numShatters > 1) {
-            _burn(0);
-            _shatterAddress = msg.sender;
-            _increaseBalance(_shatterAddress, numShatters);
+        _burn(0);
+        _shatterAddress = msg.sender;
+        _increaseBalance(_shatterAddress, numShatters);
 
-            for (uint256 id = 1; id < numShatters + 1; ++id) {
-                emit Transfer(address(0), msg.sender, id);
-            }
-            emit Shattered(msg.sender, numShatters, block.timestamp);
-        } else {
-            isFused = true;
-            emit Shattered(msg.sender, numShatters, block.timestamp);
-            emit Fused(msg.sender, block.timestamp);
+        for (uint256 id = 1; id < numShatters + 1; ++id) {
+            emit Transfer(address(0), msg.sender, id);
         }
+        emit Shattered(msg.sender, numShatters, block.timestamp);
+
         // no reentrancy so can set these after burning and minting
         // needs to be called here since _burn relies on ownership check
         isShattered = true;
@@ -249,7 +237,7 @@ contract Shatter is
         if (!isShattered) revert NotShattered();
 
         for (uint256 id = 1; id < shatters + 1; id++) {
-            if (msg.sender != ownerOf(id)) revert CallerDoesNotOwnAllTokens();
+            if (msg.sender != _ownerOf(id)) revert CallerDoesNotOwnAllTokens();
             _burn(id);
         }
         isFused = true;
@@ -267,7 +255,7 @@ contract Shatter is
     /// @dev requires owner
     /// @param newRecipient the new royalty payout address
     /// @param newPercentage the new royalty percentage in basis (out of 10,000)
-    function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyOwner {
+    function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
         _setDefaultRoyaltyInfo(newRecipient, newPercentage);
     }
 
@@ -276,7 +264,7 @@ contract Shatter is
     /// @param tokenId the token to override royalty for
     /// @param newRecipient the new royalty payout address for the token id
     /// @param newPercentage the new royalty percentage in basis (out of 10,000) for the token id
-    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyOwner {
+    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
 
@@ -292,7 +280,7 @@ contract Shatter is
     function proposeNewTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
-        if (ownerOf(tokenId) == owner()) {
+        if (_ownerOf(tokenId) == owner()) {
             // creator owns the token
             _tokenUris[tokenId] = newUri;
             emit MetadataUpdate(tokenId);
