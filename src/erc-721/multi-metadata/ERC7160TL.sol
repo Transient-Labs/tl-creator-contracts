@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import {IERC4906} from "openzeppelin/interfaces/IERC4906.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {ERC721Upgradeable, IERC165} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
+import {ERC721Upgradeable, IERC165, IERC721} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {IERC721TL} from "src/erc-721/IERC721TL.sol";
@@ -14,7 +14,7 @@ import {IStory} from "src/interfaces/IStory.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 
 /// @title ERC7160TL.sol
-/// @notice Transient Labs ERC-721 Creator Contract with multi-metadata support (ERC-7160)
+/// @notice Sovereign ERC-7160 Creator Contract with Story Inscriptions
 /// @dev When unpinned, the latest metadata added for a token is returned from `tokenURI` and `tokenURIs`
 /// @author transientlabs.xyz
 /// @custom:version 3.0.0
@@ -92,12 +92,6 @@ contract ERC7160TL is
     /// @dev airdrop to too few addresses
     error AirdropTooFewAddresses();
 
-    /// @dev token not owned by the owner of the contract
-    error TokenNotOwnedByOwner();
-
-    /// @dev caller is not the owner of the specific token
-    error CallerNotTokenOwner();
-
     /// @dev caller is not approved or owner
     error CallerNotApprovedOrOwner();
 
@@ -109,6 +103,15 @@ contract ERC7160TL is
 
     /// @dev no tokens in tokenIds array
     error NoTokensSpecified();
+
+    /// @dev Caller is not the owner or delegate of the owner of the specific token
+    error CallerNotTokenOwnerOrDelegate();
+
+    /// @dev Operator for token approvals blocked
+    error OperatorBlocked();
+
+    /// @dev Story not enabled for collectors
+    error StoryNotEnabled();
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Constructor
@@ -125,21 +128,25 @@ contract ERC7160TL is
 
     /// @param name The name of the 721 contract
     /// @param symbol The symbol of the 721 contract
+    /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
     /// @param defaultRoyaltyRecipient The default address for royalty payments
     /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
     /// @param initOwner The owner of the contract
     /// @param admins Array of admin addresses to add to the contract
     /// @param enableStory A bool deciding whether to add story fuctionality or not
-    /// @param blockListRegistry Address of the blocklist registry to use
+    /// @param initBlockListRegistry Address of the blocklist registry to use
+    /// @param initNftDelegationRegistry Address of the TL nft delegation registry to use
     function initialize(
         string memory name,
         string memory symbol,
+        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
         address[] memory admins,
         bool enableStory,
-        address blockListRegistry
+        address initBlockListRegistry,
+        address initNftDelegationRegistry
     ) external initializer {
         // initialize parent contracts
         __ERC721_init(name, symbol);
@@ -148,6 +155,21 @@ contract ERC7160TL is
 
         // add admins
         _setRole(ADMIN_ROLE, admins, true);
+
+        // story
+        storyEnabled = enableStory;
+        emit StoryStatusUpdate(msg.sender, enableStory);
+
+        // blocklist and nft delegation registry
+        blocklistRegistry = IBlockListRegistry(initBlockListRegistry);
+        emit BlockListRegistryUpdate(msg.sender, address(0), initBlockListRegistry);
+        tlNftDelegationRegistry = ITLNftDelegationRegistry(initNftDelegationRegistry);
+        emit NftDelegationRegistryUpdate(msg.sender, address(0), initNftDelegationRegistry);
+
+        // emit personalization as collection story
+        if (bytes(personalization).length > 0) {
+            emit CollectionStory(msg.sender, msg.sender.toHexString(), personalization);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -301,7 +323,7 @@ contract ERC7160TL is
     /// @inheritdoc IERC7160
     function pinTokenURI(uint256 tokenId, uint256 index) external {
         if (!_exists(tokenId)) revert TokenDoesntExist();
-        if (ownerOf(tokenId) != msg.sender) revert CallerNotTokenOwner();
+        if (!_isTokenOwnerOrDelegate(tokenId)) revert CallerNotTokenOwnerOrDelegate();
         if (index > _multiMetadatas[tokenId].metadataLocs.length) {
             revert InvalidTokenURIIndex();
         }
@@ -316,7 +338,7 @@ contract ERC7160TL is
     /// @inheritdoc IERC7160
     function unpinTokenURI(uint256 tokenId) external {
         if (!_exists(tokenId)) revert TokenDoesntExist();
-        if (ownerOf(tokenId) != msg.sender) revert CallerNotTokenOwner();
+        if (!_isTokenOwnerOrDelegate(tokenId)) revert CallerNotTokenOwnerOrDelegate();
 
         _multiMetadatas[tokenId].pinned = false;
 
@@ -354,36 +376,70 @@ contract ERC7160TL is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IStory
-    function addCollectionStory(string calldata creatorName, string calldata story)
+    function addCollectionStory(string calldata, /*creatorName*/ string calldata story)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
-    {}
+    {
+        emit CollectionStory(msg.sender, msg.sender.toHexString(), story);
+    }
 
     /// @inheritdoc IStory
-    function addCreatorStory(uint256 tokenId, string calldata creatorName, string calldata story)
+    function addCreatorStory(uint256 tokenId, string calldata, /*creatorName*/ string calldata story)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
-    {}
+    {
+        if (!_exists(tokenId)) revert TokenDoesntExist();
+        emit CreatorStory(tokenId, msg.sender, msg.sender.toHexString(), story);
+    }
 
     /// @inheritdoc IStory
-    function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {}
+    function addStory(uint256 tokenId, string calldata, /*collectorName*/ string calldata story) external {
+        if (!storyEnabled) revert StoryNotEnabled();
+        if (!_isTokenOwnerOrDelegate(tokenId)) revert CallerNotTokenOwnerOrDelegate();
+        emit Story(tokenId, msg.sender, msg.sender.toHexString(), story);
+    }
 
     /// @inheritdoc ICreatorBase
-    function setStoryStatus(bool status) external {}
+    function setStoryStatus(bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
+        storyEnabled = status;
+        emit StoryStatusUpdate(msg.sender, status);
+    }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 BlockList
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICreatorBase
-    function setBlockListRegistry(address newBlockListRegistry) external {}
+    function setBlockListRegistry(address newBlockListRegistry) external onlyRoleOrOwner(ADMIN_ROLE) {
+        address oldBlockListRegistry = address(blocklistRegistry);
+        blocklistRegistry = IBlockListRegistry(newBlockListRegistry);
+        emit BlockListRegistryUpdate(msg.sender, oldBlockListRegistry, newBlockListRegistry);
+    }
+
+    /// @inheritdoc ERC721Upgradeable
+    function approve(address to, uint256 tokenId) public override(ERC721Upgradeable, IERC721) {
+        if (_isOperatorBlocked(to)) revert OperatorBlocked();
+        ERC721Upgradeable.approve(to, tokenId);
+    }
+
+    /// @inheritdoc ERC721Upgradeable
+    function setApprovalForAll(address operator, bool approved) public override(ERC721Upgradeable, IERC721) {
+        if (approved) {
+            if (_isOperatorBlocked(operator)) revert OperatorBlocked();
+        }
+        ERC721Upgradeable.setApprovalForAll(operator, approved);
+    }
 
     /*//////////////////////////////////////////////////////////////////////////
                             NFT Delegation Registry
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICreatorBase
-    function setNftDelegationRegistry(address newNftDelegationRegistry) external {}
+    function setNftDelegationRegistry(address newNftDelegationRegistry) external onlyRoleOrOwner(ADMIN_ROLE) {
+        address oldNftDelegationRegistry = address(tlNftDelegationRegistry);
+        tlNftDelegationRegistry = ITLNftDelegationRegistry(newNftDelegationRegistry);
+        emit NftDelegationRegistryUpdate(msg.sender, oldNftDelegationRegistry, newNftDelegationRegistry);
+    }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 ERC-165 Support
@@ -399,9 +455,8 @@ contract ERC7160TL is
         return (
             ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
                 || interfaceId == 0x49064906 // ERC-4906
-                || interfaceId == type(IERC7160).interfaceId
-                || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(IStory).interfaceId
-                || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
+                || interfaceId == type(IERC7160).interfaceId || interfaceId == type(ICreatorBase).interfaceId
+                || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
                 || interfaceId == type(IERC721TL).interfaceId
         );
     }
@@ -481,13 +536,22 @@ contract ERC7160TL is
 
     /// @notice Function to get if msg.sender is the token owner or delegated owner
     function _isTokenOwnerOrDelegate(uint256 tokenId) internal view returns (bool) {
-        address owner = _ownerOf(tokenId);
-        if (msg.sender == owner) {
+        address tokenOwner = _ownerOf(tokenId);
+        if (msg.sender == tokenOwner) {
             return true;
         } else if (address(tlNftDelegationRegistry) == address(0)) {
             return false;
         } else {
-            return tlNftDelegationRegistry.checkDelegateForERC721(msg.sender, owner, address(this), tokenId);
+            return tlNftDelegationRegistry.checkDelegateForERC721(msg.sender, tokenOwner, address(this), tokenId);
+        }
+    }
+
+    // @notice Function to get if an operator is blocked for token approvals
+    function _isOperatorBlocked(address operator) internal view returns (bool) {
+        if (address(blocklistRegistry) == address(0)) {
+            return false;
+        } else {
+            return blocklistRegistry.getBlockListStatus(operator);
         }
     }
 }

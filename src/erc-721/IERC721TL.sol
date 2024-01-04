@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 /// @title IERC721TL.sol
 /// @notice Interface for ERC721TL
-/// @dev Interface id = 0xc74089ae0
+/// @dev Interface id = 0xc74089ae
 /// @author transientlabs.xyz
 /// @custom:version 3.0.0
 interface IERC721TL {

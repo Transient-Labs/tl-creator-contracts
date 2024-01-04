@@ -14,6 +14,9 @@ interface ICreatorBase {
                                     Events
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @dev Event for changing the story status
+    event StoryStatusUpdate(address indexed sender, bool indexed status);
+
     /// @dev Event for changing the BlockList registry
     event BlockListRegistryUpdate(
         address indexed sender, address indexed prevBlockListRegistry, address indexed newBlockListRegistry

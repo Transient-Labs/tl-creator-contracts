@@ -21,7 +21,9 @@ contract TRACETest is Test {
     event CollectionStory(address indexed creatorAddress, string creatorName, string story);
     event CreatorStory(uint256 indexed tokenId, address indexed creatorAddress, string creatorName, string story);
     event Story(uint256 indexed tokenId, address indexed senderAddress, string senderName, string story);
-    event TRACERSRegistryUpdated(address indexed sender, address indexed oldTracersRegistry, address indexed newTracersRegistry);
+    event TRACERSRegistryUpdated(
+        address indexed sender, address indexed oldTracersRegistry, address indexed newTracersRegistry
+    );
 
     TRACE public trace;
     address public royaltyRecipient = makeAddr("royaltyRecipient");
@@ -57,12 +59,11 @@ contract TRACETest is Test {
         address[] memory admins,
         address tracersRegistry_
     ) public {
-        // ensure royalty guards enabled
+        // limit fuzz
         vm.assume(defaultRoyaltyRecipient != address(0));
         if (defaultRoyaltyPercentage >= 10_000) {
             defaultRoyaltyPercentage = defaultRoyaltyPercentage % 10_000;
         }
-
         vm.assume(initOwner != address(0));
 
         // create contract
@@ -80,7 +81,14 @@ contract TRACETest is Test {
             emit CollectionStory(address(this), address(this).toHexString(), personalization);
         }
         trace.initialize(
-            name, symbol, personalization, defaultRoyaltyRecipient, defaultRoyaltyPercentage, initOwner, admins, tracersRegistry_
+            name,
+            symbol,
+            personalization,
+            defaultRoyaltyRecipient,
+            defaultRoyaltyPercentage,
+            initOwner,
+            admins,
+            tracersRegistry_
         );
 
         // assert intial values
@@ -101,7 +109,29 @@ contract TRACETest is Test {
         // can't initialize again
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         trace.initialize(
-            name, symbol, personalization, defaultRoyaltyRecipient, defaultRoyaltyPercentage, initOwner, admins, tracersRegistry
+            name,
+            symbol,
+            personalization,
+            defaultRoyaltyRecipient,
+            defaultRoyaltyPercentage,
+            initOwner,
+            admins,
+            tracersRegistry
+        );
+
+        // can't get by initializers disableed
+        trace = new TRACE(true);
+        
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        trace.initialize(
+            name,
+            symbol,
+            personalization,
+            defaultRoyaltyRecipient,
+            defaultRoyaltyPercentage,
+            initOwner,
+            admins,
+            tracersRegistry
         );
     }
 
@@ -143,7 +173,9 @@ contract TRACETest is Test {
 
         // ensure user can't call the mint function
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         trace.mint(address(this), "uriOne");
         vm.stopPrank();
 
@@ -163,7 +195,9 @@ contract TRACETest is Test {
         // revoke admin access and ensure that the user can't call the mint function
         trace.setRole(trace.ADMIN_ROLE(), admins, false);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         trace.mint(address(this), "uriOne");
         vm.stopPrank();
     }
@@ -196,9 +230,12 @@ contract TRACETest is Test {
         trace.tokenURI(tokenId + 1);
     }
 
-    function test_mint_withTokenRoyalty(uint16 tokenId, address recipient, address royaltyAddress, uint16 royaltyPercent)
-        public
-    {
+    function test_mint_withTokenRoyalty(
+        uint16 tokenId,
+        address recipient,
+        address royaltyAddress,
+        uint16 royaltyPercent
+    ) public {
         // limit fuzz input
         vm.assume(tokenId != 0);
         vm.assume(recipient != address(0));
@@ -291,7 +328,9 @@ contract TRACETest is Test {
         addresses[1] = address(2);
         // ensure user can't call the airdrop function
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         trace.airdrop(addresses, "baseUri");
         vm.stopPrank();
 
@@ -316,7 +355,9 @@ contract TRACETest is Test {
         // revoke admin access and ensure that the user can't call the airdrop function
         trace.setRole(trace.ADMIN_ROLE(), admins, false);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         trace.airdrop(addresses, "baseUri");
         vm.stopPrank();
     }
@@ -435,7 +476,11 @@ contract TRACETest is Test {
 
         // ensure user can't call the airdrop function
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, trace.APPROVED_MINT_CONTRACT()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, trace.APPROVED_MINT_CONTRACT()
+            )
+        );
         trace.externalMint(address(this), "uri");
         vm.stopPrank();
 
@@ -455,21 +500,33 @@ contract TRACETest is Test {
         // revoke mint access and ensure that the user can't call the external mint function
         trace.setRole(trace.APPROVED_MINT_CONTRACT(), minters, false);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, trace.APPROVED_MINT_CONTRACT()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, trace.APPROVED_MINT_CONTRACT()
+            )
+        );
         trace.externalMint(address(this), "uri");
         vm.stopPrank();
 
         // grant admin role and ensure that the user can't call the external mint function
         trace.setRole(trace.ADMIN_ROLE(), minters, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, trace.APPROVED_MINT_CONTRACT()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, trace.APPROVED_MINT_CONTRACT()
+            )
+        );
         trace.externalMint(address(this), "uri");
         vm.stopPrank();
 
         // revoke admin role and ensure that the user can't call the external mint function
         trace.setRole(trace.ADMIN_ROLE(), minters, false);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, trace.APPROVED_MINT_CONTRACT()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, trace.APPROVED_MINT_CONTRACT()
+            )
+        );
         trace.externalMint(address(this), "uri");
         vm.stopPrank();
     }
@@ -483,12 +540,12 @@ contract TRACETest is Test {
         if (numTokens > 1000) {
             numTokens = numTokens % 1000 + 1;
         }
-        
+
         // set mint contract
         address[] memory minters = new address[](1);
         minters[0] = address(1);
         trace.setRole(trace.APPROVED_MINT_CONTRACT(), minters, true);
-        
+
         // mint
         for (uint256 i = 1; i <= numTokens; i++) {
             vm.startPrank(address(1), address(1));
@@ -568,7 +625,9 @@ contract TRACETest is Test {
         trace.mint(address(this), "hii");
 
         // ensure the user can't transfer the token
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         vm.prank(user);
         trace.transferToken(address(this), user, 1);
     }
@@ -623,7 +682,9 @@ contract TRACETest is Test {
         users[0] = user;
 
         // expect revert from user
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         vm.prank(user);
         trace.setTracersRegistry(newRegistryOne);
 
@@ -674,19 +735,13 @@ contract TRACETest is Test {
 
         // set mocks
         vm.mockCall(
-            tracersRegistry, 
-            abi.encodeWithSelector(
-                ITRACERSRegistry.isRegisteredAgent.selector,
-                notAgent
-            ),
+            tracersRegistry,
+            abi.encodeWithSelector(ITRACERSRegistry.isRegisteredAgent.selector, notAgent),
             abi.encode(false, "")
         );
         vm.mockCall(
-            tracersRegistry, 
-            abi.encodeWithSelector(
-                ITRACERSRegistry.isRegisteredAgent.selector,
-                agent
-            ),
+            tracersRegistry,
+            abi.encodeWithSelector(ITRACERSRegistry.isRegisteredAgent.selector, agent),
             abi.encode(true, "agent")
         );
 
@@ -710,7 +765,7 @@ contract TRACETest is Test {
 
         // registry is an EOA fails
         trace.setTracersRegistry(address(0xC0FFEE));
-        
+
         // expect EOA registry to fail
         vm.expectRevert();
         vm.prank(notAgent);
@@ -782,19 +837,13 @@ contract TRACETest is Test {
 
         // set mocks
         vm.mockCall(
-            tracersRegistry, 
-            abi.encodeWithSelector(
-                ITRACERSRegistry.isRegisteredAgent.selector,
-                notAgent
-            ),
+            tracersRegistry,
+            abi.encodeWithSelector(ITRACERSRegistry.isRegisteredAgent.selector, notAgent),
             abi.encode(false, "")
         );
         vm.mockCall(
-            tracersRegistry, 
-            abi.encodeWithSelector(
-                ITRACERSRegistry.isRegisteredAgent.selector,
-                agent
-            ),
+            tracersRegistry,
+            abi.encodeWithSelector(ITRACERSRegistry.isRegisteredAgent.selector, agent),
             abi.encode(true, "agent")
         );
 
@@ -821,7 +870,7 @@ contract TRACETest is Test {
 
         // registry is an EOA fails
         trace.setTracersRegistry(address(0xC0FFEE));
-        
+
         // expect EOA registry to fail
         vm.expectRevert();
         vm.prank(notAgent);
@@ -886,11 +935,8 @@ contract TRACETest is Test {
     function test_addVerifiedStory_multipleForSameToken() public {
         // set mock
         vm.mockCall(
-            tracersRegistry, 
-            abi.encodeWithSelector(
-                ITRACERSRegistry.isRegisteredAgent.selector,
-                agent
-            ),
+            tracersRegistry,
+            abi.encodeWithSelector(ITRACERSRegistry.isRegisteredAgent.selector, agent),
             abi.encode(true, "agent")
         );
 
@@ -932,11 +978,8 @@ contract TRACETest is Test {
     function test_addVerifiedStory_multipleForDiffTokens() public {
         // set mock
         vm.mockCall(
-            tracersRegistry, 
-            abi.encodeWithSelector(
-                ITRACERSRegistry.isRegisteredAgent.selector,
-                agent
-            ),
+            tracersRegistry,
+            abi.encodeWithSelector(ITRACERSRegistry.isRegisteredAgent.selector, agent),
             abi.encode(true, "agent")
         );
 
@@ -1018,12 +1061,16 @@ contract TRACETest is Test {
         trace.mint(user, "https://arweave.net/tx_id");
 
         // verify user can't set default royalty
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         vm.prank(user);
         trace.setDefaultRoyalty(user, 1000);
 
         // verify user can't set token royalty
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         vm.prank(user);
         trace.setTokenRoyalty(1, user, 1000);
 
@@ -1119,7 +1166,6 @@ contract TRACETest is Test {
         // airdrop
         trace.airdrop(addresses, "baseUri");
 
-
         // create new uris
         for (uint256 i = 1; i <= numAddresses; i++) {
             string memory uri = string(abi.encodePacked("baseUri/", (i - 1).toString()));
@@ -1171,12 +1217,16 @@ contract TRACETest is Test {
         trace.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
         // test collector can't add creator story
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         vm.prank(collector);
         trace.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
         // test hacker can't add creator story
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         vm.prank(hacker);
         trace.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
@@ -1186,12 +1236,16 @@ contract TRACETest is Test {
         trace.addCollectionStory("NOT XCOPY", "I AM NOT XCOPY");
 
         // test that collector can't add collection story
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         vm.prank(collector);
         trace.addCollectionStory("NOT XCOPY", "I AM NOT XCOPY");
 
         // test that hacker can't add collection story
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         vm.prank(hacker);
         trace.addCollectionStory("NOT XCOPY", "I AM NOT XCOPY");
     }
@@ -1215,17 +1269,25 @@ contract TRACETest is Test {
 
         // test collector can't add creator story
         vm.startPrank(collector);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         trace.addCreatorStory(1, "XCOPY", "I AM XCOPY");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         trace.addCreatorStory(2, "XCOPY", "I AM XCOPY");
         vm.stopPrank();
 
         // test hacker can't add creator story
         vm.startPrank(hacker);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         trace.addCreatorStory(1, "XCOPY", "I AM XCOPY");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         trace.addCreatorStory(2, "XCOPY", "I AM XCOPY");
         vm.stopPrank();
 
@@ -1239,17 +1301,25 @@ contract TRACETest is Test {
 
         // test that collector can't add collection story
         vm.startPrank(collector);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         trace.addCollectionStory("NOT XCOPY", "I AM NOT XCOPY");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         trace.addCollectionStory("NOT XCOPY", "I AM NOT XCOPY");
         vm.stopPrank();
 
         // test that hacker can't add collection story
         vm.startPrank(hacker);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         trace.addCollectionStory("NOT XCOPY", "I AM NOT XCOPY");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
         trace.addCollectionStory("NOT XCOPY", "I AM NOT XCOPY");
         vm.stopPrank();
     }
