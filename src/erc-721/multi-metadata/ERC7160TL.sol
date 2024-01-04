@@ -86,23 +86,26 @@ contract ERC7160TL is
     /// @dev Mint to zero address
     error MintToZeroAddress();
 
-    /// @dev batch size too small
+    /// @dev Batch size too small
     error BatchSizeTooSmall();
 
-    /// @dev airdrop to too few addresses
+    /// @dev Airdrop to too few addresses
     error AirdropTooFewAddresses();
 
-    /// @dev caller is not approved or owner
+    /// @dev Caller is not approved or owner
     error CallerNotApprovedOrOwner();
 
-    /// @dev token does not exist
+    /// @dev Token does not exist
     error TokenDoesntExist();
 
-    /// @dev index given for ERC-7160 is invalid
+    /// @dev Index given for ERC-7160 is invalid
     error InvalidTokenURIIndex();
 
-    /// @dev no tokens in tokenIds array
+    /// @dev No tokens in tokenIds array
     error NoTokensSpecified();
+
+    /// @dev Not owner, admin, or mint contract
+    error NotOwnerAdminOrMintContract();
 
     /// @dev Caller is not the owner or delegate of the owner of the specific token
     error CallerNotTokenOwnerOrDelegate();
@@ -273,12 +276,12 @@ contract ERC7160TL is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICreatorBase
-    function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyOwner {
+    function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
         _setDefaultRoyaltyInfo(newRecipient, newPercentage);
     }
 
     /// @inheritdoc ICreatorBase
-    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyOwner {
+    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
 
@@ -289,9 +292,11 @@ contract ERC7160TL is
     /// @notice Function to add token uris
     /// @dev Written to take in many token ids and a base uri that contains metadata files with file names matching the index of each token id in the `tokenIds` array (aka folderIndex)
     /// @dev No trailing slash on the base uri
+    /// @dev Must be called by contract owner, admin, or approved mint contract
     /// @param tokenIds Array of token ids that get metadata added to them
     /// @param baseUri The base uri of a folder containing metadata - file names start at 0 and increase monotonically
-    function addTokenUris(uint256[] calldata tokenIds, string calldata baseUri) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function addTokenUris(uint256[] calldata tokenIds, string calldata baseUri) external {
+        if (msg.sender != owner() && !hasRole(ADMIN_ROLE, msg.sender) && !hasRole(APPROVED_MINT_CONTRACT, msg.sender)) revert NotOwnerAdminOrMintContract();
         if (bytes(baseUri).length == 0) revert EmptyTokenURI();
         if (tokenIds.length == 0) revert NoTokensSpecified();
         uint128 baseUriIndex = uint128(_multiMetadataBaseUris.length);
