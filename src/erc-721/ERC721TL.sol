@@ -275,7 +275,7 @@ contract ERC721TL is
     function proposeNewTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
-        if (ownerOf(tokenId) == owner()) {
+        if (_ownerOf(tokenId) == owner()) {
             // creator owns the token
             _tokenUris[tokenId] = newUri;
             emit MetadataUpdate(tokenId);

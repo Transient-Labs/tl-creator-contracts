@@ -3,7 +3,7 @@ pragma solidity ^0.8.20;
 
 /// @title IShatter.sol
 /// @notice interface defining the Shatter standard
-/// Interface id = 0x01c5bfc1
+/// Interface id = 0xf2528cbb
 /// @author transientlabs.xyz
 /// @custom:version 2.4.0
 interface IShatter {
@@ -17,6 +17,17 @@ interface IShatter {
     /*//////////////////////////////////////////////////////////////////////////
                                       Functions
     //////////////////////////////////////////////////////////////////////////*/
+
+    /// @notice Function for minting the 1/1
+    /// @dev Requires contract owner or admin
+    /// @dev Requires that shatters is equal to 0 -> meaning no piece has been minted
+    /// @param recipient The address to mint to token to
+    /// @param uri The base uri to be used for the shatter folder WITHOUT trailing "/"
+    /// @param min The minimum number of shatters
+    /// @param max The maximum number of shatters
+    /// @param time Time after which shatter can occur
+    function mint(address recipient, string memory uri, uint128 min, uint128 max, uint256 time)
+        external;
 
     /// @notice function to shatter the 1/1 token
     /// @dev care should be taken to ensure that the following conditions are met
