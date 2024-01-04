@@ -16,7 +16,7 @@ import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.
 import {ITRACERSRegistry} from "src/interfaces/ITRACERSRegistry.sol";
 
 /// @title TRACE.sol
-/// @notice Transient Labs T.R.A.C.E. implementation contract
+/// @notice Sovereign T.R.A.C.E. Creator Contract allowing for digital Certificates of Authenticity backed by the blockchain
 /// @author transientlabs.xyz
 /// @custom:version 3.0.0
 contract TRACE is
@@ -106,7 +106,7 @@ contract TRACE is
 
     /// @param name The name of the contract
     /// @param symbol The symbol of the contract
-    /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalizaiton of the contract.
+    /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
     /// @param defaultRoyaltyRecipient The default address for royalty payments
     /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
     /// @param initOwner The owner of the contract
@@ -300,26 +300,29 @@ contract TRACE is
 
     /// @inheritdoc IStory
     /// @dev ignores the creator name to avoid sybil
-    function addCreatorStory(uint256 tokenId, string calldata /*creatorName*/, string calldata story)
+    function addCreatorStory(uint256 tokenId, string calldata, /*creatorName*/ string calldata story)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
-    {   
+    {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         emit CreatorStory(tokenId, msg.sender, msg.sender.toHexString(), story);
     }
 
     /// @inheritdoc IStory
-    function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {
+    function addStory(uint256, /*tokenId*/ string calldata, /*collectorName*/ string calldata /*story*/ )
+        external
+        pure
+    {
         revert();
     }
 
     /// @inheritdoc ICreatorBase
-    function setStoryStatus(bool status) external {
+    function setStoryStatus(bool /*status*/ ) external pure {
         revert();
     }
 
     /// @inheritdoc ICreatorBase
-    function storyEnabled() external view returns (bool) {
+    function storyEnabled() external pure returns (bool) {
         return true;
     }
 
@@ -328,12 +331,12 @@ contract TRACE is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICreatorBase
-    function setBlockListRegistry(address newBlockListRegistry) external {
+    function setBlockListRegistry(address /*newBlockListRegistry*/ ) external pure {
         revert();
     }
 
     /// @inheritdoc ICreatorBase
-    function blocklistRegistry() external view returns (IBlockListRegistry) {
+    function blocklistRegistry() external pure returns (IBlockListRegistry) {
         return IBlockListRegistry(address(0));
     }
 
@@ -342,12 +345,12 @@ contract TRACE is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICreatorBase
-    function setNftDelegationRegistry(address newNftDelegationRegistry) external {
+    function setNftDelegationRegistry(address /*newNftDelegationRegistry*/ ) external pure {
         revert();
     }
 
     /// @inheritdoc ICreatorBase
-    function tlNftDelegationRegistry() external view returns (ITLNftDelegationRegistry) {
+    function tlNftDelegationRegistry() external pure returns (ITLNftDelegationRegistry) {
         return ITLNftDelegationRegistry(address(0));
     }
 
@@ -365,8 +368,8 @@ contract TRACE is
         return (
             ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
                 || interfaceId == 0x49064906 // ERC-4906
-                || interfaceId == type(ICreatorBase).interfaceId
-                || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
+                || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(IStory).interfaceId
+                || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
                 || interfaceId == type(ITRACE).interfaceId
         );
     }

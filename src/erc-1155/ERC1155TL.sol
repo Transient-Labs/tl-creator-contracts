@@ -12,7 +12,7 @@ import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 
 /// @title ERC1155TL.sol
-/// @notice Transient Labs ERC-1155 Creator Contract
+/// @notice Sovereign ERC-1155 Creator Contract with Story Inscriptions
 /// @author transientlabs.xyz
 /// @custom:version 3.0.0
 contract ERC1155TL is
@@ -41,7 +41,6 @@ contract ERC1155TL is
     string public name;
     string public symbol;
     bool public storyEnabled;
-    ITLNftDelegationRegistry public tlNftDelegationRegistry;
     IBlockListRegistry public blocklistRegistry;
     mapping(uint256 => Token) private _tokens;
 
@@ -62,7 +61,7 @@ contract ERC1155TL is
     error ArrayLengthMismatch();
 
     /// @dev Token not owned by the owner of the contract
-    error TokenNotOwnedByOwner();
+    error CallerNotTokenOwner();
 
     /// @dev Caller is not approved or owner
     error CallerNotApprovedOrOwner();
@@ -72,6 +71,12 @@ contract ERC1155TL is
 
     /// @dev Burning zero tokens
     error BurnZeroTokens();
+
+    /// @dev Operator for token approvals blocked
+    error OperatorBlocked();
+
+    /// @dev Story not enabled for collectors
+    error StoryNotEnabled();
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Constructor
@@ -88,21 +93,23 @@ contract ERC1155TL is
 
     /// @param name_ The name of the 721 contract
     /// @param symbol_ The symbol of the 721 contract
+    /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
     /// @param defaultRoyaltyRecipient The default address for royalty payments
     /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
     /// @param initOwner The owner of the contract
     /// @param admins Array of admin addresses to add to the contract
     /// @param enableStory A bool deciding whether to add story fuctionality or not
-    /// @param blockListRegistry Address of the blocklist registry to use
+    /// @param initBlockListRegistry Address of the blocklist registry to use
     function initialize(
         string memory name_,
         string memory symbol_,
+        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
         address[] memory admins,
         bool enableStory,
-        address blockListRegistry
+        address initBlockListRegistry
     ) external initializer {
         // initialize parent contracts
         __ERC1155_init("");
@@ -115,6 +122,19 @@ contract ERC1155TL is
         // set name & symbol
         name = name_;
         symbol = symbol_;
+
+        // story
+        storyEnabled = enableStory;
+        emit StoryStatusUpdate(msg.sender, enableStory);
+
+        // blocklist
+        blocklistRegistry = IBlockListRegistry(initBlockListRegistry);
+        emit BlockListRegistryUpdate(msg.sender, address(0), initBlockListRegistry);
+
+        // emit personalization as collection story
+        if (bytes(personalization).length > 0) {
+            emit CollectionStory(msg.sender, msg.sender.toHexString(), personalization);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -170,6 +190,7 @@ contract ERC1155TL is
         onlyRoleOrOwner(ADMIN_ROLE)
     {
         if (newUris.length == 0) revert EmptyTokenURI();
+        if (newUris.length != addresses.length && addresses.length != amounts.length) revert ArrayLengthMismatch();
         for (uint256 i = 0; i < newUris.length; i++) {
             _createToken(newUris[i], addresses[i], amounts[i]);
         }
@@ -184,6 +205,10 @@ contract ERC1155TL is
         uint256[] calldata royaltyPercents
     ) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (newUris.length == 0) revert EmptyTokenURI();
+        if (
+            newUris.length != addresses.length && addresses.length != amounts.length
+                && amounts.length != royaltyAddresses.length && royaltyAddresses.length != royaltyPercents.length
+        ) revert ArrayLengthMismatch();
         for (uint256 i = 0; i < newUris.length; i++) {
             uint256 tokenId = _createToken(newUris[i], addresses[i], amounts[i]);
             _overrideTokenRoyaltyInfo(tokenId, royaltyAddresses[i], royaltyPercents[i]);
@@ -258,36 +283,67 @@ contract ERC1155TL is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IStory
-    function addCollectionStory(string calldata creatorName, string calldata story)
+    function addCollectionStory(string calldata, /*creatorName*/ string calldata story)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
-    {}
+    {
+        emit CollectionStory(msg.sender, msg.sender.toHexString(), story);
+    }
 
     /// @inheritdoc IStory
-    function addCreatorStory(uint256 tokenId, string calldata creatorName, string calldata story)
+    function addCreatorStory(uint256 tokenId, string calldata, /*creatorName*/ string calldata story)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
-    {}
+    {
+        if (!_exists(tokenId)) revert TokenDoesntExist();
+        emit CreatorStory(tokenId, msg.sender, msg.sender.toHexString(), story);
+    }
 
     /// @inheritdoc IStory
-    function addStory(uint256 tokenId, string calldata collectorName, string calldata story) external {}
+    function addStory(uint256 tokenId, string calldata, /*collectorName*/ string calldata story) external {
+        if (!storyEnabled) revert StoryNotEnabled();
+        if (balanceOf(msg.sender, tokenId) == 0) revert CallerNotTokenOwner();
+        emit Story(tokenId, msg.sender, msg.sender.toHexString(), story);
+    }
 
     /// @inheritdoc ICreatorBase
-    function setStoryStatus(bool status) external {}
+    function setStoryStatus(bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
+        storyEnabled = status;
+        emit StoryStatusUpdate(msg.sender, status);
+    }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 BlockList
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICreatorBase
-    function setBlockListRegistry(address newBlockListRegistry) external {}
+    function setBlockListRegistry(address newBlockListRegistry) external onlyRoleOrOwner(ADMIN_ROLE) {
+        address oldBlockListRegistry = address(blocklistRegistry);
+        blocklistRegistry = IBlockListRegistry(newBlockListRegistry);
+        emit BlockListRegistryUpdate(msg.sender, oldBlockListRegistry, newBlockListRegistry);
+    }
+
+    /// @inheritdoc ERC1155Upgradeable
+    function setApprovalForAll(address operator, bool approved) public override(ERC1155Upgradeable) {
+        if (approved) {
+            if (_isOperatorBlocked(operator)) revert OperatorBlocked();
+        }
+        ERC1155Upgradeable.setApprovalForAll(operator, approved);
+    }
 
     /*//////////////////////////////////////////////////////////////////////////
                             NFT Delegation Registry
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICreatorBase
-    function setNftDelegationRegistry(address newNftDelegationRegistry) external {}
+    function tlNftDelegationRegistry() external pure returns (ITLNftDelegationRegistry) {
+        return ITLNftDelegationRegistry(address(0));
+    }
+
+    /// @inheritdoc ICreatorBase
+    function setNftDelegationRegistry(address /*newNftDelegationRegistry*/ ) external pure {
+        revert();
+    }
 
     /*//////////////////////////////////////////////////////////////////////////
                                 ERC-165 Support
@@ -349,6 +405,15 @@ contract ERC1155TL is
         if (addresses.length != amounts.length) revert ArrayLengthMismatch();
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], tokenId, amounts[i], "");
+        }
+    }
+
+    // @notice Function to get if an operator is blocked for token approvals
+    function _isOperatorBlocked(address operator) internal view returns (bool) {
+        if (address(blocklistRegistry) == address(0)) {
+            return false;
+        } else {
+            return blocklistRegistry.getBlockListStatus(operator);
         }
     }
 }

@@ -11,7 +11,9 @@ interface ITRACE {
                                     Events
     //////////////////////////////////////////////////////////////////////////*/
 
-    event TRACERSRegistryUpdated(address indexed sender, address indexed oldTracersRegistry, address indexed newTracersRegistry);
+    event TRACERSRegistryUpdated(
+        address indexed sender, address indexed oldTracersRegistry, address indexed newTracersRegistry
+    );
 
     /*//////////////////////////////////////////////////////////////////////////
                                     Functions
