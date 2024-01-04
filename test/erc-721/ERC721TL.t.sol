@@ -2538,6 +2538,23 @@ contract ERC721TLTest is Test {
         assertEq(address(tokenContract.blocklistRegistry()), blocklistRegistry);
     }
 
+    function test_blocklist_eoa() public {
+        // update blocklist registry to EOA
+        tokenContract.setBlockListRegistry(blocklistRegistry);
+
+        // mint
+        tokenContract.mint(address(this), "uri");
+
+        // expect revert
+        vm.expectRevert();
+        tokenContract.approve(address(10), 1);
+        vm.expectRevert();
+        tokenContract.setApprovalForAll(address(10), true);
+
+        // expect can set approval for all to false regardless
+        tokenContract.setApprovalForAll(address(10), false);
+    }
+
     function test_blocklist_mint(address collector, address operator) public {
         // limit fuzz
         vm.assume(collector != address(0));
@@ -2780,5 +2797,36 @@ contract ERC721TLTest is Test {
         emit NftDelegationRegistryUpdate(address(this), address(1), nftDelegationRegistry);
         tokenContract.setNftDelegationRegistry(nftDelegationRegistry);
         assertEq(address(tokenContract.tlNftDelegationRegistry()), nftDelegationRegistry);
+    }
+
+    function test_delegation_eoa() public {
+        // set delegation registry to eoa
+        tokenContract.setNftDelegationRegistry(nftDelegationRegistry);
+
+        // mint
+        tokenContract.mint(address(1), "uri");
+
+        // add story reverts for delegate but not collector
+        vm.expectRevert();
+        vm.prank(address(2));
+        tokenContract.addStory(1, "", "story");
+
+        vm.prank(address(1));
+        tokenContract.addStory(1, "", "story");
+
+        // synergy reverts open for delegate but deterministic for collector
+        vm.expectRevert();
+        vm.prank(address(2));
+        tokenContract.acceptTokenUriUpdate(1);
+        vm.expectRevert();
+        vm.prank(address(2));
+        tokenContract.rejectTokenUriUpdate(1);
+
+        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
+        vm.prank(address(1));
+        tokenContract.acceptTokenUriUpdate(1);
+        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
+        vm.prank(address(1));
+        tokenContract.rejectTokenUriUpdate(1);
     }
 }
