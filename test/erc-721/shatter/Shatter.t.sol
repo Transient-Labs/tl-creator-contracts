@@ -11,7 +11,6 @@ import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 
 contract ShatterTest is Test {
-
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event RoleChange(address indexed from, address indexed user, bool indexed approved, bytes32 role);
     event Shattered(address indexed user, uint256 indexed numShatters, uint256 indexed shatteredTime);
@@ -47,7 +46,9 @@ contract ShatterTest is Test {
         address[] memory admins = new address[](1);
         admins[0] = admin;
         tokenContract = new Shatter(false);
-        tokenContract.initialize("Test721", "T721", "", royaltyRecipient, 10_00, address(this), admins, true, address(0), address(0));
+        tokenContract.initialize(
+            "Test721", "T721", "", royaltyRecipient, 10_00, address(this), admins, true, address(0), address(0)
+        );
     }
 
     /// @notice initialization Tests
@@ -163,7 +164,7 @@ contract ShatterTest is Test {
         assertTrue(tokenContract.supportsInterface(0x49064906)); // ERC-4906
     }
 
-     /// @notice test mint contract access approvals
+    /// @notice test mint contract access approvals
     function test_setApprovedMintContracts(address hacker) public {
         // variables
         address[] memory minters = new address[](1);
@@ -180,7 +181,9 @@ contract ShatterTest is Test {
         vm.assume(hacker != address(this) && hacker != admin);
 
         // test access control
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         vm.prank(hacker);
         tokenContract.mint(address(this), "testURI", 0, 100, block.timestamp + 7200);
 
@@ -202,7 +205,9 @@ contract ShatterTest is Test {
         vm.assume(hacker != address(this) && hacker != admin);
 
         // test access control
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         vm.prank(hacker);
         tokenContract.mint(address(this), "testURI", 0, 100, block.timestamp + 7200);
 
@@ -400,7 +405,9 @@ contract ShatterTest is Test {
 
         // verify that user can't set royalty
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setDefaultRoyalty(newRecipient, newPercentage);
         vm.stopPrank();
 
@@ -432,7 +439,9 @@ contract ShatterTest is Test {
 
         // verify that user can't set royalty
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setTokenRoyalty(tokenId, newRecipient, newPercentage);
         vm.stopPrank();
 
@@ -639,18 +648,13 @@ contract ShatterTest is Test {
         // set mocks
         vm.mockCall(
             nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector
-            ),
+            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector),
             abi.encode(false)
         );
         vm.mockCall(
             nftDelegationRegistry,
             abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector,
-                address(0),
-                address(1),
-                address(tokenContract)
+                ITLNftDelegationRegistry.checkDelegateForERC721.selector, address(0), address(1), address(tokenContract)
             ),
             abi.encode(true)
         );
@@ -779,18 +783,13 @@ contract ShatterTest is Test {
         // set mocks
         vm.mockCall(
             nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector
-            ),
+            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector),
             abi.encode(false)
         );
         vm.mockCall(
             nftDelegationRegistry,
             abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector,
-                address(0),
-                address(1),
-                address(tokenContract)
+                ITLNftDelegationRegistry.checkDelegateForERC721.selector, address(0), address(1), address(tokenContract)
             ),
             abi.encode(true)
         );
@@ -865,11 +864,17 @@ contract ShatterTest is Test {
 
         // verify user can't enable/disable and can't add collection and creator stories
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setStoryStatus(false);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCollectionStory("", "my story!");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "", "my story!");
         vm.stopPrank();
 
@@ -933,6 +938,7 @@ contract ShatterTest is Test {
     function test_addStory(address collector) public {
         vm.assume(collector != address(0));
         vm.assume(collector != address(this));
+        vm.assume(collector != admin);
         tokenContract.mint(collector, "uri", 1, 2, 0);
 
         // test creator story
@@ -942,7 +948,9 @@ contract ShatterTest is Test {
 
         // test collector can't add creator story
         vm.startPrank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(0, "XCOPY", "I AM XCOPY");
 
         // test collector story
@@ -966,7 +974,9 @@ contract ShatterTest is Test {
 
         // test collector can't add creator story
         vm.startPrank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
         // test collector story
@@ -983,6 +993,7 @@ contract ShatterTest is Test {
     function test_addStory_delegate(address delegate) public {
         // limit fuzz and mint
         vm.assume(delegate != address(this));
+        vm.assume(delegate != admin);
         tokenContract.mint(address(this), "uri", 1, 2, 0);
 
         // set delegation registry
@@ -991,9 +1002,7 @@ contract ShatterTest is Test {
         // mock calls
         vm.mockCall(
             nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector
-            ),
+            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector),
             abi.encode(false)
         );
         vm.mockCall(
@@ -1014,7 +1023,9 @@ contract ShatterTest is Test {
 
         // test delegate can't add creator story
         vm.startPrank(delegate, delegate);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(0, "XCOPY", "I AM XCOPY");
 
         // test story
@@ -1033,7 +1044,9 @@ contract ShatterTest is Test {
 
         // test delegate can't add creator story
         vm.startPrank(delegate, delegate);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
         // test story
@@ -1061,7 +1074,9 @@ contract ShatterTest is Test {
 
         // test collector can't add creator story
         vm.startPrank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(0, "XCOPY", "I AM XCOPY");
 
         // test collector story reverts
@@ -1084,7 +1099,9 @@ contract ShatterTest is Test {
 
         // test collector can't add creator story
         vm.startPrank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
         // test collector story reverts
@@ -1108,7 +1125,9 @@ contract ShatterTest is Test {
 
         // verify user can't access
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setBlockListRegistry(address(1));
         vm.stopPrank();
 
@@ -1154,11 +1173,7 @@ contract ShatterTest is Test {
 
         // mock call
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(true)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
         );
 
         // update blocklist registry
@@ -1175,11 +1190,7 @@ contract ShatterTest is Test {
 
         // unblock operator and verify approvals
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(false)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
         );
         vm.startPrank(collector, collector);
         tokenContract.approve(operator, 0);
@@ -1200,11 +1211,7 @@ contract ShatterTest is Test {
 
         // mock call
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(true)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
         );
 
         // update blocklist registry
@@ -1222,11 +1229,7 @@ contract ShatterTest is Test {
 
         // unblock operator and verify approvals
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(false)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
         );
         vm.startPrank(collector, collector);
         tokenContract.approve(operator, 1);
@@ -1247,11 +1250,7 @@ contract ShatterTest is Test {
 
         // mock call
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(true)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
         );
 
         // update blocklist registry
@@ -1270,11 +1269,7 @@ contract ShatterTest is Test {
 
         // unblock operator and verify approvals
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(false)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
         );
         vm.startPrank(collector, collector);
         tokenContract.approve(operator, 0);
@@ -1288,7 +1283,7 @@ contract ShatterTest is Test {
     }
 
     /// @notice test TL Nft Delegation Registry functions
-    // - test access control for changing the registry 
+    // - test access control for changing the registry
 
     function test_setNftDelegationRegistry_accessControl(address user) public {
         vm.assume(user != address(this));
@@ -1297,7 +1292,9 @@ contract ShatterTest is Test {
 
         // verify user can't access
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setNftDelegationRegistry(address(1));
         vm.stopPrank();
 

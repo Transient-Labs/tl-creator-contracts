@@ -26,8 +26,7 @@ interface IShatter {
     /// @param min The minimum number of shatters
     /// @param max The maximum number of shatters
     /// @param time Time after which shatter can occur
-    function mint(address recipient, string memory uri, uint128 min, uint128 max, uint256 time)
-        external;
+    function mint(address recipient, string memory uri, uint128 min, uint128 max, uint256 time) external;
 
     /// @notice function to shatter the 1/1 token
     /// @dev care should be taken to ensure that the following conditions are met

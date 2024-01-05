@@ -121,7 +121,7 @@ contract TRACETest is Test {
 
         // can't get by initializers disableed
         trace = new TRACE(true);
-        
+
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         trace.initialize(
             name,

@@ -187,7 +187,7 @@ contract Doppelganger is
 
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
-    function mint(address recipient, string calldata /*uri*/) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function mint(address recipient, string calldata /*uri*/ ) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
         _counter++;
         _mint(recipient, _counter);
@@ -195,7 +195,7 @@ contract Doppelganger is
 
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
-    function mint(address recipient, string calldata /*uri*/, address royaltyAddress, uint256 royaltyPercent)
+    function mint(address recipient, string calldata, /*uri*/ address royaltyAddress, uint256 royaltyPercent)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -207,7 +207,7 @@ contract Doppelganger is
 
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
-    function batchMint(address recipient, uint128 numTokens, string calldata /*baseUri*/)
+    function batchMint(address recipient, uint128 numTokens, string calldata /*baseUri*/ )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -228,7 +228,7 @@ contract Doppelganger is
 
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
-    function airdrop(address[] calldata addresses, string calldata /*baseUri*/) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function airdrop(address[] calldata addresses, string calldata /*baseUri*/ ) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
         if (addresses.length < 2) revert AirdropTooFewAddresses();
 
@@ -241,7 +241,7 @@ contract Doppelganger is
 
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
-    function externalMint(address recipient, string calldata /*uri*/) external onlyRole(APPROVED_MINT_CONTRACT) {
+    function externalMint(address recipient, string calldata /*uri*/ ) external onlyRole(APPROVED_MINT_CONTRACT) {
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
         _counter++;
         _mint(recipient, _counter);
@@ -269,7 +269,10 @@ contract Doppelganger is
     }
 
     /// @inheritdoc ICreatorBase
-    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
 
@@ -281,7 +284,9 @@ contract Doppelganger is
     /// @dev Must be called by contract owner, admin, or approved mint contract
     /// @param tokenUris Array of token uris to add
     function addTokenUris(string[] calldata tokenUris) external {
-        if (msg.sender != owner() && !hasRole(ADMIN_ROLE, msg.sender) && !hasRole(APPROVED_MINT_CONTRACT, msg.sender)) revert NotOwnerAdminOrMintContract();
+        if (msg.sender != owner() && !hasRole(ADMIN_ROLE, msg.sender) && !hasRole(APPROVED_MINT_CONTRACT, msg.sender)) {
+            revert NotOwnerAdminOrMintContract();
+        }
         if (tokenUris.length == 0) revert EmptyTokenURIs();
         for (uint256 i = 0; i < tokenUris.length; i++) {
             _tokenUris.push(tokenUris[i]);
