@@ -190,7 +190,7 @@ contract ERC1155TL is
         onlyRoleOrOwner(ADMIN_ROLE)
     {
         if (newUris.length == 0) revert EmptyTokenURI();
-        if (newUris.length != addresses.length && addresses.length != amounts.length) revert ArrayLengthMismatch();
+        if (newUris.length != addresses.length || addresses.length != amounts.length) revert ArrayLengthMismatch();
         for (uint256 i = 0; i < newUris.length; i++) {
             _createToken(newUris[i], addresses[i], amounts[i]);
         }
@@ -206,8 +206,8 @@ contract ERC1155TL is
     ) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (newUris.length == 0) revert EmptyTokenURI();
         if (
-            newUris.length != addresses.length && addresses.length != amounts.length
-                && amounts.length != royaltyAddresses.length && royaltyAddresses.length != royaltyPercents.length
+            newUris.length != addresses.length || addresses.length != amounts.length
+                || amounts.length != royaltyAddresses.length || royaltyAddresses.length != royaltyPercents.length
         ) revert ArrayLengthMismatch();
         for (uint256 i = 0; i < newUris.length; i++) {
             uint256 tokenId = _createToken(newUris[i], addresses[i], amounts[i]);
@@ -251,12 +251,12 @@ contract ERC1155TL is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ICreatorBase
-    function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyOwner {
+    function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
         _setDefaultRoyaltyInfo(newRecipient, newPercentage);
     }
 
     /// @inheritdoc ICreatorBase
-    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyOwner {
+    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
 
