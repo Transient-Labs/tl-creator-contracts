@@ -157,7 +157,6 @@ contract TRACETest is Test {
     // - transfer to another address ✅
     // - safe transfer to another address ✅
     // - token uri ✅
-
     function test_mint_customErrors() public {
         vm.expectRevert(TRACE.EmptyTokenURI.selector);
         trace.mint(address(this), "");
@@ -309,7 +308,6 @@ contract TRACETest is Test {
     // - transfer to another address ✅
     // - safe transfer to another address ✅
     // - token uris ✅
-
     function test_airdrop_customErrors() public {
         address[] memory addresses = new address[](1);
         addresses[0] = address(1);
@@ -457,7 +455,6 @@ contract TRACETest is Test {
     // - transfer to another address ✅
     // - safe transfer to another address ✅
     // - token uris ✅
-
     function test_externalMint_customErrors() public {
         address[] memory minters = new address[](1);
         minters[0] = address(this);
@@ -616,7 +613,6 @@ contract TRACETest is Test {
     // - set tracers registry ✅
     // - add verified story ✅
     // - add verified story batch ✅
-
     function test_transferToken_accessControl(address user) public {
         // limit fuzz
         vm.assume(user != address(this));
@@ -1109,7 +1105,6 @@ contract TRACETest is Test {
     // - access control
     // - regular mint
     // - airdrop
-
     function test_setTokenUri_customErrors() public {
         // token doesn't exist
         vm.expectRevert(TRACE.TokenDoesntExist.selector);
@@ -1189,7 +1184,6 @@ contract TRACETest is Test {
     // - write collection story to non-existent token (reverts) ✅
     // - write collector story reverts
     // - set story status reverts
-
     function test_story_always_reverts(address user) public {
         vm.expectRevert();
         vm.prank(user);
@@ -1325,7 +1319,6 @@ contract TRACETest is Test {
     }
 
     /// @notice blocklist and delegation registry tests
-
     function test_blocklist(address user, address registry) public {
         vm.expectRevert();
         vm.prank(user);
