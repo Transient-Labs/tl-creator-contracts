@@ -5,7 +5,7 @@ pragma solidity ^0.8.20;
 /// @notice interface defining the Shatter standard
 /// Interface id = 0xf2528cbb
 /// @author transientlabs.xyz
-/// @custom:version 2.4.0
+/// @custom:version 3.0.0
 interface IShatter {
     /*//////////////////////////////////////////////////////////////////////////
                                       Events
