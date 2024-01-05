@@ -3,18 +3,18 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {ERC721TL, ISynergy} from "src/erc-721/ERC721TL.sol";
+import {Doppelganger} from "src/erc-721/multi-metadata/Doppelganger.sol";
 import {IERC721Errors} from "openzeppelin/interfaces/draft-IERC6093.sol";
 import {Initializable} from "openzeppelin/proxy/utils/Initializable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 
-contract ERC721TLTest is Test {
+contract DoppelgangerTest is Test {
     using Strings for uint256;
     using Strings for address;
 
-    ERC721TL public tokenContract;
+    Doppelganger public tokenContract;
     address public royaltyRecipient = makeAddr("royaltyRecipient");
     address public blocklistRegistry = makeAddr("blocklistRegistry");
     address public nftDelegationRegistry = makeAddr("nftDelegationRegistry");
@@ -30,18 +30,18 @@ contract ERC721TLTest is Test {
     );
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
     event MetadataUpdate(uint256 tokenId);
-    event SynergyStatusChange(
-        address indexed from, uint256 indexed tokenId, ISynergy.SynergyAction indexed action, string uri
-    );
+    event BatchMetadataUpdate(uint256 _from, uint256 _to);
+    event TokenUriPinned(uint256 indexed tokenId, uint256 indexed index);
+    event TokenUriUnpinned(uint256 indexed tokenId);
     event CollectionStory(address indexed creatorAddress, string creatorName, string story);
     event CreatorStory(uint256 indexed tokenId, address indexed creatorAddress, string creatorName, string story);
     event Story(uint256 indexed tokenId, address indexed collectorAddress, string collectorName, string story);
 
     function setUp() public {
         address[] memory admins = new address[](0);
-        tokenContract = new ERC721TL(false);
+        tokenContract = new Doppelganger(false);
         tokenContract.initialize(
-            "Test721", "T721", "", royaltyRecipient, 1000, address(this), admins, true, address(0), address(0)
+            "Test7160", "T7160", "", royaltyRecipient, 1000, address(this), admins, true, address(0), address(0)
         );
     }
 
@@ -66,7 +66,7 @@ contract ERC721TLTest is Test {
         vm.assume(initOwner != address(0));
 
         // create contract
-        tokenContract = new ERC721TL(false);
+        tokenContract = new Doppelganger(false);
         // initialize and verify events thrown (order matters)
         vm.expectEmit(true, true, false, true);
         emit OwnershipTransferred(address(0), initOwner);
@@ -125,7 +125,7 @@ contract ERC721TLTest is Test {
         );
 
         // can't get by initializers disabled
-        tokenContract = new ERC721TL(true);
+        tokenContract = new Doppelganger(true);
 
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         tokenContract.initialize(
@@ -146,7 +146,7 @@ contract ERC721TLTest is Test {
     function test_supportsInterface() public {
         assertTrue(tokenContract.supportsInterface(0x1c8e024d)); // ICreatorBase
         assertTrue(tokenContract.supportsInterface(0xc74089ae)); // IERC721TL
-        assertTrue(tokenContract.supportsInterface(0x8193ebea)); // ISynergy
+        assertTrue(tokenContract.supportsInterface(0x06e1bc5b)); // IERC7160
         assertTrue(tokenContract.supportsInterface(0x2464f17b)); // IStory
         assertTrue(tokenContract.supportsInterface(0x0d23ecb9)); // IStory (old)
         assertTrue(tokenContract.supportsInterface(0x01ffc9a7)); // ERC-165
@@ -204,10 +204,10 @@ contract ERC721TLTest is Test {
     // - safe transfer to another address ✅
     // - token uri ✅
     function test_mint_customErrors() public {
-        vm.expectRevert(ERC721TL.EmptyTokenURI.selector);
+        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
         tokenContract.mint(address(this), "");
 
-        vm.expectRevert(ERC721TL.EmptyTokenURI.selector);
+        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
         tokenContract.mint(address(this), "", address(1), 10);
     }
 
@@ -216,16 +216,21 @@ contract ERC721TLTest is Test {
         vm.assume(user != address(this));
         vm.assume(user != address(0));
 
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
         // ensure user can't call the mint function
         vm.startPrank(user);
         vm.expectRevert(
             abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
         );
-        tokenContract.mint(address(this), "uriOne");
+        tokenContract.mint(address(this), "");
         vm.expectRevert(
             abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
         );
-        tokenContract.mint(address(this), "uriOne", address(1), 10);
+        tokenContract.mint(address(this), "", address(1), 10);
         vm.stopPrank();
 
         // grant admin access and ensure that the user can call the mint functions
@@ -235,16 +240,16 @@ contract ERC721TLTest is Test {
         vm.startPrank(user, user);
         vm.expectEmit(true, true, true, true);
         emit Transfer(address(0), address(this), 1);
-        tokenContract.mint(address(this), "uriOne");
+        tokenContract.mint(address(this), "");
         vm.expectEmit(true, true, true, true);
         emit Transfer(address(0), address(this), 2);
-        tokenContract.mint(address(this), "uriTwo", address(1), 10);
+        tokenContract.mint(address(this), "", address(1), 10);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(address(this)), 2);
         assertEq(tokenContract.ownerOf(1), address(this));
-        assertEq(tokenContract.tokenURI(1), "uriOne");
+        assertEq(tokenContract.tokenURI(1), "uri");
         assertEq(tokenContract.ownerOf(2), address(this));
-        assertEq(tokenContract.tokenURI(2), "uriTwo");
+        assertEq(tokenContract.tokenURI(2), "uri");
 
         // revoke admin access and ensure that the user can't call the mint function
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
@@ -252,11 +257,11 @@ contract ERC721TLTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
         );
-        tokenContract.mint(address(this), "uriOne");
+        tokenContract.mint(address(this), "");
         vm.expectRevert(
             abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
         );
-        tokenContract.mint(address(this), "uriTwo", address(1), 10);
+        tokenContract.mint(address(this), "", address(1), 10);
         vm.stopPrank();
 
         // grant mint contract role and ensure that the user can't call the mint function
@@ -265,11 +270,11 @@ contract ERC721TLTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
         );
-        tokenContract.mint(address(this), "uriOne");
+        tokenContract.mint(address(this), "");
         vm.expectRevert(
             abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
         );
-        tokenContract.mint(address(this), "uriTwo", address(1), 10);
+        tokenContract.mint(address(this), "", address(1), 10);
         vm.stopPrank();
 
         // revoke mint contract role and ensure that the user can't call the mint function
@@ -278,11 +283,11 @@ contract ERC721TLTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
         );
-        tokenContract.mint(address(this), "uriOne");
+        tokenContract.mint(address(this), "");
         vm.expectRevert(
             abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
         );
-        tokenContract.mint(address(this), "uriTwo", address(1), 10);
+        tokenContract.mint(address(this), "", address(1), 10);
         vm.stopPrank();
     }
 
@@ -292,6 +297,13 @@ contract ERC721TLTest is Test {
         if (tokenId > 1000) {
             tokenId = tokenId % 1000 + 1; // map to 1000
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint
         for (uint256 i = 1; i <= tokenId; i++) {
             string memory uri = string(abi.encodePacked("uri_", i.toString()));
             vm.expectEmit(true, true, true, true);
@@ -299,13 +311,13 @@ contract ERC721TLTest is Test {
             tokenContract.mint(recipient, uri);
             assertEq(tokenContract.balanceOf(recipient), i);
             assertEq(tokenContract.ownerOf(i), recipient);
-            assertEq(tokenContract.tokenURI(i), uri);
+            assertEq(tokenContract.tokenURI(i), "uri");
         }
 
         // ensure ownership throws for non-existent token
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, tokenId + 1));
         tokenContract.ownerOf(tokenId + 1);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
     }
 
@@ -323,6 +335,13 @@ contract ERC721TLTest is Test {
         if (tokenId > 1000) {
             tokenId = tokenId % 1000 + 1; // map to 1000
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint
         for (uint256 i = 1; i <= tokenId; i++) {
             string memory uri = string(abi.encodePacked("uri_", i.toString()));
             vm.expectEmit(true, true, true, false);
@@ -330,7 +349,7 @@ contract ERC721TLTest is Test {
             tokenContract.mint(recipient, uri, royaltyAddress, royaltyPercent);
             assertEq(tokenContract.balanceOf(recipient), i);
             assertEq(tokenContract.ownerOf(i), recipient);
-            assertEq(tokenContract.tokenURI(i), uri);
+            assertEq(tokenContract.tokenURI(i), "uri");
             (address recp, uint256 amt) = tokenContract.royaltyInfo(i, 10_000);
             assertEq(recp, royaltyAddress);
             assertEq(amt, royaltyPercent);
@@ -339,7 +358,7 @@ contract ERC721TLTest is Test {
         // ensure ownership throws for non-existent token
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, tokenId + 1));
         tokenContract.ownerOf(tokenId + 1);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
     }
 
@@ -353,9 +372,16 @@ contract ERC721TLTest is Test {
         if (tokenId > 1000) {
             tokenId = tokenId % 1000 + 1; // map to 1000
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint & transfer
         for (uint256 i = 1; i <= tokenId; i++) {
             // mint
-            tokenContract.mint(address(this), "uri");
+            tokenContract.mint(address(this), "");
             // transfer to recipient with transferFrom
             vm.expectEmit(true, true, true, true);
             emit Transfer(address(this), recipient, i);
@@ -384,19 +410,30 @@ contract ERC721TLTest is Test {
     // - safe transfer to another address ✅
     // - token uris ✅
     function test_batchMint_customErrors() public {
-        vm.expectRevert(ERC721TL.MintToZeroAddress.selector);
-        tokenContract.batchMint(address(0), 2, "uri");
-
-        vm.expectRevert(ERC721TL.EmptyTokenURI.selector);
+        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
         tokenContract.batchMint(address(this), 2, "");
 
-        vm.expectRevert(ERC721TL.BatchSizeTooSmall.selector);
-        tokenContract.batchMint(address(this), 1, "baseUri");
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        vm.expectRevert(Doppelganger.MintToZeroAddress.selector);
+        tokenContract.batchMint(address(0), 2, "");
+
+        vm.expectRevert(Doppelganger.BatchSizeTooSmall.selector);
+        tokenContract.batchMint(address(this), 1, "");
     }
 
     function test_batchMint_accessControl(address user) public {
         vm.assume(user != address(this));
         vm.assume(user != address(0));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
         // ensure user can't call the mint function
         vm.startPrank(user);
         vm.expectRevert(
@@ -421,8 +458,8 @@ contract ERC721TLTest is Test {
         assertEq(tokenContract.balanceOf(address(this)), 2);
         assertEq(tokenContract.ownerOf(1), address(this));
         assertEq(tokenContract.ownerOf(2), address(this));
-        assertEq(tokenContract.tokenURI(1), "baseUri/0");
-        assertEq(tokenContract.tokenURI(2), "baseUri/1");
+        assertEq(tokenContract.tokenURI(1), "uri");
+        assertEq(tokenContract.tokenURI(2), "uri");
 
         // revoke admin access and ensure that the user can't call the mint function
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
@@ -458,30 +495,36 @@ contract ERC721TLTest is Test {
         if (numTokens > 1000) {
             numTokens = numTokens % 1000 + 2; // map to 1000
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint
         uint256 start = tokenContract.totalSupply() + 1;
         uint256 end = start + numTokens - 1;
         for (uint256 id = start; id < end + 1; ++id) {
-            vm.expectEmit(true, true, true, false);
+            vm.expectEmit(true, true, true, true);
             emit Transfer(address(0), recipient, id);
         }
         tokenContract.batchMint(recipient, numTokens, "baseUri");
         assertEq(tokenContract.balanceOf(recipient), numTokens);
         for (uint256 i = 1; i <= numTokens; i++) {
-            string memory uri = string(abi.encodePacked("baseUri/", (i - start).toString()));
             assertEq(tokenContract.ownerOf(i), recipient);
-            assertEq(tokenContract.tokenURI(i), uri);
+            assertEq(tokenContract.tokenURI(i), "uri");
         }
 
         // ensure ownership throws for non-existent token
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, numTokens + 1));
         tokenContract.ownerOf(numTokens + 1);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(numTokens + 1);
 
         // test mint after metadata
         tokenContract.mint(address(this), "newUri");
         assertEq(tokenContract.ownerOf(numTokens + 1), address(this));
-        assertEq(tokenContract.tokenURI(numTokens + 1), "newUri");
+        assertEq(tokenContract.tokenURI(numTokens + 1), "uri");
     }
 
     function test_batchMint_thenTransfer(uint128 numTokens, address recipient, address secondRecipient) public {
@@ -494,6 +537,12 @@ contract ERC721TLTest is Test {
         if (numTokens > 1000) {
             numTokens = numTokens % 1000 + 2; // map to 1000
         }
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint and transfer
         tokenContract.batchMint(address(this), numTokens, "baseUri");
         // test transferFrom on first half of tokens
         for (uint256 i = 1; i < numTokens / 2; i++) {
@@ -544,10 +593,15 @@ contract ERC721TLTest is Test {
     function test_airdrop_customErrors() public {
         address[] memory addresses = new address[](1);
         addresses[0] = address(1);
-        vm.expectRevert(ERC721TL.EmptyTokenURI.selector);
-        tokenContract.airdrop(addresses, "");
+        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        tokenContract.airdrop(addresses, "baseUri");
 
-        vm.expectRevert(ERC721TL.AirdropTooFewAddresses.selector);
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        vm.expectRevert(Doppelganger.AirdropTooFewAddresses.selector);
         tokenContract.airdrop(addresses, "baseUri");
     }
 
@@ -557,6 +611,12 @@ contract ERC721TLTest is Test {
         address[] memory addresses = new address[](2);
         addresses[0] = address(1);
         addresses[1] = address(2);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
         // ensure user can't call the airdrop function
         vm.startPrank(user, user);
         vm.expectRevert(
@@ -580,8 +640,8 @@ contract ERC721TLTest is Test {
         assertEq(tokenContract.balanceOf(address(2)), 1);
         assertEq(tokenContract.ownerOf(1), address(1));
         assertEq(tokenContract.ownerOf(2), address(2));
-        assertEq(tokenContract.tokenURI(1), "baseUri/0");
-        assertEq(tokenContract.tokenURI(2), "baseUri/1");
+        assertEq(tokenContract.tokenURI(1), "uri");
+        assertEq(tokenContract.tokenURI(2), "uri");
 
         // revoke admin access and ensure that the user can't call the airdrop function
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
@@ -620,28 +680,34 @@ contract ERC721TLTest is Test {
         for (uint256 i = 0; i < numAddresses; i++) {
             addresses[i] = makeAddr(i.toString());
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // airdrop
         for (uint256 i = 1; i <= numAddresses; i++) {
             vm.expectEmit(true, true, true, true);
             emit Transfer(address(0), addresses[i - 1], i);
         }
         tokenContract.airdrop(addresses, "baseUri");
         for (uint256 i = 1; i <= numAddresses; i++) {
-            string memory uri = string(abi.encodePacked("baseUri/", (i - 1).toString()));
             assertEq(tokenContract.balanceOf(addresses[i - 1]), 1);
             assertEq(tokenContract.ownerOf(i), addresses[i - 1]);
-            assertEq(tokenContract.tokenURI(i), uri);
+            assertEq(tokenContract.tokenURI(i), "uri");
         }
 
         // ensure ownership throws for non-existent token
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, numAddresses + 1));
         tokenContract.ownerOf(numAddresses + 1);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(numAddresses + 1);
 
         // test mint after metadata
         tokenContract.mint(address(this), "newUri");
         assertEq(tokenContract.ownerOf(numAddresses + 1), address(this));
-        assertEq(tokenContract.tokenURI(numAddresses + 1), "newUri");
+        assertEq(tokenContract.tokenURI(numAddresses + 1), "uri");
     }
 
     function test_airdrop_thenTransfer(uint16 numAddresses, address recipient) public {
@@ -659,6 +725,13 @@ contract ERC721TLTest is Test {
                 addresses[i] = makeAddr(i.toString());
             }
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // airdrop then transfer
         tokenContract.airdrop(addresses, "baseUri");
         for (uint256 i = 1; i < numAddresses / 2; i++) {
             vm.startPrank(addresses[i - 1], addresses[i - 1]);
@@ -696,7 +769,7 @@ contract ERC721TLTest is Test {
         address[] memory minters = new address[](1);
         minters[0] = address(this);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
-        vm.expectRevert(ERC721TL.EmptyTokenURI.selector);
+        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
         tokenContract.externalMint(address(this), "");
     }
 
@@ -706,6 +779,12 @@ contract ERC721TLTest is Test {
         address[] memory addresses = new address[](2);
         addresses[0] = address(1);
         addresses[1] = address(2);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
         // ensure user can't call the airdrop function
         vm.startPrank(user, user);
         vm.expectRevert(
@@ -723,7 +802,7 @@ contract ERC721TLTest is Test {
         vm.startPrank(user, user);
         vm.expectEmit(true, true, true, false);
         emit Transfer(address(0), address(this), 1);
-        tokenContract.externalMint(address(this), "uri");
+        tokenContract.externalMint(address(this), "uri1");
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(address(this)), 1);
         assertEq(tokenContract.ownerOf(1), address(this));
@@ -737,7 +816,7 @@ contract ERC721TLTest is Test {
                 OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
             )
         );
-        tokenContract.externalMint(address(this), "uri");
+        tokenContract.externalMint(address(this), "uri1");
         vm.stopPrank();
 
         // grant admin role and ensure that the user can't call the airdrop function
@@ -748,7 +827,7 @@ contract ERC721TLTest is Test {
                 OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
             )
         );
-        tokenContract.externalMint(address(this), "uri");
+        tokenContract.externalMint(address(this), "uri1");
         vm.stopPrank();
 
         // revoke admin role and ensure that the user can't call the airdrop function
@@ -759,7 +838,7 @@ contract ERC721TLTest is Test {
                 OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
             )
         );
-        tokenContract.externalMint(address(this), "uri");
+        tokenContract.externalMint(address(this), "uri1");
         vm.stopPrank();
     }
 
@@ -771,6 +850,13 @@ contract ERC721TLTest is Test {
         if (numTokens > 1000) {
             numTokens = numTokens % 1000 + 1;
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint
         address[] memory minters = new address[](1);
         minters[0] = address(1);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
@@ -782,13 +868,13 @@ contract ERC721TLTest is Test {
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(recipient), i);
             assertEq(tokenContract.ownerOf(i), recipient);
-            assertEq(tokenContract.tokenURI(i), uri);
+            assertEq(tokenContract.tokenURI(i), "uri");
         }
 
         // ensure ownership throws for non-existent token
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, numTokens + 1));
         tokenContract.ownerOf(numTokens + 1);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(numTokens + 1);
     }
 
@@ -808,6 +894,13 @@ contract ERC721TLTest is Test {
         if (numTokens > 1000) {
             numTokens = numTokens % 1000 + 1;
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // external mint
         address[] memory minters = new address[](1);
         minters[0] = address(1);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
@@ -854,6 +947,12 @@ contract ERC721TLTest is Test {
         n3 = n3 % 4;
         n4 = n4 % 4;
 
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint
         uint256 id = tokenContract.totalSupply();
         if (n1 == 0) {
             tokenContract.mint(address(this), "uri");
@@ -938,7 +1037,7 @@ contract ERC721TLTest is Test {
         // ensure ownership throws for non-existent token
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, id + 1));
         tokenContract.ownerOf(id + 1);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(id + 1);
     }
 
@@ -965,6 +1064,12 @@ contract ERC721TLTest is Test {
         vm.assume(collector != address(this));
         vm.assume(collector != hacker);
         vm.assume(hacker != address(0));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
         // mint spare tokens to this address
         if (tokenId > 2) {
             tokenContract.batchMint(address(this), tokenId - 1, "uri");
@@ -975,12 +1080,12 @@ contract ERC721TLTest is Test {
         // mint tokenId to collector
         tokenContract.mint(collector, "uriTokenId");
         assertEq(tokenContract.balanceOf(collector), 1);
-        assertEq(tokenContract.tokenURI(tokenId), "uriTokenId");
+        assertEq(tokenContract.tokenURI(tokenId), "uri");
         assertEq(tokenContract.ownerOf(tokenId), collector);
 
         // verify hacker can't burn
         vm.startPrank(hacker, hacker);
-        vm.expectRevert(ERC721TL.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId);
         vm.stopPrank();
 
@@ -989,7 +1094,7 @@ contract ERC721TLTest is Test {
         addys[0] = hacker;
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), addys, true);
         vm.startPrank(hacker, hacker);
-        vm.expectRevert(ERC721TL.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), addys, false);
@@ -997,13 +1102,13 @@ contract ERC721TLTest is Test {
         // verify hacker with minter access can't burn
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), addys, true);
         vm.startPrank(hacker, hacker);
-        vm.expectRevert(ERC721TL.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), addys, false);
 
         // veirfy owner can't burn
-        vm.expectRevert(ERC721TL.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId);
 
         // verify collector can burn tokenId
@@ -1014,7 +1119,7 @@ contract ERC721TLTest is Test {
         vm.stopPrank();
 
         // ensure
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
@@ -1030,6 +1135,11 @@ contract ERC721TLTest is Test {
         if (tokenId > 1000) {
             tokenId = tokenId % 1000 + 1;
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
 
         // mint spare tokens to this address
         if (tokenId > 2) {
@@ -1051,14 +1161,14 @@ contract ERC721TLTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 2);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
 
         // verify operator can't burn
         vm.startPrank(operator, operator);
-        vm.expectRevert(ERC721TL.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
 
@@ -1074,7 +1184,7 @@ contract ERC721TLTest is Test {
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 1);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 1);
@@ -1091,7 +1201,7 @@ contract ERC721TLTest is Test {
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 0);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 2);
@@ -1105,6 +1215,12 @@ contract ERC721TLTest is Test {
         if (batchSize > 300) {
             batchSize = batchSize % 299 + 2;
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
         // batch mint to collector
         tokenContract.batchMint(collector, batchSize, "baseUri");
         // verify collector can burn the batch
@@ -1115,7 +1231,7 @@ contract ERC721TLTest is Test {
             tokenContract.burn(i);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(collector), batchSize - i);
-            vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
             vm.expectRevert();
             tokenContract.ownerOf(i);
@@ -1127,7 +1243,7 @@ contract ERC721TLTest is Test {
         // verify that operator can't burn
         for (uint256 i = batchSize + 1; i <= 2 * batchSize; i++) {
             vm.startPrank(operator, operator);
-            vm.expectRevert(ERC721TL.CallerNotApprovedOrOwner.selector);
+            vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
             tokenContract.burn(i);
             vm.stopPrank();
         }
@@ -1143,7 +1259,7 @@ contract ERC721TLTest is Test {
             tokenContract.burn(i);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(collector), 2 * batchSize - i);
-            vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
             vm.expectRevert();
             tokenContract.ownerOf(i);
@@ -1163,7 +1279,7 @@ contract ERC721TLTest is Test {
             tokenContract.burn(i);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(collector), 3 * batchSize - i);
-            vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
             vm.expectRevert();
             tokenContract.ownerOf(i);
@@ -1175,6 +1291,12 @@ contract ERC721TLTest is Test {
         if (numAddresses > 300) {
             numAddresses = numAddresses % 299 + 2; // map to 300
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
         address[] memory addresses = new address[](numAddresses);
         for (uint256 i = 0; i < numAddresses; i++) {
             if (makeAddr(i.toString()) == operator) {
@@ -1199,7 +1321,7 @@ contract ERC721TLTest is Test {
             tokenContract.burn(id);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
-            vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
             vm.expectRevert();
             tokenContract.ownerOf(id);
@@ -1214,7 +1336,7 @@ contract ERC721TLTest is Test {
         for (uint256 i = 0; i < limit; i++) {
             uint256 id = i + offset;
             vm.startPrank(operator, operator);
-            vm.expectRevert(ERC721TL.CallerNotApprovedOrOwner.selector);
+            vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
             tokenContract.burn(id);
             vm.stopPrank();
         }
@@ -1231,7 +1353,7 @@ contract ERC721TLTest is Test {
             tokenContract.burn(id);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
-            vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
             vm.expectRevert();
             tokenContract.ownerOf(id);
@@ -1254,7 +1376,7 @@ contract ERC721TLTest is Test {
             tokenContract.burn(id);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
-            vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
             vm.expectRevert();
             tokenContract.ownerOf(id);
@@ -1270,6 +1392,11 @@ contract ERC721TLTest is Test {
         if (tokenId > 1000) {
             tokenId = tokenId % 1000 + 1;
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
 
         // mint spare tokens to this address
         if (tokenId > 2) {
@@ -1296,14 +1423,14 @@ contract ERC721TLTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 2);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
 
         // verify operator can't burn
         vm.startPrank(operator, operator);
-        vm.expectRevert(ERC721TL.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
 
@@ -1319,7 +1446,7 @@ contract ERC721TLTest is Test {
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 1);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 1);
@@ -1336,7 +1463,7 @@ contract ERC721TLTest is Test {
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 0);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 2);
@@ -1351,6 +1478,11 @@ contract ERC721TLTest is Test {
         if (tokenId > 1000) {
             tokenId = tokenId % 1000 + 1;
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
 
         // mint spare tokens to this address
         if (tokenId > 2) {
@@ -1377,14 +1509,14 @@ contract ERC721TLTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 2);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
 
         // verify operator can't burn
         vm.startPrank(operator, operator);
-        vm.expectRevert(ERC721TL.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
 
@@ -1398,7 +1530,7 @@ contract ERC721TLTest is Test {
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 1);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 1);
@@ -1413,7 +1545,7 @@ contract ERC721TLTest is Test {
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 0);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 2);
@@ -1430,6 +1562,11 @@ contract ERC721TLTest is Test {
         if (tokenId > 1000) {
             tokenId = tokenId % 1000 + 1;
         }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
 
         // mint spare tokens to this address
         if (tokenId > 2) {
@@ -1456,14 +1593,14 @@ contract ERC721TLTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 2);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
 
         // verify operator can't burn
         vm.startPrank(operator, operator);
-        vm.expectRevert(ERC721TL.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
 
@@ -1477,7 +1614,7 @@ contract ERC721TLTest is Test {
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 1);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 1);
@@ -1492,7 +1629,7 @@ contract ERC721TLTest is Test {
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 0);
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 2);
@@ -1590,649 +1727,681 @@ contract ERC721TLTest is Test {
         assertEq(amt, 0);
     }
 
-    /// @notice test synergy functions
-    // - access control ✅
-    // - regular mint ✅
-    // - batch mint ✅
-    // - airdrop ✅
-    // - external mint ✅
-    // - propose token uri as owner of token ✅
-    // - propose token uri for collector ✅
-    // - proper events ✅
-    // - accept update with proper event as token owner and delegate ✅
-    // - reject update with proper event as token owner and delegate ✅
-    function test_synergy_customErrors() public {
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
-        tokenContract.proposeNewTokenUri(1, "uri");
-        tokenContract.mint(address(this), "uri");
-        vm.expectRevert(ERC721TL.EmptyTokenURI.selector);
-        tokenContract.proposeNewTokenUri(1, "");
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.startPrank(address(1), address(1));
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.stopPrank();
-    }
-
-    function test_proposeNewTokenUri_accessControl() public {
-        tokenContract.mint(address(this), "uri");
+    /// @notice test ERC-7160 functions
+    //  - add token uris access control ✅
+    //  - add token uris errors ✅
+    //  - tokenUris errors ✅
+    //  - pinTokenUri access control ✅
+    //  - pinTokenUri errors ✅
+    //  - unpinTokenUri access control ✅
+    //  - unpinTokenUri errors ✅
+    //  - hasPinnedTokenUri errors ✅
+    //  - multi metadata with regular mint ✅
+    //  - multi metadata with batch mint ✅
+    //  - multi metadata with batch mint ultra ✅
+    //  - multi metadata with airdrop ✅
+    //  - multi metadata with external mint ✅
+    function test_addTokenUris_accessControl(address user) public {
+        vm.assume(user != address(this) && user != address(0));
         address[] memory users = new address[](1);
-        users[0] = address(1);
+        users[0] = user;
 
-        // verify that user can't propose
-        vm.startPrank(address(1), address(1));
-        vm.expectRevert();
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        vm.stopPrank();
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
 
-        // verify that admin can propose
+        // create new metadata
+        string[] memory uris2 = new string[](1);
+        uris2[0] = "uri2";
+
+        // mint token
+        tokenContract.mint(user, "uri1");
+
+        // verify user can't add
+        vm.prank(user);
+        vm.expectRevert(Doppelganger.NotOwnerAdminOrMintContract.selector);
+        tokenContract.addTokenUris(uris2);
+
+        // verify admin can add
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
-        vm.startPrank(address(1), address(1));
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "newUri");
-        vm.stopPrank();
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, 1);
+        tokenContract.addTokenUris(uris2);
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
 
-        // verify that minters can't propose
+        // verify minter can add
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-        vm.startPrank(address(1), address(1));
-        vm.expectRevert(
-            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
-        );
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        vm.stopPrank();
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, 1);
+        tokenContract.addTokenUris(uris2);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
 
-        // verify owner can propose
-        tokenContract.proposeNewTokenUri(1, "newUriAgain");
-        assertEq(tokenContract.tokenURI(1), "newUriAgain");
+        // verify contract owner can add
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, 1);
+        tokenContract.addTokenUris(uris2);
+
+        // check tokenUris
+        string[] memory expectedUris = new string[](4);
+        expectedUris[0] = "uri1";
+        expectedUris[1] = "uri2";
+        expectedUris[2] = "uri2";
+        expectedUris[3] = "uri2";
+
+        (uint256 index, string[] memory rUris, bool isPinned) = tokenContract.tokenURIs(1);
+        assertEq(index, 3);
+        assertFalse(isPinned);
+        assertEq(rUris.length, 4);
+        for (uint256 i = 0; i < rUris.length; i++) {
+            assertEq(keccak256(bytes(expectedUris[i])), keccak256(bytes(rUris[i])));
+        }
     }
 
-    function test_proposeNewTokenUri_creatorIsOwner() public {
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(this);
-        addresses[1] = address(this);
+    function test_addTokenUris_errors() public {
+        // token uris
+        string[] memory emptyUris = new string[](0);
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+
+        // empty token uri
+        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        tokenContract.addTokenUris(emptyUris);
+    }
+
+    function test_tokenURIs_errors() public {
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURIs(1);
+    }
+
+    function test_pinTokenURI_errors(address user) public {
+        vm.assume(user != address(this));
+
+        // token doesn't exist
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.pinTokenURI(1, 0);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint token
+        tokenContract.mint(address(this), "uri1");
+
+        // not token owner
+        vm.prank(user);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.pinTokenURI(1, 0);
+
+        // invalid token uri index
+        vm.expectRevert(Doppelganger.InvalidTokenURIIndex.selector);
+        tokenContract.pinTokenURI(1, 1);
+    }
+
+    function test_unpinTokenURI_errors(address user) public {
+        vm.assume(user != address(this));
+
+        // token doesn't exist
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.unpinTokenURI(1);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint token
+        tokenContract.mint(address(this), "uri1");
+
+        // not token owner
+        vm.prank(user);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.unpinTokenURI(1);
+    }
+
+    function test_hasPinnedTokenURI_errors() public {
+        // token doesn't exist
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.hasPinnedTokenURI(1);
+    }
+
+    function test_ERC7160_mint(uint256 numTokens, address collector) public {
+        // limit inputs
+        vm.assume(collector != address(0));
+        if (numTokens > 300) numTokens = numTokens % 300;
+        vm.assume(numTokens > 0);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint tokens
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            tokenContract.mint(collector, "hi");
+            // token uri
+            assertEq(tokenContract.tokenURI(tokenIds[i]), "uri1");
+        }
+
+        // add token uri
+        uris[0] = "uri2";
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, numTokens);
+        tokenContract.addTokenUris(uris);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, true, true);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+    }
+
+    function test_ERC7160_batchMint(uint128 numTokens, address collector) public {
+        // limit inputs
+        vm.assume(collector != address(0));
+        if (numTokens > 300) numTokens = numTokens % 300;
+        if (numTokens < 2) numTokens = 2;
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint tokens
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+        }
+        tokenContract.batchMint(collector, numTokens, "uri");
+
+        for (uint256 i = 0; i < numTokens; i++) {
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // add token uri
+        uris[0] = "uri2";
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, numTokens);
+        tokenContract.addTokenUris(uris);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, true, true);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+    }
+
+    function test_ERC7160_airdrop(uint256 numTokens) public {
+        // limit inputs
+        if (numTokens > 300) numTokens = numTokens % 300;
+        if (numTokens < 2) numTokens = 2;
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint tokens
+        address[] memory collectors = new address[](numTokens);
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            collectors[i] = makeAddr(i.toString());
+        }
+        tokenContract.airdrop(collectors, "uri");
+
+        for (uint256 i = 0; i < numTokens; i++) {
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // add token uri
+        uris[0] = "uri2";
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, numTokens);
+        tokenContract.addTokenUris(uris);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collectors[i]);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collectors[i]);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collectors[i]);
+            vm.expectEmit(true, true, true, true);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+    }
+
+    function test_ERC7160_externalMint(uint256 numTokens, address collector) public {
+        // limit inputs
+        vm.assume(collector != address(0));
+        if (numTokens > 300) numTokens = numTokens % 300;
+        vm.assume(numTokens > 0);
+
+        // add mint contract
         address[] memory users = new address[](1);
-        users[0] = address(3);
+        users[0] = address(1);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
 
-        // mint
-        tokenContract.mint(address(this), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(1);
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "newUri");
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
 
-        // batch mint
-        tokenContract.batchMint(address(this), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(2);
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "newUri2");
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(3);
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "newUri3");
+        // mint tokens
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            vm.prank(address(1));
+            tokenContract.externalMint(collector, "");
+            // token uri
+            assertEq(tokenContract.tokenURI(tokenIds[i]), "uri1");
+        }
 
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
+        // add token uri
+        uris[0] = "uri2";
         vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(4);
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "newUri4");
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(5);
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "newUri5");
+        emit BatchMetadataUpdate(1, numTokens);
+        tokenContract.addTokenUris(uris);
 
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(this), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(6);
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "newUri6");
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, true, true);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
     }
 
-    function test_proposeNewTokenUri_creatorIsNotOwner() public {
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+    function test_ERC7160_delegate(uint256 numTokens, address delegate) public {
+        // limit inputs
+        vm.assume(delegate != address(this));
+        if (numTokens > 300) numTokens = numTokens % 300;
+        vm.assume(numTokens > 0);
 
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ISynergy.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
+        // mock calls
+        vm.mockCall(
+            nftDelegationRegistry,
+            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector, delegate, address(this)),
+            abi.encode(true)
+        );
 
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ISynergy.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ISynergy.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ISynergy.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ISynergy.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ISynergy.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-    }
-
-    function test_acceptTokenUriUpdate_tokenOwner() public {
-        // set variables
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // ensure not token owner can't accept
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
-        vm.prank(address(4));
-        tokenContract.acceptTokenUriUpdate(1);
-
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ISynergy.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(1);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 1, ISynergy.SynergyAction.Accepted, "newUri");
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(1), "newUri");
-
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ISynergy.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(2);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 2, ISynergy.SynergyAction.Accepted, "newUri2");
-        tokenContract.acceptTokenUriUpdate(2);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(2);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(2), "newUri2");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ISynergy.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(3);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 3, ISynergy.SynergyAction.Accepted, "newUri3");
-        tokenContract.acceptTokenUriUpdate(3);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(3);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(3), "newUri3");
-
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ISynergy.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(4);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 4, ISynergy.SynergyAction.Accepted, "newUri4");
-        tokenContract.acceptTokenUriUpdate(4);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(4);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(4), "newUri4");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ISynergy.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-        vm.startPrank(address(2), address(2));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(5);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(2), 5, ISynergy.SynergyAction.Accepted, "newUri5");
-        tokenContract.acceptTokenUriUpdate(5);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(5);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(5), "newUri5");
-
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ISynergy.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(6);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 6, ISynergy.SynergyAction.Accepted, "newUri6");
-        tokenContract.acceptTokenUriUpdate(6);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(6);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(6), "newUri6");
-    }
-
-    function test_acceptTokenUriUpdate_delegate() public {
-        // set delegate registry
+        // change delegation registry
         tokenContract.setNftDelegationRegistry(nftDelegationRegistry);
 
-        // reverts for EOA
-        vm.expectRevert();
-        vm.prank(address(4));
-        tokenContract.acceptTokenUriUpdate(1);
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
 
-        // set mocks
+        // mint tokens
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            tokenContract.mint(address(this), "hi");
+            // token uri
+            assertEq(tokenContract.tokenURI(tokenIds[i]), "uri1");
+        }
+
+        // add token uri
+        uris[0] = "uri2";
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, numTokens);
+        tokenContract.addTokenUris(uris);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(delegate);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(delegate);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(delegate);
+            vm.expectEmit(true, true, true, true);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // remove delegate and try to pin/unpin
         vm.mockCall(
             nftDelegationRegistry,
-            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector),
+            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector, delegate, address(this)),
             abi.encode(false)
         );
-        vm.mockCall(
-            nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector, address(0), address(1), address(tokenContract)
-            ),
-            abi.encode(true)
-        );
-        vm.mockCall(
-            nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector, address(0), address(2), address(tokenContract)
-            ),
-            abi.encode(true)
-        );
-
-        // set variables
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // ensure not delegate or token owner can't accept
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
-        vm.prank(address(4));
-        tokenContract.acceptTokenUriUpdate(1);
-
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ISynergy.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(1);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 1, ISynergy.SynergyAction.Accepted, "newUri");
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(1);
+        vm.startPrank(delegate);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.pinTokenURI(1, 0);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.unpinTokenURI(1);
         vm.stopPrank();
-        assertEq(tokenContract.tokenURI(1), "newUri");
-
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ISynergy.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(2);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 2, ISynergy.SynergyAction.Accepted, "newUri2");
-        tokenContract.acceptTokenUriUpdate(2);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(2);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(2), "newUri2");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ISynergy.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(3);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 3, ISynergy.SynergyAction.Accepted, "newUri3");
-        tokenContract.acceptTokenUriUpdate(3);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(3);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(3), "newUri3");
-
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ISynergy.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(4);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 4, ISynergy.SynergyAction.Accepted, "newUri4");
-        tokenContract.acceptTokenUriUpdate(4);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(4);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(4), "newUri4");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ISynergy.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(5);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 5, ISynergy.SynergyAction.Accepted, "newUri5");
-        tokenContract.acceptTokenUriUpdate(5);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(5);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(5), "newUri5");
-
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ISynergy.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(6);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 6, ISynergy.SynergyAction.Accepted, "newUri6");
-        tokenContract.acceptTokenUriUpdate(6);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(6);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(6), "newUri6");
-
-        // clear mocked calls
-        vm.clearMockedCalls();
-    }
-
-    function test_rejectTokenUriUpdate_tokenOwner() public {
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // ensure not delegate or token owner can't accept
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
-        vm.prank(address(4));
-        tokenContract.rejectTokenUriUpdate(1);
-
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ISynergy.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 1, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(1), "uri");
-
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ISynergy.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 2, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(2);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(2);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ISynergy.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 3, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(3);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(3);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ISynergy.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 4, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(4);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(4);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ISynergy.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-        vm.startPrank(address(2), address(2));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(2), 5, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(5);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(5);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ISynergy.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 6, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(6);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(6);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(6), "uri");
-    }
-
-    function test_rejectTokenUriUpdate_delegate() public {
-        // set delegate registry
-        tokenContract.setNftDelegationRegistry(nftDelegationRegistry);
-
-        // reverts for EOA
-        vm.expectRevert();
-        vm.prank(address(4));
-        tokenContract.rejectTokenUriUpdate(1);
-
-        // set mocks
-        vm.mockCall(
-            nftDelegationRegistry,
-            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector),
-            abi.encode(false)
-        );
-        vm.mockCall(
-            nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector, address(0), address(1), address(tokenContract)
-            ),
-            abi.encode(true)
-        );
-        vm.mockCall(
-            nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector, address(0), address(2), address(tokenContract)
-            ),
-            abi.encode(true)
-        );
-
-        // set variables
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // ensure not delegate or token owner can't accept
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
-        vm.prank(address(4));
-        tokenContract.rejectTokenUriUpdate(1);
-
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ISynergy.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 1, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(1), "uri");
-
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ISynergy.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 2, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(2);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(2);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ISynergy.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 3, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(3);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(3);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ISynergy.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 4, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(4);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(4);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ISynergy.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 5, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(5);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(5);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ISynergy.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 6, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(6);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(6);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(6), "uri");
 
         // clear mocked calls
         vm.clearMockedCalls();
@@ -2244,15 +2413,20 @@ contract ERC721TLTest is Test {
     // - batch mint ✅
     // - airdrop ✅
     // - external mint ✅
-    // - write collection story w/ proper acccess ✅
+    // - write collection story w/ proper acccess
     // - write creator story to existing token w/ proper acccess ✅
-    // - write collector story to existing token w/ proper access ✅
+    // - write collector story to existing token w/ proper access
     // - write creator story to non-existent token (reverts) ✅
-    // - write collector story to non-existent token (reverts) ✅
+    // - write collector story to non-existent token (reverts)
     function test_story_accessControl(address user) public {
         vm.assume(user != address(this));
         address[] memory users = new address[](1);
         users[0] = user;
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
 
         tokenContract.mint(address(this), "uri");
 
@@ -2341,15 +2515,22 @@ contract ERC721TLTest is Test {
     }
 
     function test_story_nonExistentTokens() public {
-        vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
     }
 
     function test_story_mint(address collector) public {
         vm.assume(collector != address(0));
         vm.assume(collector != address(this));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint
         tokenContract.mint(collector, "uri");
 
         // test creator story
@@ -2371,13 +2552,20 @@ contract ERC721TLTest is Test {
         vm.stopPrank();
 
         // test that owner can't add collector story
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
     }
 
     function test_story_batchMint(address collector) public {
         vm.assume(collector != address(0));
         vm.assume(collector != address(this));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint
         tokenContract.batchMint(collector, 2, "uri");
 
         // test creator story
@@ -2409,9 +2597,9 @@ contract ERC721TLTest is Test {
         vm.stopPrank();
 
         // test that owner can't add collector story
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(2, "NOT XCOPY", "I AM NOT XCOPY");
     }
 
@@ -2421,6 +2609,13 @@ contract ERC721TLTest is Test {
         address[] memory addresses = new address[](2);
         addresses[0] = collector;
         addresses[1] = collector;
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // airdrop
         tokenContract.airdrop(addresses, "uri");
 
         // test creator story
@@ -2452,9 +2647,9 @@ contract ERC721TLTest is Test {
         vm.stopPrank();
 
         // test that owner can't add collector story
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(2, "NOT XCOPY", "I AM NOT XCOPY");
     }
 
@@ -2465,6 +2660,13 @@ contract ERC721TLTest is Test {
         address[] memory users = new address[](1);
         users[0] = address(1);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint
         vm.startPrank(address(1), address(1));
         tokenContract.externalMint(collector, "uri");
         vm.stopPrank();
@@ -2488,13 +2690,19 @@ contract ERC721TLTest is Test {
         vm.stopPrank();
 
         // test that owner can't add collector story
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
     }
 
     function test_addStory_delegate(address delegate) public {
         // limit fuzz and mint
         vm.assume(delegate != address(this));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
         tokenContract.mint(address(this), "uri");
 
         // set delegation registry
@@ -2542,6 +2750,12 @@ contract ERC721TLTest is Test {
     function test_story_disabled(address collector) public {
         vm.assume(collector != address(0));
         vm.assume(collector != address(this));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
         tokenContract.mint(collector, "uri");
 
         // disable story
@@ -2560,12 +2774,12 @@ contract ERC721TLTest is Test {
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
         // test collector story reverts
-        vm.expectRevert(ERC721TL.StoryNotEnabled.selector);
+        vm.expectRevert(Doppelganger.StoryNotEnabled.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
         vm.stopPrank();
 
         // test that owner can't add collector story
-        vm.expectRevert(ERC721TL.StoryNotEnabled.selector);
+        vm.expectRevert(Doppelganger.StoryNotEnabled.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
     }
 
@@ -2575,7 +2789,7 @@ contract ERC721TLTest is Test {
     // - airdrop ✅
     // - external mint ✅
     // - test blocked ✅
-    // - test not blocked ✅
+    // - test not blocked
     // - test access control for changing the registry ✅
     function test_setBlockListRegistry_accessControl(address user) public {
         vm.assume(user != address(this));
@@ -2621,6 +2835,11 @@ contract ERC721TLTest is Test {
         // update blocklist registry to EOA
         tokenContract.setBlockListRegistry(blocklistRegistry);
 
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
         // mint
         tokenContract.mint(address(this), "uri");
 
@@ -2648,12 +2867,17 @@ contract ERC721TLTest is Test {
         // update blocklist registry
         tokenContract.setBlockListRegistry(blocklistRegistry);
 
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
         // mint and verify blocked operator
         tokenContract.mint(collector, "uri");
         vm.startPrank(collector, collector);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
         tokenContract.approve(operator, 1);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
         tokenContract.setApprovalForAll(operator, true);
         vm.stopPrank();
 
@@ -2686,14 +2910,19 @@ contract ERC721TLTest is Test {
         // update blocklist registry
         tokenContract.setBlockListRegistry(blocklistRegistry);
 
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
         // mint and verify blocked operator
         tokenContract.batchMint(collector, 2, "uri");
         vm.startPrank(collector, collector);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
         tokenContract.approve(operator, 1);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
         tokenContract.approve(operator, 2);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
         tokenContract.setApprovalForAll(operator, true);
         vm.stopPrank();
 
@@ -2733,14 +2962,19 @@ contract ERC721TLTest is Test {
         // update blocklist registry
         tokenContract.setBlockListRegistry(blocklistRegistry);
 
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
         // mint and verify blocked operator
         tokenContract.airdrop(addresses, "uri");
         vm.startPrank(collector, collector);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
         tokenContract.approve(operator, 1);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
         tokenContract.approve(operator, 2);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
         tokenContract.setApprovalForAll(operator, true);
         vm.stopPrank();
 
@@ -2781,14 +3015,19 @@ contract ERC721TLTest is Test {
         // update blocklist registry
         tokenContract.setBlockListRegistry(blocklistRegistry);
 
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
         // mint and verify blocked operator
         vm.startPrank(address(1), address(1));
         tokenContract.externalMint(collector, "uri");
         vm.stopPrank();
         vm.startPrank(collector, collector);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
         tokenContract.approve(operator, 1);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
         tokenContract.setApprovalForAll(operator, true);
         vm.stopPrank();
 
@@ -2854,6 +3093,11 @@ contract ERC721TLTest is Test {
         // set delegation registry to eoa
         tokenContract.setNftDelegationRegistry(nftDelegationRegistry);
 
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
         // mint
         tokenContract.mint(address(1), "uri");
 
@@ -2865,19 +3109,17 @@ contract ERC721TLTest is Test {
         vm.prank(address(1));
         tokenContract.addStory(1, "", "story");
 
-        // synergy reverts open for delegate but deterministic for collector
+        // pin and unpin metadata reverts for delegate but not collector
         vm.expectRevert();
         vm.prank(address(2));
-        tokenContract.acceptTokenUriUpdate(1);
+        tokenContract.pinTokenURI(1, 0);
         vm.expectRevert();
         vm.prank(address(2));
-        tokenContract.rejectTokenUriUpdate(1);
+        tokenContract.unpinTokenURI(1);
 
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
         vm.prank(address(1));
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
+        tokenContract.pinTokenURI(1, 0);
         vm.prank(address(1));
-        tokenContract.rejectTokenUriUpdate(1);
+        tokenContract.unpinTokenURI(1);
     }
 }

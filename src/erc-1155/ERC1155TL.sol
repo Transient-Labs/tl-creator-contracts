@@ -256,7 +256,10 @@ contract ERC1155TL is
     }
 
     /// @inheritdoc ICreatorBase
-    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
 

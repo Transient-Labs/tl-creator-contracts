@@ -32,11 +32,13 @@ contract ERC1155TLTest is Test {
     event CollectionStory(address indexed creatorAddress, string creatorName, string story);
     event CreatorStory(uint256 indexed tokenId, address indexed creatorAddress, string creatorName, string story);
     event Story(uint256 indexed tokenId, address indexed collectorAddress, string collectorName, string story);
-    
+
     function setUp() public {
         address[] memory admins = new address[](0);
         tokenContract = new ERC1155TL(false);
-        tokenContract.initialize("Test1155", "TEST", "", royaltyRecipient, 1000, address(this), admins, true, address(0));
+        tokenContract.initialize(
+            "Test1155", "TEST", "", royaltyRecipient, 1000, address(this), admins, true, address(0)
+        );
     }
 
     /// @notice initialization Tests
@@ -97,7 +99,7 @@ contract ERC1155TLTest is Test {
         }
         assertEq(tokenContract.storyEnabled(), enableStory);
         assertEq(address(tokenContract.blocklistRegistry()), blockListRegistry);
-        
+
         // can't initialize again
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         tokenContract.initialize(
@@ -153,7 +155,9 @@ contract ERC1155TLTest is Test {
 
         // verify rando can't access
         vm.startPrank(hacker);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setApprovedMintContracts(minters, true);
         vm.stopPrank();
 
@@ -212,25 +216,33 @@ contract ERC1155TLTest is Test {
         amounts[0] = 1;
         address[] memory users = new address[](1);
         users[0] = user;
-        
+
         // verify user can't access
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.createToken("uri", collectors, amounts);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.createToken("uri", collectors, amounts, address(1), 10);
         vm.stopPrank();
-        
+
         // verify minter can't access
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.createToken("uri", collectors, amounts);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.createToken("uri", collectors, amounts, address(1), 10);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
-        
+
         // verify admin can access
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
         vm.startPrank(user, user);
@@ -246,7 +258,7 @@ contract ERC1155TLTest is Test {
         assertEq(tokenContract.getTokenDetails(2).uri, "uri2");
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
-        
+
         // verify owner can access
         vm.expectEmit(true, true, true, true);
         emit TransferSingle(address(this), address(0), collectors[0], 3, amounts[0]);
@@ -463,17 +475,25 @@ contract ERC1155TLTest is Test {
         users[0] = user;
         // verify user can't access
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.batchCreateToken(strings, collectors, amounts);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.batchCreateToken(strings, collectors, amounts, royaltyRecipients, royaltyAmounts);
         vm.stopPrank();
         // verify minter can't access
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.batchCreateToken(strings, collectors, amounts);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.batchCreateToken(strings, collectors, amounts, royaltyRecipients, royaltyAmounts);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
@@ -660,13 +680,17 @@ contract ERC1155TLTest is Test {
         tokenContract.createToken("uri", collectors, amounts);
         // verify user can't access
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.mintToken(1, collectors, amounts);
         vm.stopPrank();
         // verify minter can't access
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.mintToken(1, collectors, amounts);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
@@ -768,13 +792,21 @@ contract ERC1155TLTest is Test {
         tokenContract.createToken("uri", collectors, amounts);
         // verify user can't access
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
+            )
+        );
         tokenContract.externalMint(1, collectors, amounts);
         vm.stopPrank();
         // verify admin can't access
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
+            )
+        );
         tokenContract.externalMint(1, collectors, amounts);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
@@ -787,7 +819,11 @@ contract ERC1155TLTest is Test {
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
         // verify owner can't access
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
+            )
+        );
         tokenContract.externalMint(1, collectors, amounts);
     }
 
@@ -885,18 +921,18 @@ contract ERC1155TLTest is Test {
         tokenContract.burn(address(1), tokens, amts);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
-        
+
         // verify owner can't burn
         vm.expectRevert(ERC1155TL.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(address(1), tokens, amts);
-       
+
         // verify collector can burn
         vm.startPrank(address(1), address(1));
         vm.expectEmit(true, true, true, true);
         emit TransferSingle(address(1), address(1), address(0), tokens[0], amts[0]);
         tokenContract.burn(address(1), tokens, amts);
         vm.stopPrank();
-        
+
         // verify approved operator can burn
         vm.startPrank(address(1), address(1));
         tokenContract.setApprovalForAll(user, true);
@@ -923,7 +959,9 @@ contract ERC1155TLTest is Test {
 
         // verify that user can't set royalty
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setDefaultRoyalty(newRecipient, newPercentage);
         vm.stopPrank();
 
@@ -940,7 +978,9 @@ contract ERC1155TLTest is Test {
         // verify that minters can't set royalty
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setDefaultRoyalty(newRecipient, newPercentage);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
@@ -963,7 +1003,9 @@ contract ERC1155TLTest is Test {
 
         // verify that user can't set royalty
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setTokenRoyalty(tokenId, newRecipient, newPercentage);
         vm.stopPrank();
 
@@ -980,7 +1022,9 @@ contract ERC1155TLTest is Test {
         // verify that minters can't set royalty
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setTokenRoyalty(tokenId, newRecipient, newPercentage);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
@@ -1026,14 +1070,18 @@ contract ERC1155TLTest is Test {
 
         // verify user can't access
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setTokenUri(1, "newUri");
         vm.stopPrank();
 
         // verify minter can't access
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setTokenUri(1, "newUri");
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
@@ -1075,11 +1123,17 @@ contract ERC1155TLTest is Test {
 
         // verify user can't enable/disable and can't add collection and creator stories
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setStoryStatus(false);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCollectionStory("", "my story!");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "", "my story!");
         vm.stopPrank();
 
@@ -1106,11 +1160,17 @@ contract ERC1155TLTest is Test {
         // verify minter can't enable/disable and can't add collection and creator stories
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setStoryStatus(false);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCollectionStory("", "my story!");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "", "my story!");
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
@@ -1176,7 +1236,11 @@ contract ERC1155TLTest is Test {
         // test collectors can't add creator story
         for (uint256 i = 0; i < numAddresses; i++) {
             vm.startPrank(recipients[i], recipients[i]);
-            vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()
+                )
+            );
             tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
             vm.stopPrank();
         }
@@ -1215,7 +1279,9 @@ contract ERC1155TLTest is Test {
 
         // test collector can't add creator story
         vm.startPrank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
         // test collector story reverts
@@ -1239,7 +1305,9 @@ contract ERC1155TLTest is Test {
 
         // verify user can't access
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setBlockListRegistry(address(1));
         vm.stopPrank();
 
@@ -1256,7 +1324,9 @@ contract ERC1155TLTest is Test {
         // verify minter can't access
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setBlockListRegistry(address(1));
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
@@ -1304,11 +1374,7 @@ contract ERC1155TLTest is Test {
 
         // mock call
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(true)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
         );
 
         // update blocklist registry
@@ -1327,11 +1393,7 @@ contract ERC1155TLTest is Test {
 
         // unblock operator and test approvals
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(false)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
         );
         for (uint256 i = 0; i < numAddresses; i++) {
             vm.startPrank(recipients[i], recipients[i]);
@@ -1371,11 +1433,7 @@ contract ERC1155TLTest is Test {
 
         // mock call
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(true)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
         );
 
         // update blocklist registry
@@ -1396,11 +1454,7 @@ contract ERC1155TLTest is Test {
 
         // unblock operator and test approvals
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(false)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
         );
         for (uint256 i = 0; i < numTokens; i++) {
             for (uint256 j = 0; j < numAddresses; j++) {
@@ -1423,5 +1477,4 @@ contract ERC1155TLTest is Test {
 
         assertEq(address(tokenContract.tlNftDelegationRegistry()), address(0));
     }
-
 }

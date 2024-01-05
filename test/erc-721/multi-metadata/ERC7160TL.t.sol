@@ -39,7 +39,9 @@ contract ERC7160TLTest is Test {
     function setUp() public {
         address[] memory admins = new address[](0);
         tokenContract = new ERC7160TL(false);
-        tokenContract.initialize("Test7160", "T7160", "", royaltyRecipient, 1000, address(this), admins, true, address(0), address(0));
+        tokenContract.initialize(
+            "Test7160", "T7160", "", royaltyRecipient, 1000, address(this), admins, true, address(0), address(0)
+        );
     }
 
     /// @notice initialization Tests
@@ -142,7 +144,7 @@ contract ERC7160TLTest is Test {
     /// @notice test ERC-165 support
     function test_supportsInterface() public {
         assertTrue(tokenContract.supportsInterface(0x1c8e024d)); // ICreatorBase
-        assertTrue(tokenContract.supportsInterface(0xc74089ae)); // IERC7160TL
+        assertTrue(tokenContract.supportsInterface(0xc74089ae)); // IERC721TL
         assertTrue(tokenContract.supportsInterface(0x06e1bc5b)); // IERC7160
         assertTrue(tokenContract.supportsInterface(0x2464f17b)); // IStory
         assertTrue(tokenContract.supportsInterface(0x0d23ecb9)); // IStory (old)
@@ -165,7 +167,9 @@ contract ERC7160TLTest is Test {
 
         // verify rando can't access
         vm.startPrank(hacker);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setApprovedMintContracts(minters, true);
         vm.stopPrank();
 
@@ -213,9 +217,13 @@ contract ERC7160TLTest is Test {
 
         // ensure user can't call the mint function
         vm.startPrank(user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.mint(address(this), "uriOne");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.mint(address(this), "uriOne", address(1), 10);
         vm.stopPrank();
 
@@ -240,27 +248,39 @@ contract ERC7160TLTest is Test {
         // revoke admin access and ensure that the user can't call the mint function
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
         vm.startPrank(user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.mint(address(this), "uriOne");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.mint(address(this), "uriTwo", address(1), 10);
         vm.stopPrank();
 
         // grant mint contract role and ensure that the user can't call the mint function
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, true);
         vm.startPrank(user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.mint(address(this), "uriOne");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.mint(address(this), "uriTwo", address(1), 10);
         vm.stopPrank();
 
         // revoke mint contract role and ensure that the user can't call the mint function
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, false);
         vm.startPrank(user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.mint(address(this), "uriOne");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.mint(address(this), "uriTwo", address(1), 10);
         vm.stopPrank();
     }
@@ -288,9 +308,12 @@ contract ERC7160TLTest is Test {
         tokenContract.tokenURI(tokenId + 1);
     }
 
-    function test_mint_withTokenRoyalty(uint16 tokenId, address recipient, address royaltyAddress, uint16 royaltyPercent)
-        public
-    {
+    function test_mint_withTokenRoyalty(
+        uint16 tokenId,
+        address recipient,
+        address royaltyAddress,
+        uint16 royaltyPercent
+    ) public {
         vm.assume(tokenId != 0);
         vm.assume(recipient != address(0));
         vm.assume(royaltyAddress != royaltyRecipient);
@@ -375,7 +398,9 @@ contract ERC7160TLTest is Test {
         vm.assume(user != address(0));
         // ensure user can't call the mint function
         vm.startPrank(user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.batchMint(address(this), 2, "baseUri");
         vm.stopPrank();
 
@@ -401,21 +426,27 @@ contract ERC7160TLTest is Test {
         // revoke admin access and ensure that the user can't call the mint function
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.batchMint(address(this), 2, "baseUri");
         vm.stopPrank();
 
         // grant mint contract role and ensure that the user can't call the mint function
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.batchMint(address(this), 2, "baseUri");
         vm.stopPrank();
 
         // revoke mint contract role and ensure that the user can't call the mint function
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, false);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.batchMint(address(this), 2, "baseUri");
         vm.stopPrank();
     }
@@ -527,7 +558,9 @@ contract ERC7160TLTest is Test {
         addresses[1] = address(2);
         // ensure user can't call the airdrop function
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.airdrop(addresses, "baseUri");
         vm.stopPrank();
 
@@ -552,21 +585,27 @@ contract ERC7160TLTest is Test {
         // revoke admin access and ensure that the user can't call the airdrop function
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.airdrop(addresses, "baseUri");
         vm.stopPrank();
 
         // grant mint contract role and ensure that the user can't call the airdrop function
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.airdrop(addresses, "baseUri");
         vm.stopPrank();
 
         // revoke mint contract role and ensure that the user can't call the airdrop function
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, false);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.airdrop(addresses, "baseUri");
         vm.stopPrank();
     }
@@ -668,7 +707,11 @@ contract ERC7160TLTest is Test {
         addresses[1] = address(2);
         // ensure user can't call the airdrop function
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
+            )
+        );
         tokenContract.externalMint(address(this), "uri");
         vm.stopPrank();
 
@@ -688,21 +731,33 @@ contract ERC7160TLTest is Test {
         // revoke mint access and ensure that the user can't call the airdrop function
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, false);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
+            )
+        );
         tokenContract.externalMint(address(this), "uri");
         vm.stopPrank();
 
         // grant admin role and ensure that the user can't call the airdrop function
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), minters, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
+            )
+        );
         tokenContract.externalMint(address(this), "uri");
         vm.stopPrank();
 
         // revoke admin role and ensure that the user can't call the airdrop function
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), minters, false);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
+            )
+        );
         tokenContract.externalMint(address(this), "uri");
         vm.stopPrank();
     }
@@ -957,7 +1012,7 @@ contract ERC7160TLTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
 
-        // ensure 
+        // ensure
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
@@ -1457,7 +1512,9 @@ contract ERC7160TLTest is Test {
 
         // verify that user can't set royalty
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setDefaultRoyalty(newRecipient, newPercentage);
         vm.stopPrank();
 
@@ -1474,7 +1531,9 @@ contract ERC7160TLTest is Test {
         // verify that minters can't set royalty
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setDefaultRoyalty(newRecipient, newPercentage);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
@@ -1497,7 +1556,9 @@ contract ERC7160TLTest is Test {
 
         // verify that user can't set royalty
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setTokenRoyalty(tokenId, newRecipient, newPercentage);
         vm.stopPrank();
 
@@ -1514,7 +1575,9 @@ contract ERC7160TLTest is Test {
         // verify that minters can't set royalty
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setTokenRoyalty(tokenId, newRecipient, newPercentage);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
@@ -2093,11 +2156,7 @@ contract ERC7160TLTest is Test {
         // mock calls
         vm.mockCall(
             nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector,
-                delegate,
-                address(this)
-            ),
+            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector, delegate, address(this)),
             abi.encode(true)
         );
 
@@ -2201,11 +2260,7 @@ contract ERC7160TLTest is Test {
         // remove delegate and try to pin/unpin
         vm.mockCall(
             nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector,
-                delegate,
-                address(this)
-            ),
+            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector, delegate, address(this)),
             abi.encode(false)
         );
         vm.startPrank(delegate);
@@ -2254,9 +2309,9 @@ contract ERC7160TLTest is Test {
         assertFalse(isPinned);
         assertFalse(tokenContract.hasPinnedTokenURI(1));
         assert(keccak256(bytes(rUris[0])) == keccak256(bytes("uri")));
-        assert(keccak256(bytes(tokenContract.tokenURI(1))) == keccak256(bytes(newUris[numUris-1])));
+        assert(keccak256(bytes(tokenContract.tokenURI(1))) == keccak256(bytes(newUris[numUris - 1])));
         for (uint256 i = 1; i <= numUris; i++) {
-            assert(keccak256(bytes(rUris[i])) == keccak256(bytes(newUris[i-1])));
+            assert(keccak256(bytes(rUris[i])) == keccak256(bytes(newUris[i - 1])));
         }
 
         // pin token uri to 1
@@ -2273,7 +2328,7 @@ contract ERC7160TLTest is Test {
         assert(keccak256(bytes(rUris[0])) == keccak256(bytes("uri")));
         assert(keccak256(bytes(tokenContract.tokenURI(1))) == keccak256(bytes(newUris[0])));
         for (uint256 i = 1; i <= numUris; i++) {
-            assert(keccak256(bytes(rUris[i])) == keccak256(bytes(newUris[i-1])));
+            assert(keccak256(bytes(rUris[i])) == keccak256(bytes(newUris[i - 1])));
         }
 
         // pin token uri to 0
@@ -2290,7 +2345,7 @@ contract ERC7160TLTest is Test {
         assert(keccak256(bytes(rUris[0])) == keccak256(bytes("uri")));
         assert(keccak256(bytes(tokenContract.tokenURI(1))) == keccak256("uri"));
         for (uint256 i = 1; i <= numUris; i++) {
-            assert(keccak256(bytes(rUris[i])) == keccak256(bytes(newUris[i-1])));
+            assert(keccak256(bytes(rUris[i])) == keccak256(bytes(newUris[i - 1])));
         }
 
         // unpin token uri
@@ -2305,9 +2360,9 @@ contract ERC7160TLTest is Test {
         assertFalse(isPinned);
         assertFalse(tokenContract.hasPinnedTokenURI(1));
         assert(keccak256(bytes(rUris[0])) == keccak256(bytes("uri")));
-        assert(keccak256(bytes(tokenContract.tokenURI(1))) == keccak256(bytes(newUris[numUris-1])));
+        assert(keccak256(bytes(tokenContract.tokenURI(1))) == keccak256(bytes(newUris[numUris - 1])));
         for (uint256 i = 1; i <= numUris; i++) {
-            assert(keccak256(bytes(rUris[i])) == keccak256(bytes(newUris[i-1])));
+            assert(keccak256(bytes(rUris[i])) == keccak256(bytes(newUris[i - 1])));
         }
     }
 
@@ -2317,11 +2372,11 @@ contract ERC7160TLTest is Test {
     // - batch mint ✅
     // - airdrop ✅
     // - external mint ✅
-    // - write collection story w/ proper acccess 
+    // - write collection story w/ proper acccess
     // - write creator story to existing token w/ proper acccess ✅
-    // - write collector story to existing token w/ proper access 
+    // - write collector story to existing token w/ proper access
     // - write creator story to non-existent token (reverts) ✅
-    // - write collector story to non-existent token (reverts) 
+    // - write collector story to non-existent token (reverts)
     function test_story_accessControl(address user) public {
         vm.assume(user != address(this));
         address[] memory users = new address[](1);
@@ -2331,11 +2386,17 @@ contract ERC7160TLTest is Test {
 
         // verify user can't enable/disable and can't add collection and creator stories
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setStoryStatus(false);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCollectionStory("", "my story!");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "", "my story!");
         vm.stopPrank();
 
@@ -2362,11 +2423,17 @@ contract ERC7160TLTest is Test {
         // verify minter can't enable/disable and can't add collection and creator stories
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setStoryStatus(false);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCollectionStory("", "my story!");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "", "my story!");
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
@@ -2420,7 +2487,9 @@ contract ERC7160TLTest is Test {
 
         // test collector can't add creator story
         vm.startPrank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
         // test collector story
@@ -2449,9 +2518,13 @@ contract ERC7160TLTest is Test {
 
         // test collector can't add creator story
         vm.startPrank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(2, "XCOPY", "I AM XCOPY");
 
         // test collector story
@@ -2488,9 +2561,13 @@ contract ERC7160TLTest is Test {
 
         // test collector can't add creator story
         vm.startPrank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(2, "XCOPY", "I AM XCOPY");
 
         // test collector story
@@ -2527,7 +2604,9 @@ contract ERC7160TLTest is Test {
 
         // test collector can't add creator story
         vm.startPrank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
         // test collector story
@@ -2552,9 +2631,7 @@ contract ERC7160TLTest is Test {
         // mock calls
         vm.mockCall(
             nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector
-            ),
+            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector),
             abi.encode(false)
         );
         vm.mockCall(
@@ -2575,7 +2652,9 @@ contract ERC7160TLTest is Test {
 
         // test delegate can't add creator story
         vm.startPrank(delegate, delegate);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
         // test story
@@ -2603,7 +2682,9 @@ contract ERC7160TLTest is Test {
 
         // test collector can't add creator story
         vm.startPrank(collector, collector);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
         // test collector story reverts
@@ -2631,7 +2712,9 @@ contract ERC7160TLTest is Test {
 
         // verify user can't access
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setBlockListRegistry(address(1));
         vm.stopPrank();
 
@@ -2648,7 +2731,9 @@ contract ERC7160TLTest is Test {
         // verify minter can't access
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setBlockListRegistry(address(1));
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
@@ -2685,11 +2770,7 @@ contract ERC7160TLTest is Test {
 
         // mock call
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(true)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
         );
 
         // update blocklist registry
@@ -2706,11 +2787,7 @@ contract ERC7160TLTest is Test {
 
         // unblock operator and verify approvals
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(false)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
         );
         vm.startPrank(collector, collector);
         tokenContract.approve(operator, 1);
@@ -2731,11 +2808,7 @@ contract ERC7160TLTest is Test {
 
         // mock call
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(true)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
         );
 
         // update blocklist registry
@@ -2754,11 +2827,7 @@ contract ERC7160TLTest is Test {
 
         // unblock operator and verify approvals
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(false)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
         );
         vm.startPrank(collector, collector);
         tokenContract.approve(operator, 1);
@@ -2786,11 +2855,7 @@ contract ERC7160TLTest is Test {
 
         // mock call
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(true)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
         );
 
         // update blocklist registry
@@ -2809,11 +2874,7 @@ contract ERC7160TLTest is Test {
 
         // unblock operator and verify approvals
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(false)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
         );
         vm.startPrank(collector, collector);
         tokenContract.approve(operator, 1);
@@ -2839,14 +2900,10 @@ contract ERC7160TLTest is Test {
         address[] memory users = new address[](1);
         users[0] = address(1);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-        
+
         // mock call
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(true)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
         );
 
         // update blocklist registry
@@ -2865,11 +2922,7 @@ contract ERC7160TLTest is Test {
 
         // unblock operator and verify approvals
         vm.mockCall(
-            blocklistRegistry,
-            abi.encodeWithSelector(
-                IBlockListRegistry.getBlockListStatus.selector
-            ),
-            abi.encode(false)
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
         );
         vm.startPrank(collector, collector);
         tokenContract.approve(operator, 1);
@@ -2883,7 +2936,7 @@ contract ERC7160TLTest is Test {
     }
 
     /// @notice test TL Nft Delegation Registry functions
-    // - test access control for changing the registry 
+    // - test access control for changing the registry
 
     function test_setNftDelegationRegistry_accessControl(address user) public {
         vm.assume(user != address(this));
@@ -2892,7 +2945,9 @@ contract ERC7160TLTest is Test {
 
         // verify user can't access
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setNftDelegationRegistry(address(1));
         vm.stopPrank();
 
@@ -2909,7 +2964,9 @@ contract ERC7160TLTest is Test {
         // verify minter can't access
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
         vm.startPrank(user, user);
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         tokenContract.setNftDelegationRegistry(address(1));
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);

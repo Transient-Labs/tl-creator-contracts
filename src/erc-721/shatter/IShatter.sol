@@ -5,7 +5,7 @@ pragma solidity ^0.8.20;
 /// @notice interface defining the Shatter standard
 /// Interface id = 0xf2528cbb
 /// @author transientlabs.xyz
-/// @custom:version 2.4.0
+/// @custom:version 3.0.0
 interface IShatter {
     /*//////////////////////////////////////////////////////////////////////////
                                       Events
@@ -26,8 +26,7 @@ interface IShatter {
     /// @param min The minimum number of shatters
     /// @param max The maximum number of shatters
     /// @param time Time after which shatter can occur
-    function mint(address recipient, string memory uri, uint128 min, uint128 max, uint256 time)
-        external;
+    function mint(address recipient, string memory uri, uint128 min, uint128 max, uint256 time) external;
 
     /// @notice function to shatter the 1/1 token
     /// @dev care should be taken to ensure that the following conditions are met

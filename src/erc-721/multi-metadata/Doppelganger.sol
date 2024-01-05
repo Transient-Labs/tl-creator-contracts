@@ -13,12 +13,12 @@ import {IERC7160} from "src/interfaces/IERC7160.sol";
 import {IStory} from "src/interfaces/IStory.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 
-/// @title ERC7160TL.sol
-/// @notice Sovereign ERC-7160 Creator Contract with Story Inscriptions
+/// @title Doppelganger.sol
+/// @notice Sovereign ERC-7160 Editions (Doppelganger) Creator Contract with Story Inscriptions
 /// @dev When unpinned, the latest metadata added for a token is returned from `tokenURI` and `tokenURIs`
 /// @author transientlabs.xyz
 /// @custom:version 3.0.0
-contract ERC7160TL is
+contract Doppelganger is
     ERC721Upgradeable,
     EIP2981TLUpgradeable,
     OwnableAccessControlUpgradeable,
@@ -37,20 +37,12 @@ contract ERC7160TL is
         address creator;
         uint256 fromTokenId;
         uint256 toTokenId;
-        string baseUri;
     }
 
-    /// @dev Struct for specifying base uri index and folder index
-    struct MetadataLoc {
-        uint128 baseUriIndex;
-        uint128 folderIndex;
-    }
-
-    /// @dev Struct for holding additional metadata used in ERC-7160
+    /// @dev Struct for holding values used in ERC-7160
     struct MultiMetadata {
         bool pinned;
         uint256 index;
-        MetadataLoc[] metadataLocs;
     }
 
     /// @dev String representation of uint256
@@ -70,18 +62,17 @@ contract ERC7160TL is
     bool public storyEnabled;
     ITLNftDelegationRegistry public tlNftDelegationRegistry;
     IBlockListRegistry public blocklistRegistry;
-    mapping(uint256 => bool) private _burned; // flag to see if a token is burned or not -- needed for burning batch mints
-    mapping(uint256 => string) private _tokenUris;
+    mapping(uint256 => bool) private _burned; // flag to see if a token is burned or not - needed for burning batch mints
     mapping(uint256 => MultiMetadata) private _multiMetadatas;
-    string[] private _multiMetadataBaseUris;
+    string[] private _tokenUris;
     BatchMint[] private _batchMints; // dynamic array for batch mints
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Custom Errors
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev Token uri is an empty string
-    error EmptyTokenURI();
+    /// @dev No token uris added yet
+    error EmptyTokenURIs();
 
     /// @dev Mint to zero address
     error MintToZeroAddress();
@@ -100,9 +91,6 @@ contract ERC7160TL is
 
     /// @dev Index given for ERC-7160 is invalid
     error InvalidTokenURIIndex();
-
-    /// @dev No tokens in tokenIds array
-    error NoTokensSpecified();
 
     /// @dev Not owner, admin, or mint contract
     error NotOwnerAdminOrMintContract();
@@ -198,37 +186,38 @@ contract ERC7160TL is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IERC721TL
-    function mint(address recipient, string calldata uri) external onlyRoleOrOwner(ADMIN_ROLE) {
-        if (bytes(uri).length == 0) revert EmptyTokenURI();
+    /// @dev cannot mint unless at least one token uri has been added to the array
+    function mint(address recipient, string calldata /*uri*/ ) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (_tokenUris.length == 0) revert EmptyTokenURIs();
         _counter++;
-        _tokenUris[_counter] = uri;
         _mint(recipient, _counter);
     }
 
     /// @inheritdoc IERC721TL
-    function mint(address recipient, string calldata uri, address royaltyAddress, uint256 royaltyPercent)
+    /// @dev cannot mint unless at least one token uri has been added to the array
+    function mint(address recipient, string calldata, /*uri*/ address royaltyAddress, uint256 royaltyPercent)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
-        if (bytes(uri).length == 0) revert EmptyTokenURI();
+        if (_tokenUris.length == 0) revert EmptyTokenURIs();
         _counter++;
-        _tokenUris[_counter] = uri;
         _overrideTokenRoyaltyInfo(_counter, royaltyAddress, royaltyPercent);
         _mint(recipient, _counter);
     }
 
     /// @inheritdoc IERC721TL
-    function batchMint(address recipient, uint128 numTokens, string calldata baseUri)
+    /// @dev cannot mint unless at least one token uri has been added to the array
+    function batchMint(address recipient, uint128 numTokens, string calldata /*baseUri*/ )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
+        if (_tokenUris.length == 0) revert EmptyTokenURIs();
         if (recipient == address(0)) revert MintToZeroAddress();
-        if (bytes(baseUri).length == 0) revert EmptyTokenURI();
         if (numTokens < 2) revert BatchSizeTooSmall();
         uint256 start = _counter + 1;
         uint256 end = start + numTokens - 1;
         _counter += numTokens;
-        _batchMints.push(BatchMint(recipient, start, end, baseUri));
+        _batchMints.push(BatchMint(recipient, start, end));
 
         _increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
 
@@ -238,24 +227,23 @@ contract ERC7160TL is
     }
 
     /// @inheritdoc IERC721TL
-    function airdrop(address[] calldata addresses, string calldata baseUri) external onlyRoleOrOwner(ADMIN_ROLE) {
-        if (bytes(baseUri).length == 0) revert EmptyTokenURI();
+    /// @dev cannot mint unless at least one token uri has been added to the array
+    function airdrop(address[] calldata addresses, string calldata /*baseUri*/ ) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (_tokenUris.length == 0) revert EmptyTokenURIs();
         if (addresses.length < 2) revert AirdropTooFewAddresses();
 
         uint256 start = _counter + 1;
-        uint256 end = start + addresses.length - 1;
         _counter += addresses.length;
-        _batchMints.push(BatchMint(address(0), start, end, baseUri));
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], start + i);
         }
     }
 
     /// @inheritdoc IERC721TL
-    function externalMint(address recipient, string calldata uri) external onlyRole(APPROVED_MINT_CONTRACT) {
-        if (bytes(uri).length == 0) revert EmptyTokenURI();
+    /// @dev cannot mint unless at least one token uri has been added to the array
+    function externalMint(address recipient, string calldata /*uri*/ ) external onlyRole(APPROVED_MINT_CONTRACT) {
+        if (_tokenUris.length == 0) revert EmptyTokenURIs();
         _counter++;
-        _tokenUris[_counter] = uri;
         _mint(recipient, _counter);
     }
 
@@ -293,24 +281,20 @@ contract ERC7160TL is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @notice Function to add token uris
-    /// @dev Written to take in many token ids and a base uri that contains metadata files with file names matching the index of each token id in the `tokenIds` array (aka folderIndex)
-    /// @dev No trailing slash on the base uri
     /// @dev Must be called by contract owner, admin, or approved mint contract
-    /// @param tokenIds Array of token ids that get metadata added to them
-    /// @param baseUri The base uri of a folder containing metadata - file names start at 0 and increase monotonically
-    function addTokenUris(uint256[] calldata tokenIds, string calldata baseUri) external {
+    /// @param tokenUris Array of token uris to add
+    function addTokenUris(string[] calldata tokenUris) external {
         if (msg.sender != owner() && !hasRole(ADMIN_ROLE, msg.sender) && !hasRole(APPROVED_MINT_CONTRACT, msg.sender)) {
             revert NotOwnerAdminOrMintContract();
         }
-        if (bytes(baseUri).length == 0) revert EmptyTokenURI();
-        if (tokenIds.length == 0) revert NoTokensSpecified();
-        uint128 baseUriIndex = uint128(_multiMetadataBaseUris.length);
-        _multiMetadataBaseUris.push(baseUri);
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            if (!_exists(tokenIds[i])) revert TokenDoesntExist();
-            MetadataLoc memory m = MetadataLoc(baseUriIndex, uint128(i));
-            _multiMetadatas[tokenIds[i]].metadataLocs.push(m);
-            emit MetadataUpdate(tokenIds[i]);
+        if (tokenUris.length == 0) revert EmptyTokenURIs();
+        for (uint256 i = 0; i < tokenUris.length; i++) {
+            _tokenUris.push(tokenUris[i]);
+
+            uint256 numTokens = _counter;
+            if (numTokens > 0) {
+                emit BatchMetadataUpdate(1, numTokens);
+            }
         }
     }
 
@@ -319,11 +303,7 @@ contract ERC7160TL is
         if (!_exists(tokenId)) revert TokenDoesntExist();
         MultiMetadata memory multiMetadata = _multiMetadatas[tokenId];
         // build uris
-        uris = new string[](multiMetadata.metadataLocs.length + 1);
-        uris[0] = _getMintedMetadataUri(tokenId);
-        for (uint256 i = 0; i < multiMetadata.metadataLocs.length; i++) {
-            uris[i + 1] = _getMultiMetadataUri(multiMetadata, i);
-        }
+        uris = _tokenUris;
         // get if pinned
         pinned = multiMetadata.pinned;
         // set index
@@ -334,7 +314,7 @@ contract ERC7160TL is
     function pinTokenURI(uint256 tokenId, uint256 index) external {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (!_isTokenOwnerOrDelegate(tokenId)) revert CallerNotTokenOwnerOrDelegate();
-        if (index > _multiMetadatas[tokenId].metadataLocs.length) {
+        if (index >= _tokenUris.length) {
             revert InvalidTokenURIIndex();
         }
 
@@ -367,17 +347,9 @@ contract ERC7160TL is
         if (!_exists(tokenId)) revert TokenDoesntExist();
         MultiMetadata memory multiMetadata = _multiMetadatas[tokenId];
         if (multiMetadata.pinned) {
-            if (multiMetadata.index == 0) {
-                uri = _getMintedMetadataUri(tokenId);
-            } else {
-                uri = _getMultiMetadataUri(multiMetadata, multiMetadata.index - 1);
-            }
+            uri = _tokenUris[multiMetadata.index];
         } else {
-            if (multiMetadata.metadataLocs.length == 0) {
-                uri = _getMintedMetadataUri(tokenId);
-            } else {
-                uri = _getMultiMetadataUri(multiMetadata, multiMetadata.metadataLocs.length - 1);
-            }
+            uri = _tokenUris[_tokenUris.length - 1];
         }
     }
 
@@ -478,8 +450,7 @@ contract ERC7160TL is
     /// @notice Function to get batch mint info
     /// @param tokenId Token id to look up for batch mint info
     /// @return adress The token owner
-    /// @return string The uri for the tokenId
-    function _getBatchInfo(uint256 tokenId) internal view returns (address, string memory) {
+    function _getBatchInfo(uint256 tokenId) internal view returns (address) {
         uint256 i = 0;
         for (i; i < _batchMints.length; i++) {
             if (tokenId >= _batchMints[i].fromTokenId && tokenId <= _batchMints[i].toTokenId) {
@@ -487,11 +458,9 @@ contract ERC7160TL is
             }
         }
         if (i >= _batchMints.length) {
-            return (address(0), "");
+            return address(0);
         }
-        string memory tokenUri =
-            string(abi.encodePacked(_batchMints[i].baseUri, "/", (tokenId - _batchMints[i].fromTokenId).toString()));
-        return (_batchMints[i].creator, tokenUri);
+        return _batchMints[i].creator;
     }
 
     /// @notice Function to override { ERC721Upgradeable._ownerOf } to allow for batch minting
@@ -504,38 +473,13 @@ contract ERC7160TL is
                 address owner = ERC721Upgradeable._ownerOf(tokenId);
                 if (owner == address(0)) {
                     // see if can find token in a batch mint
-                    (owner,) = _getBatchInfo(tokenId);
+                    owner = _getBatchInfo(tokenId);
                 }
                 return owner;
             } else {
                 return address(0);
             }
         }
-    }
-
-    /// @notice internal function to get original metadata uri from mint
-    function _getMintedMetadataUri(uint256 tokenId) internal view returns (string memory uri) {
-        uri = _tokenUris[tokenId];
-        if (bytes(uri).length == 0) {
-            (, uri) = _getBatchInfo(tokenId);
-        }
-    }
-
-    /// @notice internal function to help get metadata from multi-metadata struct
-    /// @param multiMetadata The multimMtadata struct in memory
-    /// @param index The index of the multiMetadataLoc
-    function _getMultiMetadataUri(MultiMetadata memory multiMetadata, uint256 index)
-        internal
-        view
-        returns (string memory uri)
-    {
-        uri = string(
-            abi.encodePacked(
-                _multiMetadataBaseUris[multiMetadata.metadataLocs[index].baseUriIndex],
-                "/",
-                uint256(multiMetadata.metadataLocs[index].folderIndex).toString()
-            )
-        );
     }
 
     /// @notice Function to check if a token exists

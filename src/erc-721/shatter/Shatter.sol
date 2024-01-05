@@ -264,7 +264,10 @@ contract Shatter is
     /// @param tokenId the token to override royalty for
     /// @param newRecipient the new royalty payout address for the token id
     /// @param newPercentage the new royalty percentage in basis (out of 10,000) for the token id
-    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage)
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
 
