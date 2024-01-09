@@ -10,23 +10,23 @@ optimizer_runs = 20000
 verbosity = 3
 wrap_comments = true
 gas_reports = ["ERC721TL", "ERC1155TL", "Doppelganger", "CollectorsChoice", "Shatter", "TRACE", "ERC7160TL"]
-fs_permissions = [{ access = "read", path = "./"}]
+fs_permissions = [{ access = "read-write", path = "./"}]
 
 [fuzz]
 runs = 1024
 
 [rpc_endpoints]
-goerli = "${GOERLI_RPC_URL}"
-arb_goerli = "${ARB_GOERLI_RPC_URL}"
-base_goerli = "${BASE_GOERLI_RPC_URL}"
+sepolia = "${SEPOLIA_RPC_URL}"
+arbitrum_sepolia = "${ARB_SEPOLIA_RPC_URL}"
+base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
 mainnet = "${ETH_RPC_URL}"
-arb = "${ARB_RPC_URL}"
+arbitrum = "${ARB_RPC_URL}"
 base = "${BASE_RPC_URL}"
 
 [etherscan]
-goerli = { key = "${ETHERSCAN_KEY}" }
-arb_goerli = { key = "${ARBISCAN_KEY}", url = "https://api-goerli.arbiscan.io/api" }
-base_goerli = { key = "${BASESCAN_KEY}", url = "https://api-goerli.basescan.org/api" }
+sepolia = { key = "${ETHERSCAN_KEY}" }
+arbitrum_sepolia = {  key = "${ARBISCAN_KEY}", url = "https://api-sepolia.arbiscan.io/api" }
+base_sepolia = {  key = "${BASESCAN_KEY}", url = "https://api-sepolia.basescan.org/api" }
 mainnet = { key = "${ETHERSCAN_KEY}"}
-arb = { key = "${ARBISCAN_KEY}", url = "https://api.arbiscan.io/api" }
+arbitrum = { key = "${ARBISCAN_KEY}", url = "https://api.arbiscan.io/api" }
 base = { key = "${BASESCAN_KEY}", url = "https://api.basescan.org/api" }

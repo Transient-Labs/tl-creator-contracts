@@ -1,8 +1,15 @@
-__pycache__
-.env
-node_modules/
-out/
+# Compiler files
 cache/
-.DS_STORE
-.idea
+out/
+
+# ignore broadcast logs
 broadcast/
+
+# Docs
+docs/
+
+# Dotenv file
+.env
+
+out.txt
+.DS_Store
