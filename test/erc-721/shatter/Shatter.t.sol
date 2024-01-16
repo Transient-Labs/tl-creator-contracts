@@ -71,10 +71,12 @@ contract ShatterTest is Test {
         }
         vm.assume(initOwner != address(0));
 
+        vm.startPrank(address(this), address(this));
+
         // create contract
         tokenContract = new Shatter(false);
         // initialize and verify events thrown (order matters)
-        vm.expectEmit(true, true, false, true);
+        vm.expectEmit(true, true, true, true);
         emit OwnershipTransferred(address(0), initOwner);
         for (uint256 i = 0; i < admins.length; i++) {
             vm.expectEmit(true, true, true, true);
@@ -149,6 +151,8 @@ contract ShatterTest is Test {
             blockListRegistry,
             tlNftDelegationRegistry
         );
+
+        vm.stopPrank();
     }
 
     /// @notice test ERC-165 support
@@ -1286,7 +1290,7 @@ contract ShatterTest is Test {
     // - test access control for changing the registry
 
     function test_setNftDelegationRegistry_accessControl(address user) public {
-        vm.assume(user != address(this));
+        vm.assume(user != address(this) && user != admin);
         address[] memory users = new address[](1);
         users[0] = user;
 

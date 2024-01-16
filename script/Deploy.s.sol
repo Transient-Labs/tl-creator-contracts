@@ -85,7 +85,7 @@ contract DeployERC7160TL is Script {
         bytes32 salt = vm.envBytes32("SALT");
 
         // get bytecode
-        bytes memory bytecode = abi.encodePacked(vm.getCode("ERC7160.sol:ERC7160"), constructorArgs);
+        bytes memory bytecode = abi.encodePacked(vm.getCode("ERC7160TL.sol:ERC7160TL"), constructorArgs);
 
         // deploy
         address deployedContract = create2Deployer.computeAddress(salt, keccak256(bytecode));

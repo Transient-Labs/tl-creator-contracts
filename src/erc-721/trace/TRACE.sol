@@ -18,7 +18,7 @@ import {ITRACERSRegistry} from "src/interfaces/ITRACERSRegistry.sol";
 /// @title TRACE.sol
 /// @notice Sovereign T.R.A.C.E. Creator Contract allowing for digital Certificates of Authenticity backed by the blockchain
 /// @author transientlabs.xyz
-/// @custom:version 3.0.0
+/// @custom:version 3.0.1
 contract TRACE is
     ERC721Upgradeable,
     OwnableAccessControlUpgradeable,
@@ -57,7 +57,7 @@ contract TRACE is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.0.0";
+    string public constant VERSION = "3.0.1";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     ITRACERSRegistry public tracersRegistry;
@@ -104,6 +104,7 @@ contract TRACE is
                                 Initializer
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @dev `tx.origin` is used in the events here as these can be deployed via contract factories and we want to capture the true sender
     /// @param name The name of the contract
     /// @param symbol The symbol of the contract
     /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
@@ -136,7 +137,7 @@ contract TRACE is
 
         // emit personalization as collection story
         if (bytes(personalization).length > 0) {
-            emit CollectionStory(msg.sender, msg.sender.toHexString(), personalization);
+            emit CollectionStory(tx.origin, tx.origin.toHexString(), personalization);
         }
     }
 

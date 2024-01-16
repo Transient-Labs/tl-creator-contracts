@@ -66,6 +66,8 @@ contract TRACETest is Test {
         }
         vm.assume(initOwner != address(0));
 
+        vm.startPrank(address(this), address(this));
+
         // create contract
         trace = new TRACE(false);
 
@@ -133,6 +135,8 @@ contract TRACETest is Test {
             admins,
             tracersRegistry
         );
+
+        vm.stopPrank();
     }
 
     /// @notice test ERC-165 support

@@ -64,10 +64,12 @@ contract ERC7160TLTest is Test {
         }
         vm.assume(initOwner != address(0));
 
+        vm.startPrank(address(this), address(this));
+
         // create contract
         tokenContract = new ERC7160TL(false);
         // initialize and verify events thrown (order matters)
-        vm.expectEmit(true, true, false, true);
+        vm.expectEmit(true, true, true, true);
         emit OwnershipTransferred(address(0), initOwner);
         for (uint256 i = 0; i < admins.length; i++) {
             vm.expectEmit(true, true, true, true);
@@ -139,6 +141,8 @@ contract ERC7160TLTest is Test {
             blockListRegistry,
             tlNftDelegationRegistry
         );
+
+        vm.stopPrank();
     }
 
     /// @notice test ERC-165 support

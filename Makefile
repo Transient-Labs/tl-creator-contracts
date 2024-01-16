@@ -38,18 +38,18 @@ fuzz_test:
 
 # ERC721TL Deployments
 deploy_ERC721TL_sepolia: build
-	# forge script script/Deploy.s.sol:DeployERC721TL --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
+	forge script script/Deploy.s.sol:DeployERC721TL --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
 	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_ERC721TL_arbitrum_sepolia: build
-	forge script script/Deploy.s.sol:DeployERC721TL --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge script script/Deploy.s.sol:DeployERC721TL --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast --skip-simulation
+	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --verifier-url https://api-sepolia.arbiscan.io/api --etherscan-api-key ${ARBISCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_ERC721TL_base_sepolia: build
-	# forge script script/Deploy.s.sol:DeployERC721TL --evm-version paris --rpc-url base_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge script script/Deploy.s.sol:DeployERC721TL --evm-version paris --rpc-url base_sepolia --ledger --sender ${SENDER} --broadcast
+	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --verifier-url https://api-sepolia.basescan.org/api --etherscan-api-key ${BASESCAN_KEY}  --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_ERC721TL_mainnet: build
@@ -69,18 +69,18 @@ deploy_ERC721TL_base: build
 
 # ERC1155TL Deployments
 deploy_ERC1155TL_sepolia: build
-	# forge script script/Deploy.s.sol:DeployERC1155TL --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
+	forge script script/Deploy.s.sol:DeployERC1155TL --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
 	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_ERC1155TL_arbitrum_sepolia: build
-	forge script script/Deploy.s.sol:DeployERC1155TL --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge script script/Deploy.s.sol:DeployERC1155TL --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast --skip-simulation
+	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --verifier-url https://api-sepolia.arbiscan.io/api --etherscan-api-key ${ARBISCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_ERC1155TL_base_sepolia: build
-	# forge script script/Deploy.s.sol:DeployERC1155TL --evm-version paris --rpc-url base_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge script script/Deploy.s.sol:DeployERC1155TL --evm-version paris --rpc-url base_sepolia --ledger --sender ${SENDER} --broadcast
+	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --verifier-url https://api-sepolia.basescan.org/api --etherscan-api-key ${BASESCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_ERC1155TL_mainnet: build
@@ -105,13 +105,13 @@ deploy_Shatter_sepolia: build
 	@bash print_and_clean.sh
 
 deploy_Shatter_arbitrum_sepolia: build
-	forge script script/Deploy.s.sol:DeployShatter --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge script script/Deploy.s.sol:DeployShatter --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast --skip-simulation
+	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --verifier-url https://api-sepolia.arbiscan.io/api --etherscan-api-key ${ARBISCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_Shatter_base_sepolia: build
 	forge script script/Deploy.s.sol:DeployShatter --evm-version paris --rpc-url base_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --verifier-url https://api-sepolia.basescan.org/api --etherscan-api-key ${BASESCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_Shatter_mainnet: build
@@ -136,13 +136,13 @@ deploy_ERC7160TL_sepolia: build
 	@bash print_and_clean.sh
 
 deploy_ERC7160TL_arbitrum_sepolia: build
-	forge script script/Deploy.s.sol:DeployERC7160TL --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TL.sol:ERC7160TL --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge script script/Deploy.s.sol:DeployERC7160TL --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast --skip-simulation
+	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TL.sol:ERC7160TL --verifier-url https://api-sepolia.arbiscan.io/api --etherscan-api-key ${ARBISCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_ERC7160TL_base_sepolia: build
 	forge script script/Deploy.s.sol:DeployERC7160TL --evm-version paris --rpc-url base_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TL.sol:ERC7160TL --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TL.sol:ERC7160TL --verifier-url https://api-sepolia.basescan.org/api --etherscan-api-key ${BASESCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_ERC7160TL_mainnet: build
@@ -167,13 +167,13 @@ deploy_Doppelganger_sepolia: build
 	@bash print_and_clean.sh
 
 deploy_Doppelganger_arbitrum_sepolia: build
-	forge script script/Deploy.s.sol:DeployDoppelganger --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/Doppelganger.sol:Doppelganger --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge script script/Deploy.s.sol:DeployDoppelganger --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast --skip-simulation
+	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/Doppelganger.sol:Doppelganger --verifier-url https://api-sepolia.arbiscan.io/api --etherscan-api-key ${ARBISCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_Doppelganger_base_sepolia: build
 	forge script script/Deploy.s.sol:DeployDoppelganger --evm-version paris --rpc-url base_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/Doppelganger.sol:Doppelganger --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/Doppelganger.sol:Doppelganger --verifier-url https://api-sepolia.basescan.org/api --etherscan-api-key ${BASESCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_Doppelganger_mainnet: build
@@ -193,18 +193,18 @@ deploy_Doppelganger_base: build
 
 # Collectors Choice Deployments
 deploy_CollectorsChoice_sepolia: build
-	forge script script/Deploy.s.sol:DeployCollectorsChoice --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
+	# forge script script/Deploy.s.sol:DeployCollectorsChoice --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_CollectorsChoice_arbitrum_sepolia: build
-	forge script script/Deploy.s.sol:DeployCollectorsChoice --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge script script/Deploy.s.sol:DeployCollectorsChoice --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast --skip-simulation
+	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --verifier-url https://api-sepolia.arbiscan.io/api --etherscan-api-key ${ARBISCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_CollectorsChoice_base_sepolia: build
 	forge script script/Deploy.s.sol:DeployCollectorsChoice --evm-version paris --rpc-url base_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --verifier-url https://api-sepolia.basescan.org/api --etherscan-api-key ${BASESCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_CollectorsChoice_mainnet: build
@@ -224,8 +224,8 @@ deploy_CollectorsChoice_base: build
 
 # TRACE Deployments
 deploy_TRACE_arbitrum_sepolia: build
-	forge script script/Deploy.s.sol:DeployTRACE --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast
-	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge script script/Deploy.s.sol:DeployTRACE --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast --skip-simulation
+	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --verifier-url https://api-sepolia.arbiscan.io/api --etherscan-api-key ${ARBISCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
 deploy_TRACE_arbitrum_one: build
