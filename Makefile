@@ -2,19 +2,17 @@
 # (-include to ignore error if it does not exist)
 -include .env
 
-# Remove modules
+################################################################ Modules ################################################################
 remove:
 	rm -rf .gitmodules && rm -rf .git/modules/* && rm -rf lib && touch .gitmodules && git add . && git commit -m "modules"
 
-# Install the Modules
 install:
 	forge install foundry-rs/forge-std --no-commit
 	forge install Transient-Labs/tl-sol-tools@3.1.1 --no-commit
 
-# Update the modules
 update: remove install
 
-# Builds
+################################################################ Build ################################################################
 clean:
 	forge fmt && forge clean
 
@@ -23,7 +21,7 @@ build:
 
 clean_build: clean build
 
-# Tests
+################################################################ Test ################################################################
 quick_test:
 	forge test --fuzz-runs 256
 
@@ -36,7 +34,11 @@ gas_test:
 fuzz_test:
 	forge test --fuzz-runs 10000
 
-# ERC721TL Deployments
+################################################################ Init Code ################################################################
+build_init_code:
+	@bash build_init_code.sh
+
+################################################################ ERC721TL Deployments ################################################################
 deploy_ERC721TL_sepolia: build
 	forge script script/Deploy.s.sol:DeployERC721TL --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
 	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -67,7 +69,7 @@ deploy_ERC721TL_base: build
 	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --chain base --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
-# ERC1155TL Deployments
+################################################################ ERC1155TL Deployments ################################################################
 deploy_ERC1155TL_sepolia: build
 	forge script script/Deploy.s.sol:DeployERC1155TL --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
 	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -98,7 +100,7 @@ deploy_ERC1155TL_base: build
 	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --chain base --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
-# Shatter Deployments
+################################################################ Shatter Deployments ################################################################
 deploy_Shatter_sepolia: build
 	forge script script/Deploy.s.sol:DeployShatter --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
 	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -129,7 +131,7 @@ deploy_Shatter_base: build
 	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --chain base --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
-# ERC7160TL Deployments
+################################################################ ERC7160TL Deployments ################################################################
 deploy_ERC7160TL_sepolia: build
 	forge script script/Deploy.s.sol:DeployERC7160TL --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TL.sol:ERC7160TL --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -160,7 +162,7 @@ deploy_ERC7160TL_base: build
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TL.sol:ERC7160TL --chain base --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
-# Doppelganger Deployments
+################################################################ Doppelganger Deployments ################################################################
 deploy_Doppelganger_sepolia: build
 	forge script script/Deploy.s.sol:DeployDoppelganger --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/Doppelganger.sol:Doppelganger --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -191,9 +193,9 @@ deploy_Doppelganger_base: build
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/Doppelganger.sol:Doppelganger --chain base --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
-# Collectors Choice Deployments
+################################################################ CollectorsChoice Deployments ################################################################
 deploy_CollectorsChoice_sepolia: build
-	# forge script script/Deploy.s.sol:DeployCollectorsChoice --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
+	forge script script/Deploy.s.sol:DeployCollectorsChoice --evm-version paris --rpc-url sepolia --ledger --sender ${SENDER} --broadcast
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
@@ -222,7 +224,7 @@ deploy_CollectorsChoice_base: build
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --chain base --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
-# TRACE Deployments
+################################################################ TRACE Deployments ################################################################
 deploy_TRACE_arbitrum_sepolia: build
 	forge script script/Deploy.s.sol:DeployTRACE --evm-version paris --rpc-url arbitrum_sepolia --ledger --sender ${SENDER} --broadcast --skip-simulation
 	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --verifier-url https://api-sepolia.arbiscan.io/api --etherscan-api-key ${ARBISCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
