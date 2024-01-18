@@ -1,0 +1,3129 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.22;
+
+import "forge-std/Test.sol";
+import {Strings} from "openzeppelin/utils/Strings.sol";
+import {Doppelganger} from "src/erc-721/multi-metadata/Doppelganger.sol";
+import {IERC721Errors} from "openzeppelin/interfaces/draft-IERC6093.sol";
+import {Initializable} from "openzeppelin/proxy/utils/Initializable.sol";
+import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
+import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
+
+contract DoppelgangerTest is Test {
+    using Strings for uint256;
+    using Strings for address;
+
+    Doppelganger public tokenContract;
+    address public royaltyRecipient = makeAddr("royaltyRecipient");
+    address public blocklistRegistry = makeAddr("blocklistRegistry");
+    address public nftDelegationRegistry = makeAddr("nftDelegationRegistry");
+
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event RoleChange(address indexed from, address indexed user, bool indexed approved, bytes32 role);
+    event StoryStatusUpdate(address indexed sender, bool indexed status);
+    event BlockListRegistryUpdate(
+        address indexed sender, address indexed prevBlockListRegistry, address indexed newBlockListRegistry
+    );
+    event NftDelegationRegistryUpdate(
+        address indexed sender, address indexed prevNftDelegationRegistry, address indexed newNftDelegationRegistry
+    );
+    event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
+    event MetadataUpdate(uint256 tokenId);
+    event BatchMetadataUpdate(uint256 _from, uint256 _to);
+    event TokenUriPinned(uint256 indexed tokenId, uint256 indexed index);
+    event TokenUriUnpinned(uint256 indexed tokenId);
+    event CollectionStory(address indexed creatorAddress, string creatorName, string story);
+    event CreatorStory(uint256 indexed tokenId, address indexed creatorAddress, string creatorName, string story);
+    event Story(uint256 indexed tokenId, address indexed collectorAddress, string collectorName, string story);
+
+    function setUp() public {
+        address[] memory admins = new address[](0);
+        tokenContract = new Doppelganger(false);
+        tokenContract.initialize(
+            "Test7160", "T7160", "", royaltyRecipient, 1000, address(this), admins, true, address(0), address(0)
+        );
+    }
+
+    /// @notice initialization Tests
+    function test_initialize(
+        string memory name,
+        string memory symbol,
+        string memory personalization,
+        address defaultRoyaltyRecipient,
+        uint256 defaultRoyaltyPercentage,
+        address initOwner,
+        address[] memory admins,
+        bool enableStory,
+        address blockListRegistry,
+        address tlNftDelegationRegistry
+    ) public {
+        // limit fuzz
+        vm.assume(defaultRoyaltyRecipient != address(0));
+        if (defaultRoyaltyPercentage >= 10_000) {
+            defaultRoyaltyPercentage = defaultRoyaltyPercentage % 10_000;
+        }
+        vm.assume(initOwner != address(0));
+
+        vm.startPrank(address(this), address(this));
+
+        // create contract
+        tokenContract = new Doppelganger(false);
+        // initialize and verify events thrown (order matters)
+        vm.expectEmit(true, true, true, true);
+        emit OwnershipTransferred(address(0), initOwner);
+        for (uint256 i = 0; i < admins.length; i++) {
+            vm.expectEmit(true, true, true, true);
+            emit RoleChange(address(this), admins[i], true, tokenContract.ADMIN_ROLE());
+        }
+        vm.expectEmit(true, true, true, true);
+        emit StoryStatusUpdate(address(this), enableStory);
+        vm.expectEmit(true, true, true, true);
+        emit BlockListRegistryUpdate(address(this), address(0), blockListRegistry);
+        vm.expectEmit(true, true, true, true);
+        emit NftDelegationRegistryUpdate(address(this), address(0), tlNftDelegationRegistry);
+        if (bytes(personalization).length > 0) {
+            vm.expectEmit(true, true, true, true);
+            emit CollectionStory(address(this), address(this).toHexString(), personalization);
+        }
+        tokenContract.initialize(
+            name,
+            symbol,
+            personalization,
+            defaultRoyaltyRecipient,
+            defaultRoyaltyPercentage,
+            initOwner,
+            admins,
+            enableStory,
+            blockListRegistry,
+            tlNftDelegationRegistry
+        );
+        assertEq(tokenContract.name(), name);
+        assertEq(tokenContract.symbol(), symbol);
+        (address recp, uint256 amt) = tokenContract.royaltyInfo(1, 10000);
+        assertEq(recp, defaultRoyaltyRecipient);
+        assertEq(amt, defaultRoyaltyPercentage);
+        assertEq(tokenContract.owner(), initOwner);
+        for (uint256 i = 0; i < admins.length; i++) {
+            assertTrue(tokenContract.hasRole(tokenContract.ADMIN_ROLE(), admins[i]));
+        }
+        assertEq(tokenContract.storyEnabled(), enableStory);
+        assertEq(address(tokenContract.blocklistRegistry()), blockListRegistry);
+        assertEq(address(tokenContract.tlNftDelegationRegistry()), tlNftDelegationRegistry);
+
+        // can't initialize again
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        tokenContract.initialize(
+            name,
+            symbol,
+            personalization,
+            defaultRoyaltyRecipient,
+            defaultRoyaltyPercentage,
+            initOwner,
+            admins,
+            enableStory,
+            blockListRegistry,
+            tlNftDelegationRegistry
+        );
+
+        // can't get by initializers disabled
+        tokenContract = new Doppelganger(true);
+
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        tokenContract.initialize(
+            name,
+            symbol,
+            personalization,
+            defaultRoyaltyRecipient,
+            defaultRoyaltyPercentage,
+            initOwner,
+            admins,
+            enableStory,
+            blockListRegistry,
+            tlNftDelegationRegistry
+        );
+
+        vm.stopPrank();
+    }
+
+    /// @notice test ERC-165 support
+    function test_supportsInterface() public {
+        assertTrue(tokenContract.supportsInterface(0x1c8e024d)); // ICreatorBase
+        assertTrue(tokenContract.supportsInterface(0xc74089ae)); // IERC721TL
+        assertTrue(tokenContract.supportsInterface(0x06e1bc5b)); // IERC7160
+        assertTrue(tokenContract.supportsInterface(0x2464f17b)); // IStory
+        assertTrue(tokenContract.supportsInterface(0x0d23ecb9)); // IStory (old)
+        assertTrue(tokenContract.supportsInterface(0x01ffc9a7)); // ERC-165
+        assertTrue(tokenContract.supportsInterface(0x80ac58cd)); // ERC-721
+        assertTrue(tokenContract.supportsInterface(0x2a55205a)); // ERC-2981
+        assertTrue(tokenContract.supportsInterface(0x49064906)); // ERC-4906
+    }
+
+    /// @notice test mint contract access approvals
+    function test_setApprovedMintContracts(address hacker) public {
+        // limit fuzz
+        vm.assume(hacker != address(1) && hacker != address(2) && hacker != address(this));
+
+        // variables
+        address[] memory minters = new address[](1);
+        minters[0] = address(1);
+        address[] memory admins = new address[](1);
+        admins[0] = address(2);
+
+        // verify rando can't access
+        vm.startPrank(hacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setApprovedMintContracts(minters, true);
+        vm.stopPrank();
+
+        // verify admin can access
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
+        vm.startPrank(address(2), address(2));
+        tokenContract.setApprovedMintContracts(minters, true);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
+        assertTrue(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(), address(1)));
+
+        // verify minters can't access
+        vm.startPrank(address(1));
+        vm.expectRevert();
+        tokenContract.setApprovedMintContracts(minters, true);
+        vm.stopPrank();
+
+        // verify owner can access
+        tokenContract.setApprovedMintContracts(minters, false);
+        assertFalse(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(), address(1)));
+    }
+
+    /// @notice test mint
+    // - access control ✅
+    // - proper recipient ✅
+    // - transfer event ✅
+    // - proper token id ✅
+    // - ownership ✅
+    // - balance ✅
+    // - transfer to another address ✅
+    // - safe transfer to another address ✅
+    // - token uri ✅
+    function test_mint_customErrors() public {
+        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        tokenContract.mint(address(this), "");
+
+        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        tokenContract.mint(address(this), "", address(1), 10);
+    }
+
+    function test_mint_accessControl(address user) public {
+        // limit fuzz
+        vm.assume(user != address(this));
+        vm.assume(user != address(0));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // ensure user can't call the mint function
+        vm.startPrank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.mint(address(this), "");
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.mint(address(this), "", address(1), 10);
+        vm.stopPrank();
+
+        // grant admin access and ensure that the user can call the mint functions
+        address[] memory admins = new address[](1);
+        admins[0] = user;
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
+        vm.startPrank(user, user);
+        vm.expectEmit(true, true, true, true);
+        emit Transfer(address(0), address(this), 1);
+        tokenContract.mint(address(this), "");
+        vm.expectEmit(true, true, true, true);
+        emit Transfer(address(0), address(this), 2);
+        tokenContract.mint(address(this), "", address(1), 10);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(address(this)), 2);
+        assertEq(tokenContract.ownerOf(1), address(this));
+        assertEq(tokenContract.tokenURI(1), "uri");
+        assertEq(tokenContract.ownerOf(2), address(this));
+        assertEq(tokenContract.tokenURI(2), "uri");
+
+        // revoke admin access and ensure that the user can't call the mint function
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
+        vm.startPrank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.mint(address(this), "");
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.mint(address(this), "", address(1), 10);
+        vm.stopPrank();
+
+        // grant mint contract role and ensure that the user can't call the mint function
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, true);
+        vm.startPrank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.mint(address(this), "");
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.mint(address(this), "", address(1), 10);
+        vm.stopPrank();
+
+        // revoke mint contract role and ensure that the user can't call the mint function
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, false);
+        vm.startPrank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.mint(address(this), "");
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.mint(address(this), "", address(1), 10);
+        vm.stopPrank();
+    }
+
+    function test_mint(uint16 tokenId, address recipient) public {
+        vm.assume(tokenId != 0);
+        vm.assume(recipient != address(0));
+        if (tokenId > 1000) {
+            tokenId = tokenId % 1000 + 1; // map to 1000
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint
+        for (uint256 i = 1; i <= tokenId; i++) {
+            string memory uri = string(abi.encodePacked("uri_", i.toString()));
+            vm.expectEmit(true, true, true, true);
+            emit Transfer(address(0), recipient, i);
+            tokenContract.mint(recipient, uri);
+            assertEq(tokenContract.balanceOf(recipient), i);
+            assertEq(tokenContract.ownerOf(i), recipient);
+            assertEq(tokenContract.tokenURI(i), "uri");
+        }
+
+        // ensure ownership throws for non-existent token
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, tokenId + 1));
+        tokenContract.ownerOf(tokenId + 1);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId + 1);
+    }
+
+    function test_mint_withTokenRoyalty(
+        uint16 tokenId,
+        address recipient,
+        address royaltyAddress,
+        uint16 royaltyPercent
+    ) public {
+        vm.assume(tokenId != 0);
+        vm.assume(recipient != address(0));
+        vm.assume(royaltyAddress != royaltyRecipient);
+        vm.assume(royaltyAddress != address(0));
+        if (royaltyPercent >= 10_000) royaltyPercent = royaltyPercent % 10_000;
+        if (tokenId > 1000) {
+            tokenId = tokenId % 1000 + 1; // map to 1000
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint
+        for (uint256 i = 1; i <= tokenId; i++) {
+            string memory uri = string(abi.encodePacked("uri_", i.toString()));
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(address(0), recipient, i);
+            tokenContract.mint(recipient, uri, royaltyAddress, royaltyPercent);
+            assertEq(tokenContract.balanceOf(recipient), i);
+            assertEq(tokenContract.ownerOf(i), recipient);
+            assertEq(tokenContract.tokenURI(i), "uri");
+            (address recp, uint256 amt) = tokenContract.royaltyInfo(i, 10_000);
+            assertEq(recp, royaltyAddress);
+            assertEq(amt, royaltyPercent);
+        }
+
+        // ensure ownership throws for non-existent token
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, tokenId + 1));
+        tokenContract.ownerOf(tokenId + 1);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId + 1);
+    }
+
+    function test_mint_thenTransfer(uint16 tokenId, address recipient, address secondRecipient) public {
+        vm.assume(recipient != address(0));
+        vm.assume(secondRecipient != address(0));
+        vm.assume(recipient != secondRecipient);
+        vm.assume(recipient.code.length == 0);
+        vm.assume(secondRecipient.code.length == 0);
+        vm.assume(tokenId != 0);
+        if (tokenId > 1000) {
+            tokenId = tokenId % 1000 + 1; // map to 1000
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint & transfer
+        for (uint256 i = 1; i <= tokenId; i++) {
+            // mint
+            tokenContract.mint(address(this), "");
+            // transfer to recipient with transferFrom
+            vm.expectEmit(true, true, true, true);
+            emit Transfer(address(this), recipient, i);
+            tokenContract.transferFrom(address(this), recipient, i);
+            assertEq(tokenContract.balanceOf(recipient), 1);
+            assertEq(tokenContract.ownerOf(i), recipient);
+            // transfer to second recipient with safeTransferFrom
+            vm.startPrank(recipient, recipient);
+            vm.expectEmit(true, true, true, true);
+            emit Transfer(recipient, secondRecipient, i);
+            tokenContract.safeTransferFrom(recipient, secondRecipient, i);
+            assertEq(tokenContract.balanceOf(secondRecipient), i);
+            assertEq(tokenContract.ownerOf(i), secondRecipient);
+            vm.stopPrank();
+        }
+    }
+
+    /// @notice test batch mint
+    // - access control ✅
+    // - proper recipient ✅
+    // - transfer event ✅
+    // - proper token ids ✅
+    // - ownership ✅
+    // - balance ✅
+    // - transfer to another address ✅
+    // - safe transfer to another address ✅
+    // - token uris ✅
+    function test_batchMint_customErrors() public {
+        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        tokenContract.batchMint(address(this), 2, "");
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        vm.expectRevert(Doppelganger.MintToZeroAddress.selector);
+        tokenContract.batchMint(address(0), 2, "");
+
+        vm.expectRevert(Doppelganger.BatchSizeTooSmall.selector);
+        tokenContract.batchMint(address(this), 1, "");
+    }
+
+    function test_batchMint_accessControl(address user) public {
+        vm.assume(user != address(this));
+        vm.assume(user != address(0));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // ensure user can't call the mint function
+        vm.startPrank(user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.batchMint(address(this), 2, "baseUri");
+        vm.stopPrank();
+
+        // grant admin access and ensure that the user can call the mint function
+        address[] memory admins = new address[](1);
+        admins[0] = user;
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
+        vm.startPrank(user);
+        uint256 start = tokenContract.totalSupply() + 1;
+        uint256 end = start + 1;
+        for (uint256 id = start; id < end + 1; ++id) {
+            vm.expectEmit(true, true, true, true);
+            emit Transfer(address(0), address(this), id);
+        }
+        tokenContract.batchMint(address(this), 2, "baseUri");
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(address(this)), 2);
+        assertEq(tokenContract.ownerOf(1), address(this));
+        assertEq(tokenContract.ownerOf(2), address(this));
+        assertEq(tokenContract.tokenURI(1), "uri");
+        assertEq(tokenContract.tokenURI(2), "uri");
+
+        // revoke admin access and ensure that the user can't call the mint function
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.batchMint(address(this), 2, "baseUri");
+        vm.stopPrank();
+
+        // grant mint contract role and ensure that the user can't call the mint function
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, true);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.batchMint(address(this), 2, "baseUri");
+        vm.stopPrank();
+
+        // revoke mint contract role and ensure that the user can't call the mint function
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, false);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.batchMint(address(this), 2, "baseUri");
+        vm.stopPrank();
+    }
+
+    function test_batchMint(uint128 numTokens, address recipient) public {
+        vm.assume(numTokens > 1);
+        vm.assume(recipient != address(0));
+        if (numTokens > 1000) {
+            numTokens = numTokens % 1000 + 2; // map to 1000
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint
+        uint256 start = tokenContract.totalSupply() + 1;
+        uint256 end = start + numTokens - 1;
+        for (uint256 id = start; id < end + 1; ++id) {
+            vm.expectEmit(true, true, true, true);
+            emit Transfer(address(0), recipient, id);
+        }
+        tokenContract.batchMint(recipient, numTokens, "baseUri");
+        assertEq(tokenContract.balanceOf(recipient), numTokens);
+        for (uint256 i = 1; i <= numTokens; i++) {
+            assertEq(tokenContract.ownerOf(i), recipient);
+            assertEq(tokenContract.tokenURI(i), "uri");
+        }
+
+        // ensure ownership throws for non-existent token
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, numTokens + 1));
+        tokenContract.ownerOf(numTokens + 1);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(numTokens + 1);
+
+        // test mint after metadata
+        tokenContract.mint(address(this), "newUri");
+        assertEq(tokenContract.ownerOf(numTokens + 1), address(this));
+        assertEq(tokenContract.tokenURI(numTokens + 1), "uri");
+    }
+
+    function test_batchMint_thenTransfer(uint128 numTokens, address recipient, address secondRecipient) public {
+        vm.assume(recipient != address(0));
+        vm.assume(secondRecipient != address(0));
+        vm.assume(recipient != secondRecipient);
+        vm.assume(recipient.code.length == 0);
+        vm.assume(secondRecipient.code.length == 0);
+        vm.assume(numTokens > 1);
+        if (numTokens > 1000) {
+            numTokens = numTokens % 1000 + 2; // map to 1000
+        }
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint and transfer
+        tokenContract.batchMint(address(this), numTokens, "baseUri");
+        // test transferFrom on first half of tokens
+        for (uint256 i = 1; i < numTokens / 2; i++) {
+            // transfer to recipient with transferFrom
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(address(this), recipient, i);
+            tokenContract.transferFrom(address(this), recipient, i);
+            assertEq(tokenContract.balanceOf(recipient), 1);
+            assertEq(tokenContract.ownerOf(i), recipient);
+            // transfer to second recipient with safeTransferFrom
+            vm.startPrank(recipient, recipient);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(recipient, secondRecipient, i);
+            tokenContract.safeTransferFrom(recipient, secondRecipient, i);
+            assertEq(tokenContract.balanceOf(secondRecipient), i);
+            assertEq(tokenContract.ownerOf(i), secondRecipient);
+            vm.stopPrank();
+        }
+        // test safeTransferFrom on second half of tokens
+        for (uint256 i = numTokens / 2; i <= numTokens; i++) {
+            // transfer to recipient with transferFrom
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(address(this), recipient, i);
+            tokenContract.safeTransferFrom(address(this), recipient, i);
+            assertEq(tokenContract.balanceOf(recipient), 1);
+            assertEq(tokenContract.ownerOf(i), recipient);
+            // transfer to second recipient with safeTransferFrom
+            vm.startPrank(recipient, recipient);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(recipient, secondRecipient, i);
+            tokenContract.safeTransferFrom(recipient, secondRecipient, i);
+            assertEq(tokenContract.balanceOf(secondRecipient), i);
+            assertEq(tokenContract.ownerOf(i), secondRecipient);
+            vm.stopPrank();
+        }
+    }
+
+    /// @notice test airdrop
+    // - access control ✅
+    // - proper recipients ✅
+    // - transfer events ✅
+    // - proper token ids ✅
+    // - ownership ✅
+    // - balances ✅
+    // - transfer to another address ✅
+    // - safe transfer to another address ✅
+    // - token uris ✅
+    function test_airdrop_customErrors() public {
+        address[] memory addresses = new address[](1);
+        addresses[0] = address(1);
+        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        tokenContract.airdrop(addresses, "baseUri");
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        vm.expectRevert(Doppelganger.AirdropTooFewAddresses.selector);
+        tokenContract.airdrop(addresses, "baseUri");
+    }
+
+    function test_airdrop_accessControl(address user) public {
+        vm.assume(user != address(this));
+        vm.assume(user != address(0));
+        address[] memory addresses = new address[](2);
+        addresses[0] = address(1);
+        addresses[1] = address(2);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // ensure user can't call the airdrop function
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.airdrop(addresses, "baseUri");
+        vm.stopPrank();
+
+        // grant admin access and ensure that the user can call the airdrop function
+        address[] memory admins = new address[](1);
+        admins[0] = user;
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
+        vm.startPrank(user, user);
+        vm.expectEmit(true, true, true, true);
+        emit Transfer(address(0), address(1), 1);
+        vm.expectEmit(true, true, true, true);
+        emit Transfer(address(0), address(2), 2);
+        tokenContract.airdrop(addresses, "baseUri");
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(address(1)), 1);
+        assertEq(tokenContract.balanceOf(address(2)), 1);
+        assertEq(tokenContract.ownerOf(1), address(1));
+        assertEq(tokenContract.ownerOf(2), address(2));
+        assertEq(tokenContract.tokenURI(1), "uri");
+        assertEq(tokenContract.tokenURI(2), "uri");
+
+        // revoke admin access and ensure that the user can't call the airdrop function
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, false);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.airdrop(addresses, "baseUri");
+        vm.stopPrank();
+
+        // grant mint contract role and ensure that the user can't call the airdrop function
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, true);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.airdrop(addresses, "baseUri");
+        vm.stopPrank();
+
+        // revoke mint contract role and ensure that the user can't call the airdrop function
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), admins, false);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.airdrop(addresses, "baseUri");
+        vm.stopPrank();
+    }
+
+    function test_airdrop(uint16 numAddresses) public {
+        vm.assume(numAddresses > 1);
+        if (numAddresses > 1000) {
+            numAddresses = numAddresses % 299 + 2; // map to 300
+        }
+        address[] memory addresses = new address[](numAddresses);
+        for (uint256 i = 0; i < numAddresses; i++) {
+            addresses[i] = makeAddr(i.toString());
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // airdrop
+        for (uint256 i = 1; i <= numAddresses; i++) {
+            vm.expectEmit(true, true, true, true);
+            emit Transfer(address(0), addresses[i - 1], i);
+        }
+        tokenContract.airdrop(addresses, "baseUri");
+        for (uint256 i = 1; i <= numAddresses; i++) {
+            assertEq(tokenContract.balanceOf(addresses[i - 1]), 1);
+            assertEq(tokenContract.ownerOf(i), addresses[i - 1]);
+            assertEq(tokenContract.tokenURI(i), "uri");
+        }
+
+        // ensure ownership throws for non-existent token
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, numAddresses + 1));
+        tokenContract.ownerOf(numAddresses + 1);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(numAddresses + 1);
+
+        // test mint after metadata
+        tokenContract.mint(address(this), "newUri");
+        assertEq(tokenContract.ownerOf(numAddresses + 1), address(this));
+        assertEq(tokenContract.tokenURI(numAddresses + 1), "uri");
+    }
+
+    function test_airdrop_thenTransfer(uint16 numAddresses, address recipient) public {
+        vm.assume(numAddresses > 1);
+        vm.assume(recipient != address(0));
+        vm.assume(recipient.code.length == 0);
+        if (numAddresses > 1000) {
+            numAddresses = numAddresses % 299 + 2; // map to 300
+        }
+        address[] memory addresses = new address[](numAddresses);
+        for (uint256 i = 0; i < numAddresses; i++) {
+            if (makeAddr(i.toString()) == recipient) {
+                addresses[i] = makeAddr("hello");
+            } else {
+                addresses[i] = makeAddr(i.toString());
+            }
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // airdrop then transfer
+        tokenContract.airdrop(addresses, "baseUri");
+        for (uint256 i = 1; i < numAddresses / 2; i++) {
+            vm.startPrank(addresses[i - 1], addresses[i - 1]);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(addresses[i - 1], recipient, i);
+            tokenContract.transferFrom(addresses[i - 1], recipient, i);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(recipient), i);
+            assertEq(tokenContract.balanceOf(addresses[i - 1]), 0);
+            assertEq(tokenContract.ownerOf(i), recipient);
+        }
+        for (uint256 i = numAddresses / 2; i <= numAddresses; i++) {
+            vm.startPrank(addresses[i - 1], addresses[i - 1]);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(addresses[i - 1], recipient, i);
+            tokenContract.safeTransferFrom(addresses[i - 1], recipient, i);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(recipient), i);
+            assertEq(tokenContract.balanceOf(addresses[i - 1]), 0);
+            assertEq(tokenContract.ownerOf(i), recipient);
+        }
+    }
+
+    /// @notice test externalMint
+    // - access control ✅
+    // - proper recipient ✅
+    // - transfer event ✅
+    // - proper token id ✅
+    // - ownership ✅
+    // - balance ✅
+    // - transfer to another address ✅
+    // - safe transfer to another address ✅
+    // - token uris ✅
+    function test_externalMint_customErrors() public {
+        address[] memory minters = new address[](1);
+        minters[0] = address(this);
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
+        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        tokenContract.externalMint(address(this), "");
+    }
+
+    function test_external_mintAccessControl(address user) public {
+        vm.assume(user != address(this));
+        vm.assume(user != address(0));
+        address[] memory addresses = new address[](2);
+        addresses[0] = address(1);
+        addresses[1] = address(2);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // ensure user can't call the airdrop function
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
+            )
+        );
+        tokenContract.externalMint(address(this), "uri");
+        vm.stopPrank();
+
+        // grant minter access and ensure that the user can call the airdrop function
+        address[] memory minters = new address[](1);
+        minters[0] = user;
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
+        vm.startPrank(user, user);
+        vm.expectEmit(true, true, true, false);
+        emit Transfer(address(0), address(this), 1);
+        tokenContract.externalMint(address(this), "uri1");
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(address(this)), 1);
+        assertEq(tokenContract.ownerOf(1), address(this));
+        assertEq(tokenContract.tokenURI(1), "uri");
+
+        // revoke mint access and ensure that the user can't call the airdrop function
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, false);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
+            )
+        );
+        tokenContract.externalMint(address(this), "uri1");
+        vm.stopPrank();
+
+        // grant admin role and ensure that the user can't call the airdrop function
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), minters, true);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
+            )
+        );
+        tokenContract.externalMint(address(this), "uri1");
+        vm.stopPrank();
+
+        // revoke admin role and ensure that the user can't call the airdrop function
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), minters, false);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OwnableAccessControlUpgradeable.NotSpecifiedRole.selector, tokenContract.APPROVED_MINT_CONTRACT()
+            )
+        );
+        tokenContract.externalMint(address(this), "uri1");
+        vm.stopPrank();
+    }
+
+    function test_externalMint(address recipient, string memory uri, uint16 numTokens) public {
+        vm.assume(recipient != address(0));
+        vm.assume(recipient != address(1));
+        vm.assume(bytes(uri).length > 0);
+        vm.assume(numTokens > 0);
+        if (numTokens > 1000) {
+            numTokens = numTokens % 1000 + 1;
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint
+        address[] memory minters = new address[](1);
+        minters[0] = address(1);
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
+        for (uint256 i = 1; i <= numTokens; i++) {
+            vm.startPrank(address(1), address(1));
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(address(0), recipient, i);
+            tokenContract.externalMint(recipient, uri);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(recipient), i);
+            assertEq(tokenContract.ownerOf(i), recipient);
+            assertEq(tokenContract.tokenURI(i), "uri");
+        }
+
+        // ensure ownership throws for non-existent token
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, numTokens + 1));
+        tokenContract.ownerOf(numTokens + 1);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(numTokens + 1);
+    }
+
+    function test_externalMint_thenTransfer(
+        address recipient,
+        string memory uri,
+        uint16 numTokens,
+        address transferRecipient
+    ) public {
+        vm.assume(recipient != address(0));
+        vm.assume(recipient != address(1));
+        vm.assume(transferRecipient != address(0));
+        vm.assume(transferRecipient != address(1));
+        vm.assume(transferRecipient.code.length == 0);
+        vm.assume(bytes(uri).length > 0);
+        vm.assume(numTokens > 0);
+        if (numTokens > 1000) {
+            numTokens = numTokens % 1000 + 1;
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // external mint
+        address[] memory minters = new address[](1);
+        minters[0] = address(1);
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
+        for (uint256 i = 1; i <= numTokens; i++) {
+            vm.startPrank(address(1), address(1));
+            tokenContract.externalMint(recipient, uri);
+            vm.stopPrank();
+            vm.startPrank(recipient, recipient);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(recipient, transferRecipient, i);
+            tokenContract.transferFrom(recipient, transferRecipient, i);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(transferRecipient), 1);
+            assertEq(tokenContract.ownerOf(i), transferRecipient);
+            vm.startPrank(transferRecipient, transferRecipient);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(transferRecipient, address(1), i);
+            tokenContract.safeTransferFrom(transferRecipient, address(1), i);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(address(1)), i);
+            assertEq(tokenContract.ownerOf(i), address(1));
+        }
+    }
+
+    /// @notice test mint options in a row
+    // - randomly make sure that can mint in a row and that there aren't overlapping token ids ✅
+    function test_mints_combined(uint8 n1, uint8 n2, uint8 n3, uint8 n4, uint16 batchSize, uint16 numAddresses)
+        public
+    {
+        address[] memory minters = new address[](1);
+        minters[0] = address(1);
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
+        vm.assume(batchSize > 1);
+        vm.assume(numAddresses > 1);
+        if (numAddresses > 1000) {
+            numAddresses = numAddresses % 299 + 2; // map to 300
+        }
+        address[] memory addresses = new address[](numAddresses);
+        for (uint256 i = 0; i < numAddresses; i++) {
+            addresses[i] = makeAddr(i.toString());
+        }
+        n1 = n1 % 4;
+        n2 = n2 % 4;
+        n3 = n3 % 4;
+        n4 = n4 % 4;
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint
+        uint256 id = tokenContract.totalSupply();
+        if (n1 == 0) {
+            tokenContract.mint(address(this), "uri");
+            assertEq(tokenContract.totalSupply(), id + 1);
+            id += 1;
+        } else if (n1 == 1) {
+            tokenContract.batchMint(address(this), batchSize, "uri");
+            assertEq(tokenContract.totalSupply(), id + batchSize);
+            id += batchSize;
+        } else if (n1 == 2) {
+            tokenContract.airdrop(addresses, "uri");
+            assertEq(tokenContract.totalSupply(), id + numAddresses);
+            id += numAddresses;
+        } else {
+            vm.startPrank(address(1), address(1));
+            tokenContract.externalMint(address(this), "uri");
+            vm.stopPrank();
+            assertEq(tokenContract.totalSupply(), id + 1);
+            id += 1;
+        }
+
+        if (n2 == 0) {
+            tokenContract.mint(address(this), "uri");
+            assertEq(tokenContract.totalSupply(), id + 1);
+            id += 1;
+        } else if (n2 == 1) {
+            tokenContract.batchMint(address(this), batchSize, "uri");
+            assertEq(tokenContract.totalSupply(), id + batchSize);
+            id += batchSize;
+        } else if (n2 == 2) {
+            tokenContract.airdrop(addresses, "uri");
+            assertEq(tokenContract.totalSupply(), id + numAddresses);
+            id += numAddresses;
+        } else {
+            vm.startPrank(address(1), address(1));
+            tokenContract.externalMint(address(this), "uri");
+            vm.stopPrank();
+            assertEq(tokenContract.totalSupply(), id + 1);
+            id += 1;
+        }
+
+        if (n3 == 0) {
+            tokenContract.mint(address(this), "uri");
+            assertEq(tokenContract.totalSupply(), id + 1);
+            id += 1;
+        } else if (n3 == 1) {
+            tokenContract.batchMint(address(this), batchSize, "uri");
+            assertEq(tokenContract.totalSupply(), id + batchSize);
+            id += batchSize;
+        } else if (n3 == 2) {
+            tokenContract.airdrop(addresses, "uri");
+            assertEq(tokenContract.totalSupply(), id + numAddresses);
+            id += numAddresses;
+        } else {
+            vm.startPrank(address(1), address(1));
+            tokenContract.externalMint(address(this), "uri");
+            vm.stopPrank();
+            assertEq(tokenContract.totalSupply(), id + 1);
+            id += 1;
+        }
+
+        if (n4 == 0) {
+            tokenContract.mint(address(this), "uri");
+            assertEq(tokenContract.totalSupply(), id + 1);
+            id += 1;
+        } else if (n4 == 1) {
+            tokenContract.batchMint(address(this), batchSize, "uri");
+            assertEq(tokenContract.totalSupply(), id + batchSize);
+            id += batchSize;
+        } else if (n4 == 2) {
+            tokenContract.airdrop(addresses, "uri");
+            assertEq(tokenContract.totalSupply(), id + numAddresses);
+            id += numAddresses;
+        } else {
+            vm.startPrank(address(1), address(1));
+            tokenContract.externalMint(address(this), "uri");
+            vm.stopPrank();
+            assertEq(tokenContract.totalSupply(), id + 1);
+            id += 1;
+        }
+
+        // ensure ownership throws for non-existent token
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, id + 1));
+        tokenContract.ownerOf(id + 1);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(id + 1);
+    }
+
+    /// @notice test burn
+    // - access control ✅
+    // - token uri (non-existent) ✅
+    // - burn from regular mint ✅
+    // - burn from batch mint ✅
+    // - burn from airdrop ✅
+    // - burn from external mint ✅
+    // - burn after transfer ✅
+    // - burn after safe transfer ✅
+    // - transfer event ✅
+    // - ownership ✅
+    // - balance ✅
+    function test_burn_nonExistentToken(uint16 tokenId) public {
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, tokenId));
+        tokenContract.burn(tokenId);
+    }
+
+    function test_burn_accessControl(uint16 tokenId, address collector, address hacker) public {
+        vm.assume(tokenId != 0);
+        vm.assume(collector != address(0));
+        vm.assume(collector != address(this));
+        vm.assume(collector != hacker);
+        vm.assume(hacker != address(0));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint spare tokens to this address
+        if (tokenId > 2) {
+            tokenContract.batchMint(address(this), tokenId - 1, "uri");
+            assertEq(tokenContract.totalSupply(), tokenId - 1);
+        } else if (tokenId == 2) {
+            tokenContract.mint(address(this), "uri");
+        }
+        // mint tokenId to collector
+        tokenContract.mint(collector, "uriTokenId");
+        assertEq(tokenContract.balanceOf(collector), 1);
+        assertEq(tokenContract.tokenURI(tokenId), "uri");
+        assertEq(tokenContract.ownerOf(tokenId), collector);
+
+        // verify hacker can't burn
+        vm.startPrank(hacker, hacker);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        tokenContract.burn(tokenId);
+        vm.stopPrank();
+
+        // verify hacker with admin access can't burn
+        address[] memory addys = new address[](1);
+        addys[0] = hacker;
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), addys, true);
+        vm.startPrank(hacker, hacker);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        tokenContract.burn(tokenId);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), addys, false);
+
+        // verify hacker with minter access can't burn
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), addys, true);
+        vm.startPrank(hacker, hacker);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        tokenContract.burn(tokenId);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), addys, false);
+
+        // veirfy owner can't burn
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        tokenContract.burn(tokenId);
+
+        // verify collector can burn tokenId
+        vm.expectEmit(true, true, true, true);
+        emit Transfer(collector, address(0), tokenId);
+        vm.startPrank(collector, collector);
+        tokenContract.burn(tokenId);
+        vm.stopPrank();
+
+        // ensure
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId);
+        assertEq(tokenContract.balanceOf(collector), 0);
+    }
+
+    function test_burn_mint(uint16 tokenId, address collector, address operator) public {
+        vm.assume(tokenId != 0);
+        vm.assume(collector != address(this));
+        vm.assume(collector != address(0));
+        vm.assume(collector != operator);
+        vm.assume(operator != address(0));
+        if (tokenId > 1000) {
+            tokenId = tokenId % 1000 + 1;
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint spare tokens to this address
+        if (tokenId > 2) {
+            tokenContract.batchMint(address(this), tokenId - 1, "uri");
+            assertEq(tokenContract.totalSupply(), tokenId - 1);
+        } else if (tokenId == 2) {
+            tokenContract.mint(address(this), "uri");
+        }
+
+        // mint tokenId & tokenId + 1 to collector
+        tokenContract.mint(collector, "uriOne");
+        tokenContract.mint(collector, "uriTwo");
+        tokenContract.mint(collector, "uriThree");
+
+        // verify collector can burn tokenId
+        vm.startPrank(collector, collector);
+        vm.expectEmit(true, true, true, true);
+        emit Transfer(collector, address(0), tokenId);
+        tokenContract.burn(tokenId);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(collector), 2);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId);
+
+        // verify operator can't burn
+        vm.startPrank(operator, operator);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        tokenContract.burn(tokenId + 1);
+        vm.stopPrank();
+
+        // grant operator rights and verify can burn tokenId + 1 &  + 2
+        vm.startPrank(collector, collector);
+        tokenContract.approve(operator, tokenId + 1);
+        vm.stopPrank();
+
+        // can burn tokenId + 1
+        vm.startPrank(operator, operator);
+        vm.expectEmit(true, true, true, true);
+        emit Transfer(collector, address(0), tokenId + 1);
+        tokenContract.burn(tokenId + 1);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(collector), 1);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId + 1);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId + 1);
+
+        // set approval for all
+        vm.startPrank(collector, collector);
+        tokenContract.setApprovalForAll(operator, true);
+        vm.stopPrank();
+
+        // can burn tokenId + 2
+        vm.startPrank(operator, operator);
+        vm.expectEmit(true, true, true, false);
+        emit Transfer(collector, address(0), tokenId + 2);
+        tokenContract.burn(tokenId + 2);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(collector), 0);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId + 2);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId + 2);
+    }
+
+    function test_burn_batchMint(uint16 batchSize, address collector, address operator) public {
+        vm.assume(collector != address(0) && collector != operator && operator != address(0));
+        if (batchSize < 2) {
+            batchSize = 2;
+        }
+        if (batchSize > 300) {
+            batchSize = batchSize % 299 + 2;
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // batch mint to collector
+        tokenContract.batchMint(collector, batchSize, "baseUri");
+        // verify collector can burn the batch
+        for (uint256 i = 1; i <= batchSize; i++) {
+            vm.startPrank(collector, collector);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(collector, address(0), i);
+            tokenContract.burn(i);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(collector), batchSize - i);
+            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+            tokenContract.tokenURI(i);
+            vm.expectRevert();
+            tokenContract.ownerOf(i);
+        }
+
+        // batch mint again to collector
+        tokenContract.batchMint(collector, batchSize, "baseUri");
+
+        // verify that operator can't burn
+        for (uint256 i = batchSize + 1; i <= 2 * batchSize; i++) {
+            vm.startPrank(operator, operator);
+            vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+            tokenContract.burn(i);
+            vm.stopPrank();
+        }
+
+        // grant operator rights for each token and burn
+        for (uint256 i = batchSize + 1; i <= 2 * batchSize; i++) {
+            vm.startPrank(collector, collector);
+            tokenContract.approve(operator, i);
+            vm.stopPrank();
+            vm.startPrank(collector, collector);
+            vm.expectEmit(true, true, true, true);
+            emit Transfer(collector, address(0), i);
+            tokenContract.burn(i);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(collector), 2 * batchSize - i);
+            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+            tokenContract.tokenURI(i);
+            vm.expectRevert();
+            tokenContract.ownerOf(i);
+        }
+
+        // mint batch again
+        tokenContract.batchMint(collector, batchSize, "baseUri");
+        vm.startPrank(collector, collector);
+        tokenContract.setApprovalForAll(operator, true);
+        vm.stopPrank();
+
+        // verify operator can burn the batch
+        for (uint256 i = 2 * batchSize + 1; i <= 3 * batchSize; i++) {
+            vm.startPrank(collector, collector);
+            vm.expectEmit(true, true, true, true);
+            emit Transfer(collector, address(0), i);
+            tokenContract.burn(i);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(collector), 3 * batchSize - i);
+            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+            tokenContract.tokenURI(i);
+            vm.expectRevert();
+            tokenContract.ownerOf(i);
+        }
+    }
+
+    function test_burn_airdrop(uint16 numAddresses, address operator) public {
+        vm.assume(numAddresses > 1);
+        if (numAddresses > 300) {
+            numAddresses = numAddresses % 299 + 2; // map to 300
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        address[] memory addresses = new address[](numAddresses);
+        for (uint256 i = 0; i < numAddresses; i++) {
+            if (makeAddr(i.toString()) == operator) {
+                addresses[i] = makeAddr("hello");
+            } else {
+                addresses[i] = makeAddr(i.toString());
+            }
+        }
+        vm.assume(operator != address(0));
+
+        // airdrop to addresses
+        tokenContract.airdrop(addresses, "baseUri");
+
+        // verify address can burn
+        uint256 limit = numAddresses;
+        uint256 offset = 1;
+        for (uint256 i = 0; i < limit; i++) {
+            uint256 id = i + offset;
+            vm.startPrank(addresses[i], addresses[i]);
+            vm.expectEmit(true, true, true, true);
+            emit Transfer(addresses[i], address(0), id);
+            tokenContract.burn(id);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(addresses[i]), 0);
+            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+            tokenContract.tokenURI(id);
+            vm.expectRevert();
+            tokenContract.ownerOf(id);
+        }
+
+        // airdrop again
+        tokenContract.airdrop(addresses, "baseUri");
+
+        // verify operator can't burn
+        limit = numAddresses;
+        offset = numAddresses + 1;
+        for (uint256 i = 0; i < limit; i++) {
+            uint256 id = i + offset;
+            vm.startPrank(operator, operator);
+            vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+            tokenContract.burn(id);
+            vm.stopPrank();
+        }
+
+        // grant operator rights for each token and burn
+        for (uint256 i = 0; i < limit; i++) {
+            uint256 id = i + offset;
+            vm.startPrank(addresses[i], addresses[i]);
+            tokenContract.approve(operator, id);
+            vm.stopPrank();
+            vm.startPrank(addresses[i], addresses[i]);
+            vm.expectEmit(true, true, true, true);
+            emit Transfer(addresses[i], address(0), id);
+            tokenContract.burn(id);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(addresses[i]), 0);
+            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+            tokenContract.tokenURI(id);
+            vm.expectRevert();
+            tokenContract.ownerOf(id);
+        }
+
+        // airdrop again
+        tokenContract.airdrop(addresses, "baseUri");
+
+        // verify operator can burn the batch
+        limit = numAddresses;
+        offset = 2 * numAddresses + 1;
+        for (uint256 i = 0; i < limit; i++) {
+            uint256 id = i + offset;
+            vm.startPrank(addresses[i], addresses[i]);
+            tokenContract.setApprovalForAll(operator, true);
+            vm.stopPrank();
+            vm.startPrank(addresses[i], addresses[i]);
+            vm.expectEmit(true, true, true, false);
+            emit Transfer(addresses[i], address(0), id);
+            tokenContract.burn(id);
+            vm.stopPrank();
+            assertEq(tokenContract.balanceOf(addresses[i]), 0);
+            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+            tokenContract.tokenURI(id);
+            vm.expectRevert();
+            tokenContract.ownerOf(id);
+        }
+    }
+
+    function test_burn_externalMint(uint16 tokenId, address collector, address operator) public {
+        vm.assume(tokenId != 0);
+        vm.assume(collector != address(this));
+        vm.assume(collector != address(0));
+        vm.assume(collector != operator);
+        vm.assume(operator != address(0));
+        if (tokenId > 1000) {
+            tokenId = tokenId % 1000 + 1;
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint spare tokens to this address
+        if (tokenId > 2) {
+            tokenContract.batchMint(address(this), tokenId - 1, "uri");
+            assertEq(tokenContract.totalSupply(), tokenId - 1);
+        } else if (tokenId == 2) {
+            tokenContract.mint(address(this), "uri");
+        }
+        address[] memory minters = new address[](1);
+        minters[0] = address(1);
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
+
+        // mint tokenId & tokenId + 1 to collector
+        vm.startPrank(address(1), address(1));
+        tokenContract.externalMint(collector, "uriOne");
+        tokenContract.externalMint(collector, "uriTwo");
+        tokenContract.externalMint(collector, "uriThree");
+        vm.stopPrank();
+
+        // verify collector can burn tokenId
+        vm.startPrank(collector, collector);
+        vm.expectEmit(true, true, true, false);
+        emit Transfer(collector, address(0), tokenId);
+        tokenContract.burn(tokenId);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(collector), 2);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId);
+
+        // verify operator can't burn
+        vm.startPrank(operator, operator);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        tokenContract.burn(tokenId + 1);
+        vm.stopPrank();
+
+        // grant operator rights and verify can burn
+        vm.startPrank(collector, collector);
+        tokenContract.approve(operator, tokenId + 1);
+        vm.stopPrank();
+
+        // verify operator can burn tokenId + 1
+        vm.startPrank(operator, operator);
+        vm.expectEmit(true, true, true, true);
+        emit Transfer(collector, address(0), tokenId + 1);
+        tokenContract.burn(tokenId + 1);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(collector), 1);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId + 1);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId + 1);
+
+        // set approval for all
+        vm.startPrank(collector, collector);
+        tokenContract.setApprovalForAll(operator, true);
+        vm.stopPrank();
+
+        // ensure operator can burn tokenId + 2
+        vm.startPrank(operator, operator);
+        vm.expectEmit(true, true, true, false);
+        emit Transfer(collector, address(0), tokenId + 2);
+        tokenContract.burn(tokenId + 2);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(collector), 0);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId + 2);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId + 2);
+    }
+
+    function test_burn_afterTransfer(uint16 tokenId, address collector, address operator) public {
+        vm.assume(tokenId != 0);
+        vm.assume(collector != address(this));
+        vm.assume(collector != address(0));
+        vm.assume(collector != operator);
+        vm.assume(operator != address(0));
+        if (tokenId > 1000) {
+            tokenId = tokenId % 1000 + 1;
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        // mint spare tokens to this address
+        if (tokenId > 2) {
+            tokenContract.batchMint(address(this), tokenId - 1, "uri");
+            assertEq(tokenContract.totalSupply(), tokenId - 1);
+        } else if (tokenId == 2) {
+            tokenContract.mint(address(this), "uri");
+        }
+
+        // mint tokenId & tokenId + 1 to collector
+        tokenContract.mint(address(this), "uriOne");
+        tokenContract.mint(address(this), "uriTwo");
+        tokenContract.mint(address(this), "uriThree");
+
+        // transfer tokens
+        tokenContract.transferFrom(address(this), collector, tokenId);
+        tokenContract.transferFrom(address(this), collector, tokenId + 1);
+        tokenContract.transferFrom(address(this), collector, tokenId + 2);
+
+        // verify collector can burn tokenId
+        vm.startPrank(collector, collector);
+        vm.expectEmit(true, true, true, false);
+        emit Transfer(collector, address(0), tokenId);
+        tokenContract.burn(tokenId);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(collector), 2);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId);
+
+        // verify operator can't burn
+        vm.startPrank(operator, operator);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        tokenContract.burn(tokenId + 1);
+        vm.stopPrank();
+
+        // grant operator rights and verify can burn tokenId + 1
+        vm.startPrank(collector, collector);
+        tokenContract.approve(operator, tokenId + 1);
+        vm.stopPrank();
+        vm.startPrank(operator, operator);
+        vm.expectEmit(true, true, true, false);
+        emit Transfer(collector, address(0), tokenId + 1);
+        tokenContract.burn(tokenId + 1);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(collector), 1);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId + 1);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId + 1);
+
+        // set approval for all and verify can burn tokenId + 2
+        vm.startPrank(collector, collector);
+        tokenContract.setApprovalForAll(operator, true);
+        vm.stopPrank();
+        vm.startPrank(operator, operator);
+        vm.expectEmit(true, true, true, false);
+        emit Transfer(collector, address(0), tokenId + 2);
+        tokenContract.burn(tokenId + 2);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(collector), 0);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId + 2);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId + 2);
+    }
+
+    function test_burn_afterSafeTransfer(uint16 tokenId, address collector, address operator) public {
+        vm.assume(tokenId != 0);
+        vm.assume(collector != address(this));
+        vm.assume(collector != address(0));
+        vm.assume(collector != operator);
+        vm.assume(operator != address(0));
+        vm.assume(operator.code.length == 0);
+        vm.assume(collector.code.length == 0);
+        if (tokenId > 1000) {
+            tokenId = tokenId % 1000 + 1;
+        }
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint spare tokens to this address
+        if (tokenId > 2) {
+            tokenContract.batchMint(address(this), tokenId - 1, "uri");
+            assertEq(tokenContract.totalSupply(), tokenId - 1);
+        } else if (tokenId == 2) {
+            tokenContract.mint(address(this), "uri");
+        }
+
+        // mint tokenId & tokenId + 1 to collector
+        tokenContract.mint(address(this), "uriOne");
+        tokenContract.mint(address(this), "uriTwo");
+        tokenContract.mint(address(this), "uriThree");
+
+        // transfer tokens
+        tokenContract.safeTransferFrom(address(this), collector, tokenId);
+        tokenContract.safeTransferFrom(address(this), collector, tokenId + 1);
+        tokenContract.safeTransferFrom(address(this), collector, tokenId + 2);
+
+        // verify collector can burn tokenId
+        vm.startPrank(collector, collector);
+        vm.expectEmit(true, true, true, false);
+        emit Transfer(collector, address(0), tokenId);
+        tokenContract.burn(tokenId);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(collector), 2);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId);
+
+        // verify operator can't burn
+        vm.startPrank(operator, operator);
+        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        tokenContract.burn(tokenId + 1);
+        vm.stopPrank();
+
+        // grant operator rights and verify can burn tokenId + 1
+        vm.startPrank(collector, collector);
+        tokenContract.approve(operator, tokenId + 1);
+        vm.stopPrank();
+        vm.startPrank(operator, operator);
+        vm.expectEmit(true, true, true, true);
+        emit Transfer(collector, address(0), tokenId + 1);
+        tokenContract.burn(tokenId + 1);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(collector), 1);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId + 1);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId + 1);
+
+        // set approval for all and verify can burn tokenId + 2
+        vm.startPrank(collector, collector);
+        tokenContract.setApprovalForAll(operator, true);
+        vm.stopPrank();
+        vm.startPrank(operator, operator);
+        vm.expectEmit(true, true, true, true);
+        emit Transfer(collector, address(0), tokenId + 2);
+        tokenContract.burn(tokenId + 2);
+        vm.stopPrank();
+        assertEq(tokenContract.balanceOf(collector), 0);
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURI(tokenId + 2);
+        vm.expectRevert();
+        tokenContract.ownerOf(tokenId + 2);
+    }
+
+    /// @notice test royalty functions
+    // - set default royalty ✅
+    // - override token royalty ✅
+    // - access control ✅
+    function test_setDefaultRoyalty(address newRecipient, uint256 newPercentage, address user) public {
+        vm.assume(newRecipient != address(0));
+        vm.assume(user != address(0) && user != address(this));
+        if (newPercentage >= 10_000) {
+            newPercentage = newPercentage % 10_000;
+        }
+        address[] memory users = new address[](1);
+        users[0] = user;
+
+        // verify that user can't set royalty
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setDefaultRoyalty(newRecipient, newPercentage);
+        vm.stopPrank();
+
+        // verify that admin can set royalty
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.startPrank(user, user);
+        tokenContract.setDefaultRoyalty(newRecipient, newPercentage);
+        (address recp, uint256 amt) = tokenContract.royaltyInfo(1, 10_000);
+        assertEq(recp, newRecipient);
+        assertEq(amt, newPercentage);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+
+        // verify that minters can't set royalty
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setDefaultRoyalty(newRecipient, newPercentage);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+
+        // verify owner of the contract can set royalty
+        tokenContract.setDefaultRoyalty(royaltyRecipient, 0);
+        (recp, amt) = tokenContract.royaltyInfo(1, 10_000);
+        assertEq(recp, royaltyRecipient);
+        assertEq(amt, 0);
+    }
+
+    function test_setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage, address user) public {
+        vm.assume(newRecipient != address(0));
+        vm.assume(user != address(0) && user != address(this));
+        if (newPercentage >= 10_000) {
+            newPercentage = newPercentage % 10_000;
+        }
+        address[] memory users = new address[](1);
+        users[0] = user;
+
+        // verify that user can't set royalty
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setTokenRoyalty(tokenId, newRecipient, newPercentage);
+        vm.stopPrank();
+
+        // verify that admin can set royalty
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.startPrank(user, user);
+        tokenContract.setTokenRoyalty(tokenId, newRecipient, newPercentage);
+        (address recp, uint256 amt) = tokenContract.royaltyInfo(tokenId, 10_000);
+        assertEq(recp, newRecipient);
+        assertEq(amt, newPercentage);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+
+        // verify that minters can't set royalty
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setTokenRoyalty(tokenId, newRecipient, newPercentage);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+
+        // verify owner of the contract can set royalty
+        tokenContract.setTokenRoyalty(tokenId, royaltyRecipient, 0);
+        (recp, amt) = tokenContract.royaltyInfo(tokenId, 10_000);
+        assertEq(recp, royaltyRecipient);
+        assertEq(amt, 0);
+    }
+
+    /// @notice test ERC-7160 functions
+    //  - add token uris access control ✅
+    //  - add token uris errors ✅
+    //  - tokenUris errors ✅
+    //  - pinTokenUri access control ✅
+    //  - pinTokenUri errors ✅
+    //  - unpinTokenUri access control ✅
+    //  - unpinTokenUri errors ✅
+    //  - hasPinnedTokenUri errors ✅
+    //  - multi metadata with regular mint ✅
+    //  - multi metadata with batch mint ✅
+    //  - multi metadata with batch mint ultra ✅
+    //  - multi metadata with airdrop ✅
+    //  - multi metadata with external mint ✅
+    function test_addTokenUris_accessControl(address user) public {
+        vm.assume(user != address(this) && user != address(0));
+        address[] memory users = new address[](1);
+        users[0] = user;
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // create new metadata
+        string[] memory uris2 = new string[](1);
+        uris2[0] = "uri2";
+
+        // mint token
+        tokenContract.mint(user, "uri1");
+
+        // verify user can't add
+        vm.prank(user);
+        vm.expectRevert(Doppelganger.NotOwnerAdminOrMintContract.selector);
+        tokenContract.addTokenUris(uris2);
+
+        // verify admin can add
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, 1);
+        tokenContract.addTokenUris(uris2);
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+
+        // verify minter can add
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, 1);
+        tokenContract.addTokenUris(uris2);
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+
+        // verify contract owner can add
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, 1);
+        tokenContract.addTokenUris(uris2);
+
+        // check tokenUris
+        string[] memory expectedUris = new string[](4);
+        expectedUris[0] = "uri1";
+        expectedUris[1] = "uri2";
+        expectedUris[2] = "uri2";
+        expectedUris[3] = "uri2";
+
+        (uint256 index, string[] memory rUris, bool isPinned) = tokenContract.tokenURIs(1);
+        assertEq(index, 3);
+        assertFalse(isPinned);
+        assertEq(rUris.length, 4);
+        for (uint256 i = 0; i < rUris.length; i++) {
+            assertEq(keccak256(bytes(expectedUris[i])), keccak256(bytes(rUris[i])));
+        }
+    }
+
+    function test_addTokenUris_errors() public {
+        // token uris
+        string[] memory emptyUris = new string[](0);
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+
+        // empty token uri
+        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        tokenContract.addTokenUris(emptyUris);
+    }
+
+    function test_tokenURIs_errors() public {
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.tokenURIs(1);
+    }
+
+    function test_pinTokenURI_errors(address user) public {
+        vm.assume(user != address(this));
+
+        // token doesn't exist
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.pinTokenURI(1, 0);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint token
+        tokenContract.mint(address(this), "uri1");
+
+        // not token owner
+        vm.prank(user);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.pinTokenURI(1, 0);
+
+        // invalid token uri index
+        vm.expectRevert(Doppelganger.InvalidTokenURIIndex.selector);
+        tokenContract.pinTokenURI(1, 1);
+    }
+
+    function test_unpinTokenURI_errors(address user) public {
+        vm.assume(user != address(this));
+
+        // token doesn't exist
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.unpinTokenURI(1);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint token
+        tokenContract.mint(address(this), "uri1");
+
+        // not token owner
+        vm.prank(user);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.unpinTokenURI(1);
+    }
+
+    function test_hasPinnedTokenURI_errors() public {
+        // token doesn't exist
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.hasPinnedTokenURI(1);
+    }
+
+    function test_ERC7160_mint(uint256 numTokens, address collector) public {
+        // limit inputs
+        vm.assume(collector != address(0));
+        if (numTokens > 300) numTokens = numTokens % 300;
+        vm.assume(numTokens > 0);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint tokens
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            tokenContract.mint(collector, "hi");
+            // token uri
+            assertEq(tokenContract.tokenURI(tokenIds[i]), "uri1");
+        }
+
+        // add token uri
+        uris[0] = "uri2";
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, numTokens);
+        tokenContract.addTokenUris(uris);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, true, true);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+    }
+
+    function test_ERC7160_batchMint(uint128 numTokens, address collector) public {
+        // limit inputs
+        vm.assume(collector != address(0));
+        if (numTokens > 300) numTokens = numTokens % 300;
+        if (numTokens < 2) numTokens = 2;
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint tokens
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+        }
+        tokenContract.batchMint(collector, numTokens, "uri");
+
+        for (uint256 i = 0; i < numTokens; i++) {
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // add token uri
+        uris[0] = "uri2";
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, numTokens);
+        tokenContract.addTokenUris(uris);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, true, true);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+    }
+
+    function test_ERC7160_airdrop(uint256 numTokens) public {
+        // limit inputs
+        if (numTokens > 300) numTokens = numTokens % 300;
+        if (numTokens < 2) numTokens = 2;
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint tokens
+        address[] memory collectors = new address[](numTokens);
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            collectors[i] = makeAddr(i.toString());
+        }
+        tokenContract.airdrop(collectors, "uri");
+
+        for (uint256 i = 0; i < numTokens; i++) {
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // add token uri
+        uris[0] = "uri2";
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, numTokens);
+        tokenContract.addTokenUris(uris);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collectors[i]);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collectors[i]);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collectors[i]);
+            vm.expectEmit(true, true, true, true);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+    }
+
+    function test_ERC7160_externalMint(uint256 numTokens, address collector) public {
+        // limit inputs
+        vm.assume(collector != address(0));
+        if (numTokens > 300) numTokens = numTokens % 300;
+        vm.assume(numTokens > 0);
+
+        // add mint contract
+        address[] memory users = new address[](1);
+        users[0] = address(1);
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint tokens
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            vm.prank(address(1));
+            tokenContract.externalMint(collector, "");
+            // token uri
+            assertEq(tokenContract.tokenURI(tokenIds[i]), "uri1");
+        }
+
+        // add token uri
+        uris[0] = "uri2";
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, numTokens);
+        tokenContract.addTokenUris(uris);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(collector);
+            vm.expectEmit(true, true, true, true);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+    }
+
+    function test_ERC7160_delegate(uint256 numTokens, address delegate) public {
+        // limit inputs
+        vm.assume(delegate != address(this));
+        if (numTokens > 300) numTokens = numTokens % 300;
+        vm.assume(numTokens > 0);
+
+        // mock calls
+        vm.mockCall(
+            nftDelegationRegistry,
+            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector, delegate, address(this)),
+            abi.encode(true)
+        );
+
+        // change delegation registry
+        tokenContract.setNftDelegationRegistry(nftDelegationRegistry);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint tokens
+        uint256[] memory tokenIds = new uint256[](numTokens);
+        for (uint256 i = 0; i < numTokens; i++) {
+            tokenIds[i] = i + 1;
+            tokenContract.mint(address(this), "hi");
+            // token uri
+            assertEq(tokenContract.tokenURI(tokenIds[i]), "uri1");
+        }
+
+        // add token uri
+        uris[0] = "uri2";
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1, numTokens);
+        tokenContract.addTokenUris(uris);
+
+        // get token uris and check
+        uint256 index;
+        bool isPinned;
+        string[] memory rUris = new string[](0);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 1
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(delegate);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 1);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 1);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // pin token uri to 0
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(delegate);
+            vm.expectEmit(true, true, false, false);
+            emit TokenUriPinned(tokenIds[i], 0);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.pinTokenURI(tokenIds[i], 0);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertTrue(isPinned);
+            assertTrue(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // unpin token uri
+        for (uint256 i = 0; i < numTokens; i++) {
+            vm.prank(delegate);
+            vm.expectEmit(true, true, true, true);
+            emit TokenUriUnpinned(tokenIds[i]);
+            vm.expectEmit(true, true, true, true);
+            emit MetadataUpdate(tokenIds[i]);
+            tokenContract.unpinTokenURI(tokenIds[i]);
+
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 1);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // remove delegate and try to pin/unpin
+        vm.mockCall(
+            nftDelegationRegistry,
+            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector, delegate, address(this)),
+            abi.encode(false)
+        );
+        vm.startPrank(delegate);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.pinTokenURI(1, 0);
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.unpinTokenURI(1);
+        vm.stopPrank();
+
+        // clear mocked calls
+        vm.clearMockedCalls();
+    }
+
+    /// @notice test story functions
+    // - enable/disable story access control ✅
+    // - regular mint ✅
+    // - batch mint ✅
+    // - airdrop ✅
+    // - external mint ✅
+    // - write collection story w/ proper acccess
+    // - write creator story to existing token w/ proper acccess ✅
+    // - write collector story to existing token w/ proper access
+    // - write creator story to non-existent token (reverts) ✅
+    // - write collector story to non-existent token (reverts)
+    function test_story_accessControl(address user) public {
+        vm.assume(user != address(this));
+        address[] memory users = new address[](1);
+        users[0] = user;
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        tokenContract.mint(address(this), "uri");
+
+        // verify user can't enable/disable and can't add collection and creator stories
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setStoryStatus(false);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.addCollectionStory("", "my story!");
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.addCreatorStory(1, "", "my story!");
+        vm.stopPrank();
+
+        // verify admin can enable/disable  and can add collection and creator stories
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.startPrank(user, user);
+        vm.expectEmit(true, true, true, true);
+        emit StoryStatusUpdate(user, false);
+        tokenContract.setStoryStatus(false);
+        assertFalse(tokenContract.storyEnabled());
+        vm.expectEmit(true, true, true, true);
+        emit StoryStatusUpdate(user, true);
+        tokenContract.setStoryStatus(true);
+        assertTrue(tokenContract.storyEnabled());
+        vm.expectEmit(true, true, true, true);
+        emit CollectionStory(user, user.toHexString(), "my story!");
+        tokenContract.addCollectionStory("", "my story!");
+        vm.expectEmit(true, true, true, true);
+        emit CreatorStory(1, user, user.toHexString(), "my story!");
+        tokenContract.addCreatorStory(1, "", "my story!");
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+
+        // verify minter can't enable/disable and can't add collection and creator stories
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setStoryStatus(false);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.addCollectionStory("", "my story!");
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.addCreatorStory(1, "", "my story!");
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+
+        // verify owner can enable/disable and can add collection and creator stories
+        vm.expectEmit(true, true, true, true);
+        emit StoryStatusUpdate(address(this), false);
+        tokenContract.setStoryStatus(false);
+        assertFalse(tokenContract.storyEnabled());
+        vm.expectEmit(true, true, true, true);
+        emit StoryStatusUpdate(address(this), true);
+        tokenContract.setStoryStatus(true);
+        assertTrue(tokenContract.storyEnabled());
+        vm.expectEmit(true, true, true, true);
+        emit CollectionStory(address(this), address(this).toHexString(), "my story!");
+        tokenContract.addCollectionStory("", "my story!");
+        vm.expectEmit(true, true, true, true);
+        emit CreatorStory(1, address(this), address(this).toHexString(), "my story!");
+        tokenContract.addCreatorStory(1, "", "my story!");
+    }
+
+    function test_addCollectionStory(address user, string memory name, string memory story) public {
+        // add user as admin
+        address[] memory users = new address[](1);
+        users[0] = user;
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+
+        // add collection story and ensure the event matches
+        vm.startPrank(user);
+        vm.expectEmit(true, true, true, true);
+        emit CollectionStory(user, user.toHexString(), story);
+        tokenContract.addCollectionStory(name, story);
+    }
+
+    function test_story_nonExistentTokens() public {
+        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+    }
+
+    function test_story_mint(address collector) public {
+        vm.assume(collector != address(0));
+        vm.assume(collector != address(this));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint
+        tokenContract.mint(collector, "uri");
+
+        // test creator story
+        vm.expectEmit(true, true, true, true);
+        emit CreatorStory(1, address(this), address(this).toHexString(), "I AM XCOPY");
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+
+        // test collector can't add creator story
+        vm.startPrank(collector, collector);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+
+        // test collector story
+        vm.expectEmit(true, true, true, true);
+        emit Story(1, collector, collector.toHexString(), "I AM NOT XCOPY");
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+        vm.stopPrank();
+
+        // test that owner can't add collector story
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+    }
+
+    function test_story_batchMint(address collector) public {
+        vm.assume(collector != address(0));
+        vm.assume(collector != address(this));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint
+        tokenContract.batchMint(collector, 2, "uri");
+
+        // test creator story
+        vm.expectEmit(true, true, true, true);
+        emit CreatorStory(1, address(this), address(this).toHexString(), "I AM XCOPY");
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+        vm.expectEmit(true, true, true, true);
+        emit CreatorStory(2, address(this), address(this).toHexString(), "I AM XCOPY");
+        tokenContract.addCreatorStory(2, "XCOPY", "I AM XCOPY");
+
+        // test collector can't add creator story
+        vm.startPrank(collector, collector);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.addCreatorStory(2, "XCOPY", "I AM XCOPY");
+
+        // test collector story
+        vm.expectEmit(true, true, true, true);
+        emit Story(1, collector, collector.toHexString(), "I AM NOT XCOPY");
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+        vm.expectEmit(true, true, true, true);
+        emit Story(2, collector, collector.toHexString(), "I AM NOT XCOPY");
+        tokenContract.addStory(2, "NOT XCOPY", "I AM NOT XCOPY");
+        vm.stopPrank();
+
+        // test that owner can't add collector story
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.addStory(2, "NOT XCOPY", "I AM NOT XCOPY");
+    }
+
+    function test_story_airdrop(address collector) public {
+        vm.assume(collector != address(0));
+        vm.assume(collector != address(this));
+        address[] memory addresses = new address[](2);
+        addresses[0] = collector;
+        addresses[1] = collector;
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // airdrop
+        tokenContract.airdrop(addresses, "uri");
+
+        // test creator story
+        vm.expectEmit(true, true, true, true);
+        emit CreatorStory(1, address(this), address(this).toHexString(), "I AM XCOPY");
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+        vm.expectEmit(true, true, true, true);
+        emit CreatorStory(2, address(this), address(this).toHexString(), "I AM XCOPY");
+        tokenContract.addCreatorStory(2, "XCOPY", "I AM XCOPY");
+
+        // test collector can't add creator story
+        vm.startPrank(collector, collector);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.addCreatorStory(2, "XCOPY", "I AM XCOPY");
+
+        // test collector story
+        vm.expectEmit(true, true, true, true);
+        emit Story(1, collector, collector.toHexString(), "I AM NOT XCOPY");
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+        vm.expectEmit(true, true, true, true);
+        emit Story(2, collector, collector.toHexString(), "I AM NOT XCOPY");
+        tokenContract.addStory(2, "NOT XCOPY", "I AM NOT XCOPY");
+        vm.stopPrank();
+
+        // test that owner can't add collector story
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.addStory(2, "NOT XCOPY", "I AM NOT XCOPY");
+    }
+
+    function test_story_externalMint(address collector) public {
+        vm.assume(collector != address(0));
+        vm.assume(collector != address(1));
+        vm.assume(collector != address(this));
+        address[] memory users = new address[](1);
+        users[0] = address(1);
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint
+        vm.startPrank(address(1), address(1));
+        tokenContract.externalMint(collector, "uri");
+        vm.stopPrank();
+
+        // test creator story
+        vm.expectEmit(true, true, true, true);
+        emit CreatorStory(1, address(this), address(this).toHexString(), "I AM XCOPY");
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+
+        // test collector can't add creator story
+        vm.startPrank(collector, collector);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+
+        // test collector story
+        vm.expectEmit(true, true, true, true);
+        emit Story(1, collector, collector.toHexString(), "I AM NOT XCOPY");
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+        vm.stopPrank();
+
+        // test that owner can't add collector story
+        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+    }
+
+    function test_addStory_delegate(address delegate) public {
+        // limit fuzz and mint
+        vm.assume(delegate != address(this));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        tokenContract.mint(address(this), "uri");
+
+        // set delegation registry
+        tokenContract.setNftDelegationRegistry(nftDelegationRegistry);
+
+        // mock calls
+        vm.mockCall(
+            nftDelegationRegistry,
+            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector),
+            abi.encode(false)
+        );
+        vm.mockCall(
+            nftDelegationRegistry,
+            abi.encodeWithSelector(
+                ITLNftDelegationRegistry.checkDelegateForERC721.selector,
+                delegate,
+                address(this),
+                address(tokenContract)
+            ),
+            abi.encode(true)
+        );
+
+        // test creator story
+        vm.expectEmit(true, true, true, true);
+        emit CreatorStory(1, address(this), address(this).toHexString(), "I AM XCOPY");
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+
+        // test delegate can't add creator story
+        vm.startPrank(delegate, delegate);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+
+        // test story
+        vm.expectEmit(true, true, true, true);
+        emit Story(1, delegate, delegate.toHexString(), "I AM NOT XCOPY");
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+        vm.stopPrank();
+
+        // clear mocked calls
+        vm.clearMockedCalls();
+    }
+
+    function test_story_disabled(address collector) public {
+        vm.assume(collector != address(0));
+        vm.assume(collector != address(this));
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        tokenContract.mint(collector, "uri");
+
+        // disable story
+        tokenContract.setStoryStatus(false);
+
+        // test creator story
+        vm.expectEmit(true, true, true, true);
+        emit CreatorStory(1, address(this), address(this).toHexString(), "I AM XCOPY");
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+
+        // test collector can't add creator story
+        vm.startPrank(collector, collector);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
+
+        // test collector story reverts
+        vm.expectRevert(Doppelganger.StoryNotEnabled.selector);
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+        vm.stopPrank();
+
+        // test that owner can't add collector story
+        vm.expectRevert(Doppelganger.StoryNotEnabled.selector);
+        tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
+    }
+
+    /// @notice test blocklist functions
+    // - regular mint ✅
+    // - batch mint ✅
+    // - airdrop ✅
+    // - external mint ✅
+    // - test blocked ✅
+    // - test not blocked
+    // - test access control for changing the registry ✅
+    function test_setBlockListRegistry_accessControl(address user) public {
+        vm.assume(user != address(this));
+        address[] memory users = new address[](1);
+        users[0] = user;
+
+        // verify user can't access
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setBlockListRegistry(address(1));
+        vm.stopPrank();
+
+        // verify admin can access
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.startPrank(user, user);
+        vm.expectEmit(true, true, true, true);
+        emit BlockListRegistryUpdate(user, address(0), address(1));
+        tokenContract.setBlockListRegistry(address(1));
+        assertEq(address(tokenContract.blocklistRegistry()), address(1));
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+
+        // verify minter can't access
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setBlockListRegistry(address(1));
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+
+        // verify owner can access
+        vm.expectEmit(true, true, true, true);
+        emit BlockListRegistryUpdate(address(this), address(1), blocklistRegistry);
+        tokenContract.setBlockListRegistry(blocklistRegistry);
+        assertEq(address(tokenContract.blocklistRegistry()), blocklistRegistry);
+    }
+
+    function test_blocklist_eoa() public {
+        // update blocklist registry to EOA
+        tokenContract.setBlockListRegistry(blocklistRegistry);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint
+        tokenContract.mint(address(this), "uri");
+
+        // expect revert
+        vm.expectRevert();
+        tokenContract.approve(address(10), 1);
+        vm.expectRevert();
+        tokenContract.setApprovalForAll(address(10), true);
+
+        // expect can set approval for all to false regardless
+        tokenContract.setApprovalForAll(address(10), false);
+    }
+
+    function test_blocklist_mint(address collector, address operator) public {
+        // limit fuzz
+        vm.assume(collector != address(0));
+        vm.assume(collector != operator);
+        vm.assume(operator != address(0));
+
+        // mock call
+        vm.mockCall(
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
+        );
+
+        // update blocklist registry
+        tokenContract.setBlockListRegistry(blocklistRegistry);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint and verify blocked operator
+        tokenContract.mint(collector, "uri");
+        vm.startPrank(collector, collector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        tokenContract.approve(operator, 1);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        tokenContract.setApprovalForAll(operator, true);
+        vm.stopPrank();
+
+        // unblock operator and verify approvals
+        vm.mockCall(
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
+        );
+        vm.startPrank(collector, collector);
+        tokenContract.approve(operator, 1);
+        assertEq(tokenContract.getApproved(1), operator);
+        tokenContract.setApprovalForAll(operator, true);
+        assertTrue(tokenContract.isApprovedForAll(collector, operator));
+        vm.stopPrank();
+
+        // clear mocked call
+        vm.clearMockedCalls();
+    }
+
+    function test_blocklist_batchMint(address collector, address operator) public {
+        // limit fuzz
+        vm.assume(collector != address(0));
+        vm.assume(collector != operator);
+        vm.assume(operator != address(0));
+
+        // mock call
+        vm.mockCall(
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
+        );
+
+        // update blocklist registry
+        tokenContract.setBlockListRegistry(blocklistRegistry);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint and verify blocked operator
+        tokenContract.batchMint(collector, 2, "uri");
+        vm.startPrank(collector, collector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        tokenContract.approve(operator, 1);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        tokenContract.approve(operator, 2);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        tokenContract.setApprovalForAll(operator, true);
+        vm.stopPrank();
+
+        // unblock operator and verify approvals
+        vm.mockCall(
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
+        );
+        vm.startPrank(collector, collector);
+        tokenContract.approve(operator, 1);
+        assertEq(tokenContract.getApproved(1), operator);
+        tokenContract.approve(operator, 2);
+        assertEq(tokenContract.getApproved(2), operator);
+        tokenContract.setApprovalForAll(operator, true);
+        assertTrue(tokenContract.isApprovedForAll(collector, operator));
+        vm.stopPrank();
+
+        // clear mocked call
+        vm.clearMockedCalls();
+    }
+
+    function testBlockListAirdrop(address collector, address operator) public {
+        // limit fuzz
+        vm.assume(collector != address(0));
+        vm.assume(collector != operator);
+        vm.assume(operator != address(0));
+
+        // variables
+        address[] memory addresses = new address[](2);
+        addresses[0] = collector;
+        addresses[1] = collector;
+
+        // mock call
+        vm.mockCall(
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
+        );
+
+        // update blocklist registry
+        tokenContract.setBlockListRegistry(blocklistRegistry);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint and verify blocked operator
+        tokenContract.airdrop(addresses, "uri");
+        vm.startPrank(collector, collector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        tokenContract.approve(operator, 1);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        tokenContract.approve(operator, 2);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        tokenContract.setApprovalForAll(operator, true);
+        vm.stopPrank();
+
+        // unblock operator and verify approvals
+        vm.mockCall(
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
+        );
+        vm.startPrank(collector, collector);
+        tokenContract.approve(operator, 1);
+        assertEq(tokenContract.getApproved(1), operator);
+        tokenContract.approve(operator, 2);
+        assertEq(tokenContract.getApproved(2), operator);
+        tokenContract.setApprovalForAll(operator, true);
+        assertTrue(tokenContract.isApprovedForAll(collector, operator));
+        vm.stopPrank();
+
+        // clear mocked call
+        vm.clearMockedCalls();
+    }
+
+    function testBlockListExternalMint(address collector, address operator) public {
+        // limit fuzz
+        vm.assume(collector != address(0));
+        vm.assume(collector != address(1));
+        vm.assume(collector != operator);
+        vm.assume(operator != address(0));
+
+        // variables
+        address[] memory users = new address[](1);
+        users[0] = address(1);
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+
+        // mock call
+        vm.mockCall(
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
+        );
+
+        // update blocklist registry
+        tokenContract.setBlockListRegistry(blocklistRegistry);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint and verify blocked operator
+        vm.startPrank(address(1), address(1));
+        tokenContract.externalMint(collector, "uri");
+        vm.stopPrank();
+        vm.startPrank(collector, collector);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        tokenContract.approve(operator, 1);
+        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        tokenContract.setApprovalForAll(operator, true);
+        vm.stopPrank();
+
+        // unblock operator and verify approvals
+        vm.mockCall(
+            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
+        );
+        vm.startPrank(collector, collector);
+        tokenContract.approve(operator, 1);
+        assertEq(tokenContract.getApproved(1), operator);
+        tokenContract.setApprovalForAll(operator, true);
+        assertTrue(tokenContract.isApprovedForAll(collector, operator));
+        vm.stopPrank();
+
+        // clear mocked call
+        vm.clearMockedCalls();
+    }
+
+    /// @notice test TL Nft Delegation Registry functions
+    // - test access control for changing the registry
+
+    function test_setNftDelegationRegistry_accessControl(address user) public {
+        vm.assume(user != address(this));
+        address[] memory users = new address[](1);
+        users[0] = user;
+
+        // verify user can't access
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setNftDelegationRegistry(address(1));
+        vm.stopPrank();
+
+        // verify admin can access
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.startPrank(user, user);
+        vm.expectEmit(true, true, true, true);
+        emit NftDelegationRegistryUpdate(user, address(0), address(1));
+        tokenContract.setNftDelegationRegistry(address(1));
+        assertEq(address(tokenContract.tlNftDelegationRegistry()), address(1));
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+
+        // verify minter can't access
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setNftDelegationRegistry(address(1));
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+
+        // verify owner can access
+        vm.expectEmit(true, true, true, true);
+        emit NftDelegationRegistryUpdate(address(this), address(1), nftDelegationRegistry);
+        tokenContract.setNftDelegationRegistry(nftDelegationRegistry);
+        assertEq(address(tokenContract.tlNftDelegationRegistry()), nftDelegationRegistry);
+    }
+
+    function test_delegation_eoa() public {
+        // set delegation registry to eoa
+        tokenContract.setNftDelegationRegistry(nftDelegationRegistry);
+
+        // add metadata
+        string[] memory uris = new string[](1);
+        uris[0] = "uri1";
+        tokenContract.addTokenUris(uris);
+
+        // mint
+        tokenContract.mint(address(1), "uri");
+
+        // add story reverts for delegate but not collector
+        vm.expectRevert();
+        vm.prank(address(2));
+        tokenContract.addStory(1, "", "story");
+
+        vm.prank(address(1));
+        tokenContract.addStory(1, "", "story");
+
+        // pin and unpin metadata reverts for delegate but not collector
+        vm.expectRevert();
+        vm.prank(address(2));
+        tokenContract.pinTokenURI(1, 0);
+        vm.expectRevert();
+        vm.prank(address(2));
+        tokenContract.unpinTokenURI(1);
+
+        vm.prank(address(1));
+        tokenContract.pinTokenURI(1, 0);
+        vm.prank(address(1));
+        tokenContract.unpinTokenURI(1);
+    }
+}

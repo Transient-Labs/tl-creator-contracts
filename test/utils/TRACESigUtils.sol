@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 contract TRACESigUtils {
     bytes32 internal DOMAIN_SEPARATOR;
@@ -16,31 +16,30 @@ contract TRACESigUtils {
         );
     }
 
-    /// @notice function to hash the typed data
-    function _hashVerifiedStory(uint256 tokenId, uint256 nonce, address sender, string memory story)
+    /// @notice Function to hash the typed data
+    function _hashVerifiedStory(address nftContract, uint256 tokenId, string memory story)
         internal
         pure
         returns (bytes32)
     {
         return keccak256(
             abi.encode(
-                // keccak256("VerifiedStory(uint256 nonce,uint256 tokenId,address sender,string story)"),
-                0x3ea278f3e0e25a71281e489b82695f448ae01ef3fc312598f1e61ac9956ab954,
-                nonce,
+                // keccak256("VerifiedStory(address nftContract,uint256 tokenId,string story)"),
+                0x76b12200216600191228eb643bc7cba6e319d03951a863e3306595415759682b,
+                nftContract,
                 tokenId,
-                sender,
                 keccak256(bytes(story))
             )
         );
     }
 
     // computes the hash of the fully encoded EIP-712 message for the domain, which can be used to recover the signer
-    function getTypedDataHash(uint256 tokenId, uint256 nonce, address sender, string memory story)
+    function getTypedDataHash(address nftContract, uint256 tokenId, string memory story)
         public
         view
         returns (bytes32)
     {
-        bytes32 hash = _hashVerifiedStory(tokenId, nonce, sender, story);
+        bytes32 hash = _hashVerifiedStory(nftContract, tokenId, story);
         return keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, hash));
     }
 }
