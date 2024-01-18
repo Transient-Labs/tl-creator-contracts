@@ -1123,7 +1123,7 @@ contract ShatterTest is Test {
     // - test not blocked ✅
     // - test access control for changing the registry ✅
     function test_setBlockListRegistry_accessControl(address user) public {
-        vm.assume(user != address(this));
+        vm.assume(user != address(this) && user != admin);
         address[] memory users = new address[](1);
         users[0] = user;
 
