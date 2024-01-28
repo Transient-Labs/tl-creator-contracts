@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
-import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
+import {IBlockListRegistry} from "./IBlockListRegistry.sol";
+import {ITLNftDelegationRegistry} from "./ITLNftDelegationRegistry.sol";
 
 /// @title ICreatorBase.sol
 /// @notice Base interface for creator contracts
