@@ -5,11 +5,11 @@ import {Strings} from "openzeppelin/utils/Strings.sol";
 import {ERC1155Upgradeable, IERC1155, IERC165} from "openzeppelin-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
-import {IStory} from "src/interfaces/IStory.sol";
-import {IERC1155TL} from "src/erc-1155/IERC1155TL.sol";
-import {ICreatorBase} from "src/interfaces/ICreatorBase.sol";
-import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
-import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
+import {IStory} from "../interfaces/IStory.sol";
+import {ICreatorBase} from "../interfaces/ICreatorBase.sol";
+import {IBlockListRegistry} from "../interfaces/IBlockListRegistry.sol";
+import {ITLNftDelegationRegistry} from "../interfaces/ITLNftDelegationRegistry.sol";
+import {IERC1155TL} from "./IERC1155TL.sol";
 
 /// @title ERC1155TL.sol
 /// @notice Sovereign ERC-1155 Creator Contract with Story Inscriptions

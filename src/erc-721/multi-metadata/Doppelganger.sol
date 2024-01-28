@@ -6,12 +6,12 @@ import {Strings} from "openzeppelin/utils/Strings.sol";
 import {ERC721Upgradeable, IERC165, IERC721} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
-import {IERC721TL} from "src/erc-721/IERC721TL.sol";
-import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
-import {ICreatorBase} from "src/interfaces/ICreatorBase.sol";
-import {IERC7160} from "src/interfaces/IERC7160.sol";
-import {IStory} from "src/interfaces/IStory.sol";
-import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
+import {IBlockListRegistry} from "../../interfaces/IBlockListRegistry.sol";
+import {ICreatorBase} from "../../interfaces/ICreatorBase.sol";
+import {IERC7160} from "../../interfaces/IERC7160.sol";
+import {IStory} from "../../interfaces/IStory.sol";
+import {ITLNftDelegationRegistry} from "../../interfaces/ITLNftDelegationRegistry.sol";
+import {IERC721TL} from "../IERC721TL.sol";
 
 /// @title Doppelganger.sol
 /// @notice Sovereign ERC-7160 Editions (Doppelganger) Creator Contract with Story Inscriptions

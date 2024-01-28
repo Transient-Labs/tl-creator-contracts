@@ -400,7 +400,7 @@ contract ShatterTest is Test {
     // - access control ✅
     function test_setDefaultRoyalty(address newRecipient, uint256 newPercentage, address user) public {
         vm.assume(newRecipient != address(0));
-        vm.assume(user != address(0) && user != address(this));
+        vm.assume(user != admin && user != address(this));
         if (newPercentage >= 10_000) {
             newPercentage = newPercentage % 10_000;
         }
@@ -434,7 +434,7 @@ contract ShatterTest is Test {
 
     function test_setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage, address user) public {
         vm.assume(newRecipient != address(0));
-        vm.assume(user != address(0) && user != address(this));
+        vm.assume(user != admin && user != address(this));
         if (newPercentage >= 10_000) {
             newPercentage = newPercentage % 10_000;
         }

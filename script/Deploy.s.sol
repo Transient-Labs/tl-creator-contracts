@@ -23,6 +23,7 @@ contract DeployERC721TL is Script {
 
         // deploy
         address deployedContract = create2Deployer.computeAddress(salt, keccak256(bytecode));
+        console.logAddress(deployedContract);
         vm.broadcast();
         create2Deployer.deploy(0, salt, bytecode);
 

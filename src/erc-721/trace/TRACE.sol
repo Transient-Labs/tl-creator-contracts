@@ -8,12 +8,12 @@ import {ERC721Upgradeable, IERC165} from "openzeppelin-upgradeable/token/ERC721/
 import {EIP712Upgradeable} from "openzeppelin-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
-import {ITRACE} from "src/erc-721/trace/ITRACE.sol";
-import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
-import {ICreatorBase} from "src/interfaces/ICreatorBase.sol";
-import {IStory} from "src/interfaces/IStory.sol";
-import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
-import {ITRACERSRegistry} from "src/interfaces/ITRACERSRegistry.sol";
+import {IBlockListRegistry} from "../../interfaces/IBlockListRegistry.sol";
+import {ICreatorBase} from "../../interfaces/ICreatorBase.sol";
+import {IStory} from "../../interfaces/IStory.sol";
+import {ITLNftDelegationRegistry} from "../../interfaces/ITLNftDelegationRegistry.sol";
+import {ITRACERSRegistry} from "../../interfaces/ITRACERSRegistry.sol";
+import {ITRACE} from "./ITRACE.sol";
 
 /// @title TRACE.sol
 /// @notice Sovereign T.R.A.C.E. Creator Contract allowing for digital Certificates of Authenticity backed by the blockchain
