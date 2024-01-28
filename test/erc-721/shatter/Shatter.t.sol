@@ -368,6 +368,7 @@ contract ShatterTest is Test {
         if (numShatters > 100) numShatters = numShatters % 99 + 2;
         vm.assume(recipient != address(0));
         vm.assume(recipient != address(this));
+        vm.assume(recipient != admin);
 
         // mint and transfer
         tokenContract.mint(address(this), "tokenUri", 1, 100, 0);
@@ -860,7 +861,7 @@ contract ShatterTest is Test {
     // - write creator story to non-existent token (reverts) ✅
     // - write collector story to non-existent token (reverts) ✅
     function test_story_accessControl(address user) public {
-        vm.assume(user != address(this));
+        vm.assume(user != address(this) && user != admin);
         address[] memory users = new address[](1);
         users[0] = user;
 
