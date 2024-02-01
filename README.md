@@ -73,6 +73,15 @@ We use immutable [ERC-1167](https://eips.ethereum.org/EIPS/eip-1167) proxies for
 2. Run `make install` or `make update`
 3. Run `forge test` (optionally can adjust the fuzz runs via the flag `--fuzz-runs <number>`)
 
+## Building InitCode for the TL Universal Deployer
+1. Navigate the the contract type you want to deploy
+2. Look at the initialize function to see the function signature
+3. Run `cast calldata "<function-signature-here>" <constructor-args-here>`
+
+Example: `cast calldata "initialize(string,string,string,address,uint256,address,address[],bool,address)" "The Enchanted Hour" "RK" "" 0x77B35947d508012589a91CA4c9d168824376Cc7D 1000 0x77B35947d508012589a91CA4c9d168824376Cc7D "[]" true 0x77B35947d508012589a91CA4c9d168824376Cc7D`
+
+See more about cast calldata [here](https://book.getfoundry.sh/reference/cast/cast-calldata).
+
 ## Disclaimer
 This codebase is provided on an "as is" and "as available" basis.
 
