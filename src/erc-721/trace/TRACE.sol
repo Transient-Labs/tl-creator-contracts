@@ -3,6 +3,7 @@ pragma solidity 0.8.22;
 
 import {IERC4906} from "openzeppelin/interfaces/IERC4906.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
+import {ReentrancyGuardUpgradeable} from "openzeppelin-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {ECDSA} from "openzeppelin/utils/cryptography/ECDSA.sol";
 import {ERC721Upgradeable, IERC165} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
 import {EIP712Upgradeable} from "openzeppelin-upgradeable/utils/cryptography/EIP712Upgradeable.sol";
@@ -18,9 +19,10 @@ import {ITRACE} from "./ITRACE.sol";
 /// @title TRACE.sol
 /// @notice Sovereign T.R.A.C.E. Creator Contract allowing for digital Certificates of Authenticity backed by the blockchain
 /// @author transientlabs.xyz
-/// @custom:version 3.0.1
+/// @custom:version 3.1.0
 contract TRACE is
     ERC721Upgradeable,
+    ReentrancyGuardUpgradeable,
     OwnableAccessControlUpgradeable,
     EIP2981TLUpgradeable,
     EIP712Upgradeable,
@@ -57,7 +59,7 @@ contract TRACE is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.0.1";
+    string public constant VERSION = "3.1.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     ITRACERSRegistry public tracersRegistry;
@@ -104,7 +106,6 @@ contract TRACE is
                                 Initializer
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev `tx.origin` is used in the events here as these can be deployed via contract factories and we want to capture the true sender
     /// @param name The name of the contract
     /// @param symbol The symbol of the contract
     /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
@@ -128,6 +129,7 @@ contract TRACE is
         __EIP2981TL_init(defaultRoyaltyRecipient, defaultRoyaltyPercentage);
         __OwnableAccessControl_init(initOwner);
         __EIP712_init("T.R.A.C.E.", "3");
+        __ReentrancyGuard_init();
 
         // add admins
         _setRole(ADMIN_ROLE, admins, true);
@@ -137,7 +139,7 @@ contract TRACE is
 
         // emit personalization as collection story
         if (bytes(personalization).length > 0) {
-            emit CollectionStory(tx.origin, tx.origin.toHexString(), personalization);
+            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
         }
     }
 
@@ -228,6 +230,7 @@ contract TRACE is
     /// @inheritdoc ITRACE
     function addVerifiedStory(uint256[] calldata tokenIds, string[] calldata stories, bytes[] calldata signatures)
         external
+        nonReentrant
     {
         if (tokenIds.length != stories.length && stories.length != signatures.length) {
             revert ArrayLengthMismatch();

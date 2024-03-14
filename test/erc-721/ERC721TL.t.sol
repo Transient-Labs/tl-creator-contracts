@@ -77,14 +77,14 @@ contract ERC721TLTest is Test {
             emit RoleChange(address(this), admins[i], true, tokenContract.ADMIN_ROLE());
         }
         vm.expectEmit(true, true, true, true);
-        emit StoryStatusUpdate(address(this), enableStory);
+        emit StoryStatusUpdate(initOwner, enableStory);
         vm.expectEmit(true, true, true, true);
-        emit BlockListRegistryUpdate(address(this), address(0), blockListRegistry);
+        emit BlockListRegistryUpdate(initOwner, address(0), blockListRegistry);
         vm.expectEmit(true, true, true, true);
-        emit NftDelegationRegistryUpdate(address(this), address(0), tlNftDelegationRegistry);
+        emit NftDelegationRegistryUpdate(initOwner, address(0), tlNftDelegationRegistry);
         if (bytes(personalization).length > 0) {
             vm.expectEmit(true, true, true, true);
-            emit CollectionStory(address(this), address(this).toHexString(), personalization);
+            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
         }
         tokenContract.initialize(
             name,

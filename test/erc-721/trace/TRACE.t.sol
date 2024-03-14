@@ -80,7 +80,7 @@ contract TRACETest is Test {
         }
         if (bytes(personalization).length > 0) {
             vm.expectEmit(true, true, true, true);
-            emit CollectionStory(address(this), address(this).toHexString(), personalization);
+            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
         }
         trace.initialize(
             name,
