@@ -1067,6 +1067,7 @@ contract ShatterTest is Test {
     function test_addStory_disabled(address collector) public {
         vm.assume(collector != address(0));
         vm.assume(collector != address(this));
+        vm.assume(collector != admin);
         tokenContract.mint(collector, "uri", 1, 2, 0);
 
         // disable story
