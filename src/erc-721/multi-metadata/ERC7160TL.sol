@@ -16,7 +16,7 @@ import {IERC721TL} from "../IERC721TL.sol";
 /// @title ERC7160TL.sol
 /// @notice Sovereign ERC-7160 Creator Contract with Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.1.0
+/// @custom:version 3.1.1
 contract ERC7160TL is
     ERC721Upgradeable,
     EIP2981TLUpgradeable,
@@ -62,7 +62,7 @@ contract ERC7160TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.1.0";
+    string public constant VERSION = "3.1.1";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
@@ -298,6 +298,7 @@ contract ERC7160TL is
     /// @param float Bool indicating whether to float or not
     function setUnpinnedFloatState(bool float) external onlyRoleOrOwner(ADMIN_ROLE) {
         floatWhenUnpinned = float;
+        emit BatchMetadataUpdate(1, _counter);
     }
 
 

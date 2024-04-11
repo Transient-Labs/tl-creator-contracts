@@ -17,7 +17,7 @@ import {IERC721TL} from "../IERC721TL.sol";
 /// @notice Sovereign ERC-7160 Editions with a metadata lock timer (Collectors Choice) Creator Contract with Story Inscriptions
 /// @dev When unpinned, the latest metadata added for a token is returned from `tokenURI` and `tokenURIs`
 /// @author transientlabs.xyz
-/// @custom:version 3.1.0
+/// @custom:version 3.1.1
 contract CollectorsChoice is
     ERC721Upgradeable,
     EIP2981TLUpgradeable,
@@ -55,7 +55,7 @@ contract CollectorsChoice is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.1.0";
+    string public constant VERSION = "3.1.1";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
@@ -314,6 +314,7 @@ contract CollectorsChoice is
     /// @param float Bool indicating whether to float or not
     function setUnpinnedFloatState(bool float) external onlyRoleOrOwner(ADMIN_ROLE) {
         floatWhenUnpinned = float;
+        emit BatchMetadataUpdate(1, _counter);
     }
 
     /// @notice Function to add token uris
