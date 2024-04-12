@@ -16,7 +16,7 @@ import {IERC721TL} from "./IERC721TL.sol";
 /// @title ERC721TL.sol
 /// @notice Sovereign ERC-721 Creator Contract with Synergy and Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.0.1
+/// @custom:version 3.1.0
 contract ERC721TL is
     ERC721Upgradeable,
     OwnableAccessControlUpgradeable,
@@ -49,7 +49,7 @@ contract ERC721TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.0.1";
+    string public constant VERSION = "3.1.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
@@ -108,7 +108,6 @@ contract ERC721TL is
                                 Initializer
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev `tx.origin` is used in the events here as these can be deployed via contract factories and we want to capture the true sender
     /// @param name The name of the 721 contract
     /// @param symbol The symbol of the 721 contract
     /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
@@ -141,17 +140,17 @@ contract ERC721TL is
 
         // story
         storyEnabled = enableStory;
-        emit StoryStatusUpdate(tx.origin, enableStory);
+        emit StoryStatusUpdate(initOwner, enableStory);
 
         // blocklist and nft delegation registry
         blocklistRegistry = IBlockListRegistry(initBlockListRegistry);
-        emit BlockListRegistryUpdate(tx.origin, address(0), initBlockListRegistry);
+        emit BlockListRegistryUpdate(initOwner, address(0), initBlockListRegistry);
         tlNftDelegationRegistry = ITLNftDelegationRegistry(initNftDelegationRegistry);
-        emit NftDelegationRegistryUpdate(tx.origin, address(0), initNftDelegationRegistry);
+        emit NftDelegationRegistryUpdate(initOwner, address(0), initNftDelegationRegistry);
 
         // emit personalization as collection story
         if (bytes(personalization).length > 0) {
-            emit CollectionStory(tx.origin, tx.origin.toHexString(), personalization);
+            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
         }
     }
 

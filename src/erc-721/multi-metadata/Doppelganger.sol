@@ -17,7 +17,7 @@ import {IERC721TL} from "../IERC721TL.sol";
 /// @notice Sovereign ERC-7160 Editions (Doppelganger) Creator Contract with Story Inscriptions
 /// @dev When unpinned, the latest metadata added for a token is returned from `tokenURI` and `tokenURIs`
 /// @author transientlabs.xyz
-/// @custom:version 3.0.1
+/// @custom:version 3.1.1
 contract Doppelganger is
     ERC721Upgradeable,
     EIP2981TLUpgradeable,
@@ -55,11 +55,12 @@ contract Doppelganger is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.0.1";
+    string public constant VERSION = "3.1.1";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
     bool public storyEnabled;
+    bool public floatWhenUnpinned;
     ITLNftDelegationRegistry public tlNftDelegationRegistry;
     IBlockListRegistry public blocklistRegistry;
     mapping(uint256 => bool) private _burned; // flag to see if a token is burned or not - needed for burning batch mints
@@ -117,7 +118,6 @@ contract Doppelganger is
                                 Initializer
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev `tx.origin` is used in the events here as these can be deployed via contract factories and we want to capture the true sender
     /// @param name The name of the 721 contract
     /// @param symbol The symbol of the 721 contract
     /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
@@ -150,17 +150,17 @@ contract Doppelganger is
 
         // story
         storyEnabled = enableStory;
-        emit StoryStatusUpdate(tx.origin, enableStory);
+        emit StoryStatusUpdate(initOwner, enableStory);
 
         // blocklist and nft delegation registry
         blocklistRegistry = IBlockListRegistry(initBlockListRegistry);
-        emit BlockListRegistryUpdate(tx.origin, address(0), initBlockListRegistry);
+        emit BlockListRegistryUpdate(initOwner, address(0), initBlockListRegistry);
         tlNftDelegationRegistry = ITLNftDelegationRegistry(initNftDelegationRegistry);
-        emit NftDelegationRegistryUpdate(tx.origin, address(0), initNftDelegationRegistry);
+        emit NftDelegationRegistryUpdate(initOwner, address(0), initNftDelegationRegistry);
 
         // emit personalization as collection story
         if (bytes(personalization).length > 0) {
-            emit CollectionStory(tx.origin, tx.origin.toHexString(), personalization);
+            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
         }
     }
 
@@ -281,6 +281,15 @@ contract Doppelganger is
                                 ERC-7160 Functions
     //////////////////////////////////////////////////////////////////////////*/
 
+    /// @notice Function to change the unpinned display state
+    /// @dev floating means that the last item in the tokenUris array will be returned from `tokenUri`
+    /// @dev if not floating, the first item in the tokenUris array is returned
+    /// @param float Bool indicating whether to float or not
+    function setUnpinnedFloatState(bool float) external onlyRoleOrOwner(ADMIN_ROLE) {
+        floatWhenUnpinned = float;
+        emit BatchMetadataUpdate(1, _counter);
+    }
+
     /// @notice Function to add token uris
     /// @dev Must be called by contract owner, admin, or approved mint contract
     /// @param tokenUris Array of token uris to add
@@ -308,7 +317,11 @@ contract Doppelganger is
         // get if pinned
         pinned = multiMetadata.pinned;
         // set index
-        index = pinned ? multiMetadata.index : uris.length - 1;
+        if (pinned) {
+            index = multiMetadata.index;
+        } else {
+            index = floatWhenUnpinned ? uris.length - 1 : 0;
+        }
     }
 
     /// @inheritdoc IERC7160
@@ -350,7 +363,7 @@ contract Doppelganger is
         if (multiMetadata.pinned) {
             uri = _tokenUris[multiMetadata.index];
         } else {
-            uri = _tokenUris[_tokenUris.length - 1];
+            uri = floatWhenUnpinned ? _tokenUris[_tokenUris.length - 1] : _tokenUris[0];
         }
     }
 

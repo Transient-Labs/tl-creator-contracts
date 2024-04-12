@@ -14,7 +14,7 @@ import {IERC1155TL} from "./IERC1155TL.sol";
 /// @title ERC1155TL.sol
 /// @notice Sovereign ERC-1155 Creator Contract with Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.0.1
+/// @custom:version 3.1.0
 contract ERC1155TL is
     ERC1155Upgradeable,
     EIP2981TLUpgradeable,
@@ -34,7 +34,7 @@ contract ERC1155TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.0.1";
+    string public constant VERSION = "3.1.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter;
@@ -91,7 +91,6 @@ contract ERC1155TL is
                                 Initializer
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @dev `tx.origin` is used in the events here as these can be deployed via contract factories and we want to capture the true sender
     /// @param name_ The name of the 721 contract
     /// @param symbol_ The symbol of the 721 contract
     /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
@@ -126,15 +125,15 @@ contract ERC1155TL is
 
         // story
         storyEnabled = enableStory;
-        emit StoryStatusUpdate(tx.origin, enableStory);
+        emit StoryStatusUpdate(initOwner, enableStory);
 
         // blocklist
         blocklistRegistry = IBlockListRegistry(initBlockListRegistry);
-        emit BlockListRegistryUpdate(tx.origin, address(0), initBlockListRegistry);
+        emit BlockListRegistryUpdate(initOwner, address(0), initBlockListRegistry);
 
         // emit personalization as collection story
         if (bytes(personalization).length > 0) {
-            emit CollectionStory(tx.origin, tx.origin.toHexString(), personalization);
+            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
         }
     }
 

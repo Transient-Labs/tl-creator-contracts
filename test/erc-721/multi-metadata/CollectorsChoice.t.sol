@@ -78,14 +78,14 @@ contract CollectorsChoiceTest is Test {
             emit RoleChange(address(this), admins[i], true, tokenContract.ADMIN_ROLE());
         }
         vm.expectEmit(true, true, true, true);
-        emit StoryStatusUpdate(address(this), enableStory);
+        emit StoryStatusUpdate(initOwner, enableStory);
         vm.expectEmit(true, true, true, true);
-        emit BlockListRegistryUpdate(address(this), address(0), blockListRegistry);
+        emit BlockListRegistryUpdate(initOwner, address(0), blockListRegistry);
         vm.expectEmit(true, true, true, true);
-        emit NftDelegationRegistryUpdate(address(this), address(0), tlNftDelegationRegistry);
+        emit NftDelegationRegistryUpdate(initOwner, address(0), tlNftDelegationRegistry);
         if (bytes(personalization).length > 0) {
             vm.expectEmit(true, true, true, true);
-            emit CollectionStory(address(this), address(this).toHexString(), personalization);
+            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
         }
         tokenContract.initialize(
             name,
@@ -1747,6 +1747,27 @@ contract CollectorsChoiceTest is Test {
     //  - multi metadata with airdrop ✅
     //  - multi metadata with external mint ✅
     //  - test cutoff time
+    function test_setUnpinnedFloatState_accessControl(address user) public {
+        vm.assume(user != address(this));
+        address[] memory users = new address[](1);
+        users[0] = user;
+
+        // user can't access
+        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.prank(user);
+        tokenContract.setUnpinnedFloatState(true);
+
+        // admin can
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.prank(user);
+        tokenContract.setUnpinnedFloatState(true);
+        assertTrue(tokenContract.floatWhenUnpinned());
+
+        // owner can
+        tokenContract.setUnpinnedFloatState(false);
+        assertFalse(tokenContract.floatWhenUnpinned());
+    }
+
     function test_addTokenUris_accessControl(address user) public {
         vm.assume(user != address(this) && user != address(0));
         address[] memory users = new address[](1);
@@ -1798,6 +1819,16 @@ contract CollectorsChoiceTest is Test {
         expectedUris[3] = "uri2";
 
         (uint256 index, string[] memory rUris, bool isPinned) = tokenContract.tokenURIs(1);
+        assertEq(index, 0);
+        assertFalse(isPinned);
+        assertEq(rUris.length, 4);
+        for (uint256 i = 0; i < rUris.length; i++) {
+            assertEq(keccak256(bytes(expectedUris[i])), keccak256(bytes(rUris[i])));
+        }
+
+        // float
+        tokenContract.setUnpinnedFloatState(true);
+        (index, rUris, isPinned) = tokenContract.tokenURIs(1);
         assertEq(index, 3);
         assertFalse(isPinned);
         assertEq(rUris.length, 4);
@@ -1969,13 +2000,13 @@ contract CollectorsChoiceTest is Test {
         string[] memory rUris = new string[](0);
         for (uint256 i = 0; i < numTokens; i++) {
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 1);
+            assertEq(index, 0);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
             assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
             // token uri
-            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
         }
 
         // pin token uri to 1
@@ -2026,6 +2057,20 @@ contract CollectorsChoiceTest is Test {
             tokenContract.unpinTokenURI(tokenIds[i]);
 
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // float
+        tokenContract.setUnpinnedFloatState(true);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
             assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
@@ -2034,6 +2079,20 @@ contract CollectorsChoiceTest is Test {
 
             // token uri
             assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // no float
+        tokenContract.setUnpinnedFloatState(false);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
         }
     }
 
@@ -2072,13 +2131,13 @@ contract CollectorsChoiceTest is Test {
         string[] memory rUris = new string[](0);
         for (uint256 i = 0; i < numTokens; i++) {
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 1);
+            assertEq(index, 0);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
             assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
             // token uri
-            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
         }
 
         // pin token uri to 1
@@ -2129,6 +2188,20 @@ contract CollectorsChoiceTest is Test {
             tokenContract.unpinTokenURI(tokenIds[i]);
 
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // float
+        tokenContract.setUnpinnedFloatState(true);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
             assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
@@ -2137,6 +2210,20 @@ contract CollectorsChoiceTest is Test {
 
             // token uri
             assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // no float
+        tokenContract.setUnpinnedFloatState(false);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
         }
     }
 
@@ -2176,13 +2263,13 @@ contract CollectorsChoiceTest is Test {
         string[] memory rUris = new string[](0);
         for (uint256 i = 0; i < numTokens; i++) {
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 1);
+            assertEq(index, 0);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
             assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
             // token uri
-            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
         }
 
         // pin token uri to 1
@@ -2233,6 +2320,20 @@ contract CollectorsChoiceTest is Test {
             tokenContract.unpinTokenURI(tokenIds[i]);
 
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // float
+        tokenContract.setUnpinnedFloatState(true);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
             assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
@@ -2241,6 +2342,20 @@ contract CollectorsChoiceTest is Test {
 
             // token uri
             assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // no float
+        tokenContract.setUnpinnedFloatState(false);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
         }
     }
 
@@ -2282,13 +2397,13 @@ contract CollectorsChoiceTest is Test {
         string[] memory rUris = new string[](0);
         for (uint256 i = 0; i < numTokens; i++) {
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 1);
+            assertEq(index, 0);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
             assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
             // token uri
-            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
         }
 
         // pin token uri to 1
@@ -2339,6 +2454,20 @@ contract CollectorsChoiceTest is Test {
             tokenContract.unpinTokenURI(tokenIds[i]);
 
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // float
+        tokenContract.setUnpinnedFloatState(true);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
             assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
@@ -2347,6 +2476,20 @@ contract CollectorsChoiceTest is Test {
 
             // token uri
             assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // no float
+        tokenContract.setUnpinnedFloatState(false);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
         }
     }
 
@@ -2392,13 +2535,13 @@ contract CollectorsChoiceTest is Test {
         string[] memory rUris = new string[](0);
         for (uint256 i = 0; i < numTokens; i++) {
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
-            assertEq(index, 1);
+            assertEq(index, 0);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
             assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
             assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
             // token uri
-            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
         }
 
         // pin token uri to 1
@@ -2449,6 +2592,20 @@ contract CollectorsChoiceTest is Test {
             tokenContract.unpinTokenURI(tokenIds[i]);
 
             (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
+        }
+
+        // float
+        tokenContract.setUnpinnedFloatState(true);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
             assertEq(index, 1);
             assertFalse(isPinned);
             assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
@@ -2457,6 +2614,20 @@ contract CollectorsChoiceTest is Test {
 
             // token uri
             assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri2"));
+        }
+
+        // no float
+        tokenContract.setUnpinnedFloatState(false);
+        for (uint256 i = 0; i < numTokens; i++) {
+            (index, rUris, isPinned) = tokenContract.tokenURIs(tokenIds[i]);
+            assertEq(index, 0);
+            assertFalse(isPinned);
+            assertFalse(tokenContract.hasPinnedTokenURI(tokenIds[i]));
+            assert(keccak256(bytes(rUris[0])) == keccak256("uri1"));
+            assert(keccak256(bytes(rUris[1])) == keccak256("uri2"));
+
+            // token uri
+            assert(keccak256(bytes(tokenContract.tokenURI(tokenIds[i]))) == keccak256("uri1"));
         }
 
         // remove delegate and try to pin/unpin

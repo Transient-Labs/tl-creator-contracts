@@ -1,0 +1,19 @@
+{
+    "wake.compiler.solc.remappings": [
+        "ds-test/=lib/forge-std/lib/ds-test/src/",
+        "forge-std/=lib/forge-std/src/",
+        "openzeppelin-upgradeable/=lib/tl-sol-tools/lib/openzeppelin-contracts-upgradeable/contracts/",
+        "openzeppelin/=lib/tl-sol-tools/lib/openzeppelin-contracts/contracts/",
+        "tl-sol-tools/=lib/tl-sol-tools/src/",
+        "@manifoldxyz/libraries-solidity/=lib/tl-sol-tools/lib/royalty-registry-solidity/lib/libraries-solidity/",
+        "@openzeppelin/contracts-upgradeable/=lib/tl-sol-tools/lib/openzeppelin-contracts-upgradeable/contracts/",
+        "@openzeppelin/contracts/=lib/tl-sol-tools/lib/openzeppelin-contracts/contracts/",
+        "create2-helpers/=lib/tl-sol-tools/lib/royalty-registry-solidity/lib/create2-helpers/",
+        "create2-scripts/=lib/tl-sol-tools/lib/royalty-registry-solidity/lib/create2-helpers/script/",
+        "erc4626-tests/=lib/tl-sol-tools/lib/openzeppelin-contracts-upgradeable/lib/erc4626-tests/",
+        "libraries-solidity/=lib/tl-sol-tools/lib/royalty-registry-solidity/lib/libraries-solidity/contracts/",
+        "royalty-registry-solidity/=lib/tl-sol-tools/lib/royalty-registry-solidity/",
+        "openzeppelin-contracts-upgradeable/=lib/tl-sol-tools/lib/openzeppelin-contracts-upgradeable/",
+        "openzeppelin-contracts/=lib/tl-sol-tools/lib/openzeppelin-contracts/"
+    ]
+}
