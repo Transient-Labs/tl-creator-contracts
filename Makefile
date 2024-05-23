@@ -230,7 +230,17 @@ deploy_TRACE_arbitrum_sepolia: build
 	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --verifier-url https://api-sepolia.arbiscan.io/api --etherscan-api-key ${ARBISCAN_KEY} --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh
 
+deploy_TRACE_base_sepolia: build
+	forge script script/Deploy.s.sol:DeployTRACE --evm-version paris --rpc-url base_sepolia --ledger --sender ${SENDER} --broadcast
+	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	@bash print_and_clean.sh
+
 deploy_TRACE_arbitrum_one: build
 	forge script script/Deploy.s.sol:DeployTRACE --evm-version paris --rpc-url arbitrum --ledger --sender ${SENDER} --broadcast
 	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --chain arbitrum --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	@bash print_and_clean.sh
+
+deploy_TRACE_base: build
+	forge script script/Deploy.s.sol:DeployTRACE --evm-version paris --rpc-url base --ledger --sender ${SENDER} --broadcast
+	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --chain base --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	@bash print_and_clean.sh

@@ -6,7 +6,6 @@ import {ERC7160TL} from "../src/erc-721/multi-metadata/ERC7160TL.sol";
 import {ERC721TL} from "../src/erc-721/ERC721TL.sol";
 
 contract Simulate7160AddTokenUris is Script {
-
     function run() public {
         // variables
         address[] memory admins = new address[](0);
@@ -27,7 +26,7 @@ contract Simulate7160AddTokenUris is Script {
             // create token id array
             uint256[] memory tokenIds = new uint256[](batchSize);
             for (uint256 j = 0; j < batchSize; ++j) {
-                tokenIds[j] = j + 1 + i*batchSize;
+                tokenIds[j] = j + 1 + i * batchSize;
             }
 
             // add token uris
@@ -40,7 +39,6 @@ contract Simulate7160AddTokenUris is Script {
 }
 
 contract SimulateERC721TLAirdrop is Script {
-
     function run() public {
         // variables
         address[] memory admins = new address[](0);
@@ -55,7 +53,7 @@ contract SimulateERC721TLAirdrop is Script {
             // create address array
             address[] memory addresses = new address[](batchSize);
             for (uint256 j = 0; j < batchSize; ++j) {
-                addresses[j] = address(uint160(j + 1 + i*batchSize));
+                addresses[j] = address(uint160(j + 1 + i * batchSize));
             }
 
             // add token uris

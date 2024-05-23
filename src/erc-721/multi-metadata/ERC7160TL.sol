@@ -301,7 +301,6 @@ contract ERC7160TL is
         emit BatchMetadataUpdate(1, _counter);
     }
 
-
     /// @notice Function to add token uris
     /// @dev Written to take in many token ids and a base uri that contains metadata files with file names matching the index of each token id in the `tokenIds` array (aka folderIndex)
     /// @dev No trailing slash on the base uri

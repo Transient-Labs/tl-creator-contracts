@@ -1613,7 +1613,9 @@ contract ERC7160TLTest is Test {
         users[0] = user;
 
         // user can't access
-        vm.expectRevert(abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
         vm.prank(user);
         tokenContract.setUnpinnedFloatState(true);
 
