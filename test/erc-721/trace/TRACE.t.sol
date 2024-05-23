@@ -719,7 +719,7 @@ contract TRACETest is Test {
         uint256[] memory tokenIds = new uint256[](len1);
         string[] memory stories = new string[](len2);
         bytes[] memory sigs = new bytes[](len3);
-        if (len1 != len2 && len2 != len3) {
+        if (len1 != len2 || len2 != len3 || len1 != len3) {
             vm.expectRevert(TRACE.ArrayLengthMismatch.selector);
             trace.addVerifiedStory(tokenIds, stories, sigs);
         }
