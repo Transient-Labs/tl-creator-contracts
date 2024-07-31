@@ -13,12 +13,11 @@ import {IStory} from "../../interfaces/IStory.sol";
 import {ITLNftDelegationRegistry} from "../../interfaces/ITLNftDelegationRegistry.sol";
 import {IERC721TL} from "../IERC721TL.sol";
 
-/// @title Doppelganger.sol
-/// @notice Sovereign ERC-7160 Editions (Doppelganger) Creator Contract with Story Inscriptions
-/// @dev When unpinned, the latest metadata added for a token is returned from `tokenURI` and `tokenURIs`
+/// @title ERC7160TLEditions.sol
+/// @notice Sovereign ERC-7160 Editions Creator Contract with Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.1.1
-contract Doppelganger is
+/// @custom:version 3.2.0
+contract ERC7160TLEditions is
     ERC721Upgradeable,
     EIP2981TLUpgradeable,
     OwnableAccessControlUpgradeable,
@@ -55,7 +54,7 @@ contract Doppelganger is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.1.1";
+    string public constant VERSION = "3.2.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
