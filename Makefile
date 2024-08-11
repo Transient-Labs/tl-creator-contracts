@@ -4,7 +4,7 @@
 
 ################################################################ Modules ################################################################
 remove:
-	rm -rf .gitmodules && rm -rf .git/modules/* && rm -rf lib && touch .gitmodules && git add . && git commit -m "modules"
+	rm -rf .gitmodules && rm -rf .git/modules/* && rm -rf lib && touch .gitmodules
 
 install:
 	forge install foundry-rs/forge-std@v1.9.1 --no-commit
