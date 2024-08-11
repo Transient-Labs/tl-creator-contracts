@@ -7,7 +7,7 @@ remove:
 	rm -rf .gitmodules && rm -rf .git/modules/* && rm -rf lib && touch .gitmodules && git add . && git commit -m "modules"
 
 install:
-	forge install foundry-rs/forge-std --no-commit
+	forge install foundry-rs/forge-std@v1.9.1 --no-commit
 	forge install Transient-Labs/tl-sol-tools@3.1.1 --no-commit
 
 update: remove install

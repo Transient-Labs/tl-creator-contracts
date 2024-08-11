@@ -13,7 +13,10 @@
         "erc4626-tests/=lib/tl-sol-tools/lib/openzeppelin-contracts-upgradeable/lib/erc4626-tests/",
         "libraries-solidity/=lib/tl-sol-tools/lib/royalty-registry-solidity/lib/libraries-solidity/contracts/",
         "royalty-registry-solidity/=lib/tl-sol-tools/lib/royalty-registry-solidity/",
-        "openzeppelin-contracts-upgradeable/=lib/tl-sol-tools/lib/openzeppelin-contracts-upgradeable/",
-        "openzeppelin-contracts/=lib/tl-sol-tools/lib/openzeppelin-contracts/"
+        "blocklist/=lib/blocklist/src/",
+        "openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/",
+        "openzeppelin-contracts/=lib/openzeppelin-contracts/",
+        "sstore2/=lib/sstore2/contracts/",
+        "story-contract/=lib/story-contract/src/"
     ]
 }

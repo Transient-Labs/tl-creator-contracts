@@ -3,18 +3,18 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
-import {Doppelganger} from "src/erc-721/multi-metadata/Doppelganger.sol";
+import {ERC7160TLEditions} from "src/erc-721/multi-metadata/ERC7160TLEditions.sol";
 import {IERC721Errors} from "openzeppelin/interfaces/draft-IERC6093.sol";
 import {Initializable} from "openzeppelin/proxy/utils/Initializable.sol";
 import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 
-contract DoppelgangerTest is Test {
+contract ERC7160TLEditionsTest is Test {
     using Strings for uint256;
     using Strings for address;
 
-    Doppelganger public tokenContract;
+    ERC7160TLEditions public tokenContract;
     address public royaltyRecipient = makeAddr("royaltyRecipient");
     address public blocklistRegistry = makeAddr("blocklistRegistry");
     address public nftDelegationRegistry = makeAddr("nftDelegationRegistry");
@@ -39,7 +39,7 @@ contract DoppelgangerTest is Test {
 
     function setUp() public {
         address[] memory admins = new address[](0);
-        tokenContract = new Doppelganger(false);
+        tokenContract = new ERC7160TLEditions(false);
         tokenContract.initialize(
             "Test7160", "T7160", "", royaltyRecipient, 1000, address(this), admins, true, address(0), address(0)
         );
@@ -68,7 +68,7 @@ contract DoppelgangerTest is Test {
         vm.startPrank(address(this), address(this));
 
         // create contract
-        tokenContract = new Doppelganger(false);
+        tokenContract = new ERC7160TLEditions(false);
         // initialize and verify events thrown (order matters)
         vm.expectEmit(true, true, true, true);
         emit OwnershipTransferred(address(0), initOwner);
@@ -127,7 +127,7 @@ contract DoppelgangerTest is Test {
         );
 
         // can't get by initializers disabled
-        tokenContract = new Doppelganger(true);
+        tokenContract = new ERC7160TLEditions(true);
 
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         tokenContract.initialize(
@@ -208,10 +208,10 @@ contract DoppelgangerTest is Test {
     // - safe transfer to another address ✅
     // - token uri ✅
     function test_mint_customErrors() public {
-        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        vm.expectRevert(ERC7160TLEditions.EmptyTokenURIs.selector);
         tokenContract.mint(address(this), "");
 
-        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        vm.expectRevert(ERC7160TLEditions.EmptyTokenURIs.selector);
         tokenContract.mint(address(this), "", address(1), 10);
     }
 
@@ -321,7 +321,7 @@ contract DoppelgangerTest is Test {
         // ensure ownership throws for non-existent token
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, tokenId + 1));
         tokenContract.ownerOf(tokenId + 1);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
     }
 
@@ -362,7 +362,7 @@ contract DoppelgangerTest is Test {
         // ensure ownership throws for non-existent token
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, tokenId + 1));
         tokenContract.ownerOf(tokenId + 1);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
     }
 
@@ -414,7 +414,7 @@ contract DoppelgangerTest is Test {
     // - safe transfer to another address ✅
     // - token uris ✅
     function test_batchMint_customErrors() public {
-        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        vm.expectRevert(ERC7160TLEditions.EmptyTokenURIs.selector);
         tokenContract.batchMint(address(this), 2, "");
 
         // add metadata
@@ -422,10 +422,10 @@ contract DoppelgangerTest is Test {
         uris[0] = "uri";
         tokenContract.addTokenUris(uris);
 
-        vm.expectRevert(Doppelganger.MintToZeroAddress.selector);
+        vm.expectRevert(ERC7160TLEditions.MintToZeroAddress.selector);
         tokenContract.batchMint(address(0), 2, "");
 
-        vm.expectRevert(Doppelganger.BatchSizeTooSmall.selector);
+        vm.expectRevert(ERC7160TLEditions.BatchSizeTooSmall.selector);
         tokenContract.batchMint(address(this), 1, "");
     }
 
@@ -522,7 +522,7 @@ contract DoppelgangerTest is Test {
         // ensure ownership throws for non-existent token
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, numTokens + 1));
         tokenContract.ownerOf(numTokens + 1);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(numTokens + 1);
 
         // test mint after metadata
@@ -597,7 +597,7 @@ contract DoppelgangerTest is Test {
     function test_airdrop_customErrors() public {
         address[] memory addresses = new address[](1);
         addresses[0] = address(1);
-        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        vm.expectRevert(ERC7160TLEditions.EmptyTokenURIs.selector);
         tokenContract.airdrop(addresses, "baseUri");
 
         // add metadata
@@ -605,7 +605,7 @@ contract DoppelgangerTest is Test {
         uris[0] = "uri";
         tokenContract.addTokenUris(uris);
 
-        vm.expectRevert(Doppelganger.AirdropTooFewAddresses.selector);
+        vm.expectRevert(ERC7160TLEditions.AirdropTooFewAddresses.selector);
         tokenContract.airdrop(addresses, "baseUri");
     }
 
@@ -705,7 +705,7 @@ contract DoppelgangerTest is Test {
         // ensure ownership throws for non-existent token
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, numAddresses + 1));
         tokenContract.ownerOf(numAddresses + 1);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(numAddresses + 1);
 
         // test mint after metadata
@@ -773,7 +773,7 @@ contract DoppelgangerTest is Test {
         address[] memory minters = new address[](1);
         minters[0] = address(this);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
-        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        vm.expectRevert(ERC7160TLEditions.EmptyTokenURIs.selector);
         tokenContract.externalMint(address(this), "");
     }
 
@@ -878,7 +878,7 @@ contract DoppelgangerTest is Test {
         // ensure ownership throws for non-existent token
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, numTokens + 1));
         tokenContract.ownerOf(numTokens + 1);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(numTokens + 1);
     }
 
@@ -1041,7 +1041,7 @@ contract DoppelgangerTest is Test {
         // ensure ownership throws for non-existent token
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, id + 1));
         tokenContract.ownerOf(id + 1);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(id + 1);
     }
 
@@ -1089,7 +1089,7 @@ contract DoppelgangerTest is Test {
 
         // verify hacker can't burn
         vm.startPrank(hacker, hacker);
-        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId);
         vm.stopPrank();
 
@@ -1098,7 +1098,7 @@ contract DoppelgangerTest is Test {
         addys[0] = hacker;
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), addys, true);
         vm.startPrank(hacker, hacker);
-        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), addys, false);
@@ -1106,13 +1106,13 @@ contract DoppelgangerTest is Test {
         // verify hacker with minter access can't burn
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), addys, true);
         vm.startPrank(hacker, hacker);
-        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId);
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), addys, false);
 
         // veirfy owner can't burn
-        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId);
 
         // verify collector can burn tokenId
@@ -1123,7 +1123,7 @@ contract DoppelgangerTest is Test {
         vm.stopPrank();
 
         // ensure
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
@@ -1165,14 +1165,14 @@ contract DoppelgangerTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 2);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
 
         // verify operator can't burn
         vm.startPrank(operator, operator);
-        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
 
@@ -1188,7 +1188,7 @@ contract DoppelgangerTest is Test {
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 1);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 1);
@@ -1205,7 +1205,7 @@ contract DoppelgangerTest is Test {
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 0);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 2);
@@ -1235,7 +1235,7 @@ contract DoppelgangerTest is Test {
             tokenContract.burn(i);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(collector), batchSize - i);
-            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+            vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
             vm.expectRevert();
             tokenContract.ownerOf(i);
@@ -1247,7 +1247,7 @@ contract DoppelgangerTest is Test {
         // verify that operator can't burn
         for (uint256 i = batchSize + 1; i <= 2 * batchSize; i++) {
             vm.startPrank(operator, operator);
-            vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+            vm.expectRevert(ERC7160TLEditions.CallerNotApprovedOrOwner.selector);
             tokenContract.burn(i);
             vm.stopPrank();
         }
@@ -1263,7 +1263,7 @@ contract DoppelgangerTest is Test {
             tokenContract.burn(i);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(collector), 2 * batchSize - i);
-            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+            vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
             vm.expectRevert();
             tokenContract.ownerOf(i);
@@ -1283,7 +1283,7 @@ contract DoppelgangerTest is Test {
             tokenContract.burn(i);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(collector), 3 * batchSize - i);
-            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+            vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
             vm.expectRevert();
             tokenContract.ownerOf(i);
@@ -1325,7 +1325,7 @@ contract DoppelgangerTest is Test {
             tokenContract.burn(id);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
-            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+            vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
             vm.expectRevert();
             tokenContract.ownerOf(id);
@@ -1340,7 +1340,7 @@ contract DoppelgangerTest is Test {
         for (uint256 i = 0; i < limit; i++) {
             uint256 id = i + offset;
             vm.startPrank(operator, operator);
-            vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+            vm.expectRevert(ERC7160TLEditions.CallerNotApprovedOrOwner.selector);
             tokenContract.burn(id);
             vm.stopPrank();
         }
@@ -1357,7 +1357,7 @@ contract DoppelgangerTest is Test {
             tokenContract.burn(id);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
-            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+            vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
             vm.expectRevert();
             tokenContract.ownerOf(id);
@@ -1380,7 +1380,7 @@ contract DoppelgangerTest is Test {
             tokenContract.burn(id);
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
-            vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+            vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
             vm.expectRevert();
             tokenContract.ownerOf(id);
@@ -1427,14 +1427,14 @@ contract DoppelgangerTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 2);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
 
         // verify operator can't burn
         vm.startPrank(operator, operator);
-        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
 
@@ -1450,7 +1450,7 @@ contract DoppelgangerTest is Test {
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 1);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 1);
@@ -1467,7 +1467,7 @@ contract DoppelgangerTest is Test {
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 0);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 2);
@@ -1513,14 +1513,14 @@ contract DoppelgangerTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 2);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
 
         // verify operator can't burn
         vm.startPrank(operator, operator);
-        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
 
@@ -1534,7 +1534,7 @@ contract DoppelgangerTest is Test {
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 1);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 1);
@@ -1549,7 +1549,7 @@ contract DoppelgangerTest is Test {
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 0);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 2);
@@ -1597,14 +1597,14 @@ contract DoppelgangerTest is Test {
         tokenContract.burn(tokenId);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 2);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId);
 
         // verify operator can't burn
         vm.startPrank(operator, operator);
-        vm.expectRevert(Doppelganger.CallerNotApprovedOrOwner.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
 
@@ -1618,7 +1618,7 @@ contract DoppelgangerTest is Test {
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 1);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 1);
@@ -1633,7 +1633,7 @@ contract DoppelgangerTest is Test {
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
         assertEq(tokenContract.balanceOf(collector), 0);
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
         vm.expectRevert();
         tokenContract.ownerOf(tokenId + 2);
@@ -1787,7 +1787,7 @@ contract DoppelgangerTest is Test {
 
         // verify user can't add
         vm.prank(user);
-        vm.expectRevert(Doppelganger.NotOwnerAdminOrMintContract.selector);
+        vm.expectRevert(ERC7160TLEditions.NotOwnerAdminOrMintContract.selector);
         tokenContract.addTokenUris(uris2);
 
         // verify admin can add
@@ -1844,12 +1844,12 @@ contract DoppelgangerTest is Test {
         uris[0] = "uri";
 
         // empty token uri
-        vm.expectRevert(Doppelganger.EmptyTokenURIs.selector);
+        vm.expectRevert(ERC7160TLEditions.EmptyTokenURIs.selector);
         tokenContract.addTokenUris(emptyUris);
     }
 
     function test_tokenURIs_errors() public {
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURIs(1);
     }
 
@@ -1857,7 +1857,7 @@ contract DoppelgangerTest is Test {
         vm.assume(user != address(this));
 
         // token doesn't exist
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.pinTokenURI(1, 0);
 
         // add metadata
@@ -1870,11 +1870,11 @@ contract DoppelgangerTest is Test {
 
         // not token owner
         vm.prank(user);
-        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.pinTokenURI(1, 0);
 
         // invalid token uri index
-        vm.expectRevert(Doppelganger.InvalidTokenURIIndex.selector);
+        vm.expectRevert(ERC7160TLEditions.InvalidTokenURIIndex.selector);
         tokenContract.pinTokenURI(1, 1);
     }
 
@@ -1882,7 +1882,7 @@ contract DoppelgangerTest is Test {
         vm.assume(user != address(this));
 
         // token doesn't exist
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.unpinTokenURI(1);
 
         // add metadata
@@ -1895,13 +1895,13 @@ contract DoppelgangerTest is Test {
 
         // not token owner
         vm.prank(user);
-        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.unpinTokenURI(1);
     }
 
     function test_hasPinnedTokenURI_errors() public {
         // token doesn't exist
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.hasPinnedTokenURI(1);
     }
 
@@ -2574,9 +2574,9 @@ contract DoppelgangerTest is Test {
             abi.encode(false)
         );
         vm.startPrank(delegate);
-        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.pinTokenURI(1, 0);
-        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.unpinTokenURI(1);
         vm.stopPrank();
 
@@ -2692,9 +2692,9 @@ contract DoppelgangerTest is Test {
     }
 
     function test_story_nonExistentTokens() public {
-        vm.expectRevert(Doppelganger.TokenDoesntExist.selector);
+        vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
-        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
     }
 
@@ -2729,7 +2729,7 @@ contract DoppelgangerTest is Test {
         vm.stopPrank();
 
         // test that owner can't add collector story
-        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
     }
 
@@ -2774,9 +2774,9 @@ contract DoppelgangerTest is Test {
         vm.stopPrank();
 
         // test that owner can't add collector story
-        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
-        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(2, "NOT XCOPY", "I AM NOT XCOPY");
     }
 
@@ -2824,9 +2824,9 @@ contract DoppelgangerTest is Test {
         vm.stopPrank();
 
         // test that owner can't add collector story
-        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
-        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(2, "NOT XCOPY", "I AM NOT XCOPY");
     }
 
@@ -2867,7 +2867,7 @@ contract DoppelgangerTest is Test {
         vm.stopPrank();
 
         // test that owner can't add collector story
-        vm.expectRevert(Doppelganger.CallerNotTokenOwnerOrDelegate.selector);
+        vm.expectRevert(ERC7160TLEditions.CallerNotTokenOwnerOrDelegate.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
     }
 
@@ -2951,12 +2951,12 @@ contract DoppelgangerTest is Test {
         tokenContract.addCreatorStory(1, "XCOPY", "I AM XCOPY");
 
         // test collector story reverts
-        vm.expectRevert(Doppelganger.StoryNotEnabled.selector);
+        vm.expectRevert(ERC7160TLEditions.StoryNotEnabled.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
         vm.stopPrank();
 
         // test that owner can't add collector story
-        vm.expectRevert(Doppelganger.StoryNotEnabled.selector);
+        vm.expectRevert(ERC7160TLEditions.StoryNotEnabled.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
     }
 
@@ -3052,9 +3052,9 @@ contract DoppelgangerTest is Test {
         // mint and verify blocked operator
         tokenContract.mint(collector, "uri");
         vm.startPrank(collector, collector);
-        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        vm.expectRevert(ERC7160TLEditions.OperatorBlocked.selector);
         tokenContract.approve(operator, 1);
-        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        vm.expectRevert(ERC7160TLEditions.OperatorBlocked.selector);
         tokenContract.setApprovalForAll(operator, true);
         vm.stopPrank();
 
@@ -3095,11 +3095,11 @@ contract DoppelgangerTest is Test {
         // mint and verify blocked operator
         tokenContract.batchMint(collector, 2, "uri");
         vm.startPrank(collector, collector);
-        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        vm.expectRevert(ERC7160TLEditions.OperatorBlocked.selector);
         tokenContract.approve(operator, 1);
-        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        vm.expectRevert(ERC7160TLEditions.OperatorBlocked.selector);
         tokenContract.approve(operator, 2);
-        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        vm.expectRevert(ERC7160TLEditions.OperatorBlocked.selector);
         tokenContract.setApprovalForAll(operator, true);
         vm.stopPrank();
 
@@ -3147,11 +3147,11 @@ contract DoppelgangerTest is Test {
         // mint and verify blocked operator
         tokenContract.airdrop(addresses, "uri");
         vm.startPrank(collector, collector);
-        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        vm.expectRevert(ERC7160TLEditions.OperatorBlocked.selector);
         tokenContract.approve(operator, 1);
-        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        vm.expectRevert(ERC7160TLEditions.OperatorBlocked.selector);
         tokenContract.approve(operator, 2);
-        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        vm.expectRevert(ERC7160TLEditions.OperatorBlocked.selector);
         tokenContract.setApprovalForAll(operator, true);
         vm.stopPrank();
 
@@ -3202,9 +3202,9 @@ contract DoppelgangerTest is Test {
         tokenContract.externalMint(collector, "uri");
         vm.stopPrank();
         vm.startPrank(collector, collector);
-        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        vm.expectRevert(ERC7160TLEditions.OperatorBlocked.selector);
         tokenContract.approve(operator, 1);
-        vm.expectRevert(Doppelganger.OperatorBlocked.selector);
+        vm.expectRevert(ERC7160TLEditions.OperatorBlocked.selector);
         tokenContract.setApprovalForAll(operator, true);
         vm.stopPrank();
 
