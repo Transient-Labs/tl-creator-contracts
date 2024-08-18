@@ -15,6 +15,7 @@ import {IERC721TL} from "../IERC721TL.sol";
 
 /// @title CollectorsChoice.sol
 /// @notice Sovereign ERC-7160 Editions with a metadata lock timer (Collectors Choice) Creator Contract with Story Inscriptions
+/// @dev When unpinned, the latest metadata added for a token is returned from `tokenURI` and `tokenURIs`
 /// @author transientlabs.xyz
 /// @custom:version 3.1.1
 contract CollectorsChoice is

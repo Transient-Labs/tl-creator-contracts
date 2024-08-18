@@ -32,6 +32,29 @@ contract DeployERC721TL is Script {
     }
 }
 
+contract DeployERC721TLMutable is Script {
+    using Strings for address;
+
+    function run() public {
+        // get environment variables
+        ICreate2Deployer create2Deployer = ICreate2Deployer(vm.envAddress("CREATE2_DEPLOYER"));
+        bytes memory constructorArgs = vm.envBytes("CONSTRUCTOR_ARGS");
+        bytes32 salt = vm.envBytes32("SALT");
+
+        // get bytecode
+        bytes memory bytecode = abi.encodePacked(vm.getCode("ERC721TLMutable.sol:ERC721TLMutable"), constructorArgs);
+
+        // deploy
+        address deployedContract = create2Deployer.computeAddress(salt, keccak256(bytecode));
+        console.logAddress(deployedContract);
+        vm.broadcast();
+        create2Deployer.deploy(0, salt, bytecode);
+
+        // save deployed contract address
+        vm.writeLine("out.txt", deployedContract.toHexString());
+    }
+}
+
 contract DeployERC1155TL is Script {
     using Strings for address;
 
@@ -98,7 +121,7 @@ contract DeployERC7160TL is Script {
     }
 }
 
-contract DeployDoppelganger is Script {
+contract DeployERC7160TLEditions is Script {
     using Strings for address;
 
     function run() public {
@@ -108,7 +131,7 @@ contract DeployDoppelganger is Script {
         bytes32 salt = vm.envBytes32("SALT");
 
         // get bytecode
-        bytes memory bytecode = abi.encodePacked(vm.getCode("Doppelganger.sol:Doppelganger"), constructorArgs);
+        bytes memory bytecode = abi.encodePacked(vm.getCode("ERC7160TLEditions.sol:ERC7160TLEditions"), constructorArgs);
 
         // deploy
         address deployedContract = create2Deployer.computeAddress(salt, keccak256(bytecode));

@@ -6,11 +6,12 @@ libs = ['lib']
 evm_version = 'paris'
 auto_detect_solc = true
 optimizer = true
-optimizer_runs = 2000
+optimizer_runs = 10000
 verbosity = 3
 wrap_comments = true
 gas_reports = ["ERC721TL", "ERC1155TL", "Doppelganger", "CollectorsChoice", "Shatter", "TRACE", "ERC7160TL"]
 fs_permissions = [{ access = "read-write", path = "./"}]
+show_progess = true
 
 [fuzz]
 runs = 1024
@@ -19,9 +20,11 @@ runs = 1024
 sepolia = "${SEPOLIA_RPC_URL}"
 arbitrum_sepolia = "${ARB_SEPOLIA_RPC_URL}"
 base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
+shape_sepolia = "${SHAPE_SEPOLIA_RPC_URL}"
 mainnet = "${ETH_RPC_URL}"
 arbitrum = "${ARB_RPC_URL}"
 base = "${BASE_RPC_URL}"
+shape = "${SHAPE_RPC_URL}"
 
 [etherscan]
 sepolia = { key = "${ETHERSCAN_KEY}" }
