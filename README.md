@@ -52,7 +52,7 @@ Allows creators to cheaply batch mint tokens to their wallet.
 
 Testing shows our implementation is market leading: [view here](https://docs.transientlabs.xyz/creator-contracts/ERC721TL)
 
-## Doppelganger
+## ERC7160TLEditions
 An implementation of [ERC-7160](https://eips.ethereum.org/EIPS/eip-7160) but with a focus on editions. Rather than have multiple pieces of metadata per token, like in ERC7160TL, there is a contract-wide metadata array from which token holders can choose to pin. This allows for immense flexibility and gas efficiency for ERC-721 editions.
 
 It shares similar features with `ERC7160TL`.
@@ -71,7 +71,7 @@ We use immutable [ERC-1167](https://eips.ethereum.org/EIPS/eip-1167) proxies for
 ## Running Tests
 1. Install [foundry](getfoundry.sh)
 2. Run `make install` or `make update`
-3. Run `forge test` (optionally can adjust the fuzz runs via the flag `--fuzz-runs <number>`)
+3. Run `make quick_test`
 
 ## Building InitCode for the TL Universal Deployer
 1. Navigate the the contract type you want to deploy
@@ -88,4 +88,4 @@ This codebase is provided on an "as is" and "as available" basis.
 We do not give any warranties and will not be liable for any loss incurred through any use of this codebase.
 
 ## License
-This code is copyright Transient Labs, Inc 2023 and is licensed under the MIT license.
+This code is copyright Transient Labs, Inc 2024 and is licensed under the MIT license.

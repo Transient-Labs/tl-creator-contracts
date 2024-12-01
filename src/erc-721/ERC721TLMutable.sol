@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import {IERC4906} from "openzeppelin/interfaces/IERC4906.sol";
-import {Strings} from "openzeppelin/utils/Strings.sol";
-import {ERC721Upgradeable, IERC165, IERC721} from "openzeppelin-upgradeable/token/ERC721/ERC721Upgradeable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
-import {EIP2981TLUpgradeable} from "tl-sol-tools/upgradeable/royalties/EIP2981TLUpgradeable.sol";
+import {IERC4906} from "@openzeppelin-contracts-5.0.2/interfaces/IERC4906.sol";
+import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
+import {ERC721Upgradeable, IERC165, IERC721} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
+import {OwnableAccessControlUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {EIP2981TLUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {IBlockListRegistry} from "../interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "../interfaces/ICreatorBase.sol";
 import {IMutableMetadata} from "../interfaces/IMutableMetadata.sol";

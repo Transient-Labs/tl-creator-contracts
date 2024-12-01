@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import "forge-std/Test.sol";
-import {Strings} from "openzeppelin/utils/Strings.sol";
+import "forge-std-1.9.4/Test.sol";
+import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 import {ERC721TLMutable, IMutableMetadata} from "src/erc-721/ERC721TLMutable.sol";
-import {IERC721Errors} from "openzeppelin/interfaces/draft-IERC6093.sol";
-import {Initializable} from "openzeppelin/proxy/utils/Initializable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
+import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
+import {OwnableAccessControlUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 

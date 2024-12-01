@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import "forge-std/Test.sol";
+import "forge-std-1.9.4/Test.sol";
 import {TRACE} from "src/erc-721/trace/TRACE.sol";
 import {ITRACERSRegistry} from "src/interfaces/ITRACERSRegistry.sol";
-import {IERC721Errors} from "openzeppelin/interfaces/draft-IERC6093.sol";
-import {Initializable} from "openzeppelin/proxy/utils/Initializable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
+import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
+import {OwnableAccessControlUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {TRACESigUtils} from "test/utils/TRACESigUtils.sol";
-import {Strings} from "openzeppelin/utils/Strings.sol";
+import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 
 contract TRACETest is Test {
     using Strings for address;
@@ -140,7 +140,7 @@ contract TRACETest is Test {
     }
 
     /// @notice test ERC-165 support
-    function test_supportsInterface() public {
+    function test_supportsInterface() public view {
         assertTrue(trace.supportsInterface(0x1c8e024d)); // ICreatorBase
         assertTrue(trace.supportsInterface(0xcfec4f64)); // ITRACE
         assertTrue(trace.supportsInterface(0x2464f17b)); // IStory

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import "forge-std/Test.sol";
-import {Strings} from "openzeppelin/utils/Strings.sol";
+import "forge-std-1.9.4/Test.sol";
+import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 import {CollectorsChoice} from "src/erc-721/multi-metadata/CollectorsChoice.sol";
-import {IERC721Errors} from "openzeppelin/interfaces/draft-IERC6093.sol";
-import {Initializable} from "openzeppelin/proxy/utils/Initializable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
+import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
+import {OwnableAccessControlUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 
@@ -148,7 +148,7 @@ contract CollectorsChoiceTest is Test {
     }
 
     /// @notice test ERC-165 support
-    function test_supportsInterface() public {
+    function test_supportsInterface() public view {
         assertTrue(tokenContract.supportsInterface(0x1c8e024d)); // ICreatorBase
         assertTrue(tokenContract.supportsInterface(0xc74089ae)); // IERC721TL
         assertTrue(tokenContract.supportsInterface(0x06e1bc5b)); // IERC7160

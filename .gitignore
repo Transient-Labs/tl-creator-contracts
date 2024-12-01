@@ -13,3 +13,8 @@ docs/
 
 out.txt
 .DS_Store
+
+# Soldeer
+dependencies/
+
+*/.venv/

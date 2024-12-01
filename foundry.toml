@@ -2,7 +2,7 @@
 src = 'src'
 test = 'test'
 out = 'out'
-libs = ['lib']
+libs = ['lib', "dependencies"]
 evm_version = 'paris'
 auto_detect_solc = true
 optimizer = true
@@ -33,3 +33,10 @@ base_sepolia = {  key = "${BASESCAN_KEY}", url = "https://api-sepolia.basescan.o
 mainnet = { key = "${ETHERSCAN_KEY}"}
 arbitrum = { key = "${ARBISCAN_KEY}", url = "https://api.arbiscan.io/api" }
 base = { key = "${BASESCAN_KEY}", url = "https://api.basescan.org/api" }
+
+[soldeer]
+recursive_deps=true
+
+[dependencies]
+forge-std = "1.9.4"
+tl-sol-tools = "3.1.4"
