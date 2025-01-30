@@ -6,7 +6,7 @@ See https://docs.transientlabs.xyz/tl-creator-contracts/implementation for lates
 
 ## Core Features
 ### Ownership & Access
-We have implemented the `OwnableAccessControlUpgradeable` contract from [tl-sol-tools](https://github.com/Transient-Labs/tl-sol-tools) and have created custom admin and mint contract priviledges. Admins are able to perform actions on behalf of the creator (contract owner). Approved mint contracts are allowed to mint NFTs or metadata (ERC7160TL).
+We have implemented the `OwnableAccessControlUpgradeable` contract from [tl-sol-tools](https://github.com/Transient-Labs/tl-sol-tools) and have created custom admin and mint contract privileges. Admins are able to perform actions on behalf of the creator (contract owner). Approved mint contracts are allowed to mint NFTs or metadata (ERC7160TL).
 
 ### Creator Royalties
 EIP-2981 is used as it is the on-chain royalty specification used to return a royalty payout address and the royalty amount to pay based on the sale price. 
