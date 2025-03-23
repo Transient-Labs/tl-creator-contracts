@@ -7,7 +7,6 @@ pragma solidity 0.8.22;
 /// @author transientlabs.xyz
 /// @custom:version 3.3.0
 interface IMutableMetadata {
-
     /*//////////////////////////////////////////////////////////////////////////
                                     Functions
     //////////////////////////////////////////////////////////////////////////*/
@@ -17,5 +16,4 @@ interface IMutableMetadata {
     /// @dev MUST emit a `MetadataUpdate` event from ERC-4906
     /// @param tokenId The token to push the metadata update to
     function updateTokenUri(uint256 tokenId, string calldata newUri) external;
-
 }

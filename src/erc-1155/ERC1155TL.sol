@@ -2,9 +2,14 @@
 pragma solidity 0.8.22;
 
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
-import {ERC1155Upgradeable, IERC1155, IERC165} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC1155/ERC1155Upgradeable.sol";
+import {
+    ERC1155Upgradeable,
+    IERC1155,
+    IERC165
+} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC1155/ERC1155Upgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/royalties/EIP2981TLUpgradeable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {OwnableAccessControlUpgradeable} from
+    "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IStory} from "../interfaces/IStory.sol";
 import {ICreatorBase} from "../interfaces/ICreatorBase.sol";
 import {IBlockListRegistry} from "../interfaces/IBlockListRegistry.sol";
