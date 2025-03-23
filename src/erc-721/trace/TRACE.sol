@@ -3,12 +3,16 @@ pragma solidity 0.8.22;
 
 import {IERC4906} from "@openzeppelin-contracts-5.0.2/interfaces/IERC4906.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin-contracts-upgradeable-5.0.2/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from
+    "@openzeppelin-contracts-upgradeable-5.0.2/utils/ReentrancyGuardUpgradeable.sol";
 import {ECDSA} from "@openzeppelin-contracts-5.0.2/utils/cryptography/ECDSA.sol";
-import {ERC721Upgradeable, IERC165} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
+import {
+    ERC721Upgradeable, IERC165
+} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
 import {EIP712Upgradeable} from "@openzeppelin-contracts-upgradeable-5.0.2/utils/cryptography/EIP712Upgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/royalties/EIP2981TLUpgradeable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {OwnableAccessControlUpgradeable} from
+    "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IBlockListRegistry} from "../../interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "../../interfaces/ICreatorBase.sol";
 import {IStory} from "../../interfaces/IStory.sol";

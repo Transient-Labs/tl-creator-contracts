@@ -3,10 +3,11 @@ pragma solidity 0.8.22;
 
 import "forge-std-1.9.4/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
-import {ERC721TL, ISynergy} from "src/erc-721/ERC721TL.sol";
+import {ERC721TL, IMutableMetadata} from "src/erc-721/ERC721TL.sol";
 import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
 import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {OwnableAccessControlUpgradeable} from
+    "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 
@@ -30,9 +31,6 @@ contract ERC721TLTest is Test {
     );
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
     event MetadataUpdate(uint256 tokenId);
-    event SynergyStatusChange(
-        address indexed from, uint256 indexed tokenId, ISynergy.SynergyAction indexed action, string uri
-    );
     event CollectionStory(address indexed creatorAddress, string creatorName, string story);
     event CreatorStory(uint256 indexed tokenId, address indexed creatorAddress, string creatorName, string story);
     event Story(uint256 indexed tokenId, address indexed collectorAddress, string collectorName, string story);
@@ -150,7 +148,7 @@ contract ERC721TLTest is Test {
     function test_supportsInterface() public view {
         assertTrue(tokenContract.supportsInterface(0x1c8e024d)); // ICreatorBase
         assertTrue(tokenContract.supportsInterface(0xc74089ae)); // IERC721TL
-        assertTrue(tokenContract.supportsInterface(0x8193ebea)); // ISynergy
+        assertTrue(tokenContract.supportsInterface(0xd31af484)); // IMutableMetadat
         assertTrue(tokenContract.supportsInterface(0x2464f17b)); // IStory
         assertTrue(tokenContract.supportsInterface(0x0d23ecb9)); // IStory (old)
         assertTrue(tokenContract.supportsInterface(0x01ffc9a7)); // ERC-165
@@ -1594,70 +1592,57 @@ contract ERC721TLTest is Test {
         assertEq(amt, 0);
     }
 
-    /// @notice test synergy functions
+    /// @notice test mutable metadata functions
     // - access control ✅
     // - regular mint ✅
     // - batch mint ✅
     // - airdrop ✅
     // - external mint ✅
-    // - propose token uri as owner of token ✅
-    // - propose token uri for collector ✅
-    // - proper events ✅
-    // - accept update with proper event as token owner and delegate ✅
-    // - reject update with proper event as token owner and delegate ✅
-    function test_synergy_customErrors() public {
+    function test_mutable_metadata_customErrors() public {
         vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
-        tokenContract.proposeNewTokenUri(1, "uri");
+        tokenContract.updateTokenUri(1, "uri");
         tokenContract.mint(address(this), "uri");
         vm.expectRevert(ERC721TL.EmptyTokenURI.selector);
-        tokenContract.proposeNewTokenUri(1, "");
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(1);
+        tokenContract.updateTokenUri(1, "");
         vm.startPrank(address(1), address(1));
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
-        tokenContract.rejectTokenUriUpdate(1);
         vm.stopPrank();
     }
 
-    function test_proposeNewTokenUri_accessControl() public {
+    function test_updateTokenUri_accessControl(address user) public {
+        vm.assume(user != address(this));
+
         tokenContract.mint(address(this), "uri");
         address[] memory users = new address[](1);
-        users[0] = address(1);
+        users[0] = user;
 
-        // verify that user can't propose
-        vm.startPrank(address(1), address(1));
+        // verify that user can't update
+        vm.startPrank(user);
         vm.expectRevert();
-        tokenContract.proposeNewTokenUri(1, "newUri");
+        tokenContract.updateTokenUri(1, "newUri");
         vm.stopPrank();
 
-        // verify that admin can propose
+        // verify that admin can update
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
-        vm.startPrank(address(1), address(1));
-        tokenContract.proposeNewTokenUri(1, "newUri");
+        vm.startPrank(user);
+        tokenContract.updateTokenUri(1, "newUri");
         assertEq(tokenContract.tokenURI(1), "newUri");
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
 
-        // verify that minters can't propose
+        // verify that minters cannot update
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-        vm.startPrank(address(1), address(1));
-        vm.expectRevert(
-            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
-        );
-        tokenContract.proposeNewTokenUri(1, "newUri");
+        vm.startPrank(user);
+        vm.expectRevert();
+        tokenContract.updateTokenUri(1, "newNewUri");
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
 
-        // verify owner can propose
-        tokenContract.proposeNewTokenUri(1, "newUriAgain");
-        assertEq(tokenContract.tokenURI(1), "newUriAgain");
+        // verify owner can update
+        tokenContract.updateTokenUri(1, "newNewNewUri");
+        assertEq(tokenContract.tokenURI(1), "newNewNewUri");
     }
 
-    function test_proposeNewTokenUri_creatorIsOwner() public {
+    function test_updateTokenUri() public {
         address[] memory addresses = new address[](2);
         addresses[0] = address(this);
         addresses[1] = address(this);
@@ -1669,29 +1654,29 @@ contract ERC721TLTest is Test {
         tokenContract.mint(address(this), "uri");
         vm.expectEmit(true, true, true, true);
         emit MetadataUpdate(1);
-        tokenContract.proposeNewTokenUri(1, "newUri");
+        tokenContract.updateTokenUri(1, "newUri");
         assertEq(tokenContract.tokenURI(1), "newUri");
 
         // batch mint
         tokenContract.batchMint(address(this), 2, "uri");
         vm.expectEmit(true, true, true, true);
         emit MetadataUpdate(2);
-        tokenContract.proposeNewTokenUri(2, "newUri2");
+        tokenContract.updateTokenUri(2, "newUri2");
         assertEq(tokenContract.tokenURI(2), "newUri2");
         vm.expectEmit(true, true, true, true);
         emit MetadataUpdate(3);
-        tokenContract.proposeNewTokenUri(3, "newUri3");
+        tokenContract.updateTokenUri(3, "newUri3");
         assertEq(tokenContract.tokenURI(3), "newUri3");
 
         // airdrop
         tokenContract.airdrop(addresses, "uri");
         vm.expectEmit(true, true, true, true);
         emit MetadataUpdate(4);
-        tokenContract.proposeNewTokenUri(4, "newUri4");
+        tokenContract.updateTokenUri(4, "newUri4");
         assertEq(tokenContract.tokenURI(4), "newUri4");
         vm.expectEmit(true, true, true, true);
         emit MetadataUpdate(5);
-        tokenContract.proposeNewTokenUri(5, "newUri5");
+        tokenContract.updateTokenUri(5, "newUri5");
         assertEq(tokenContract.tokenURI(5), "newUri5");
 
         // external mint
@@ -1700,546 +1685,8 @@ contract ERC721TLTest is Test {
         vm.stopPrank();
         vm.expectEmit(true, true, true, true);
         emit MetadataUpdate(6);
-        tokenContract.proposeNewTokenUri(6, "newUri6");
+        tokenContract.updateTokenUri(6, "newUri6");
         assertEq(tokenContract.tokenURI(6), "newUri6");
-    }
-
-    function test_proposeNewTokenUri_creatorIsNotOwner() public {
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ISynergy.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
-
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ISynergy.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ISynergy.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ISynergy.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ISynergy.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ISynergy.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-    }
-
-    function test_acceptTokenUriUpdate_tokenOwner() public {
-        // set variables
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // ensure not token owner can't accept
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
-        vm.prank(address(4));
-        tokenContract.acceptTokenUriUpdate(1);
-
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ISynergy.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(1);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 1, ISynergy.SynergyAction.Accepted, "newUri");
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(1), "newUri");
-
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ISynergy.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(2);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 2, ISynergy.SynergyAction.Accepted, "newUri2");
-        tokenContract.acceptTokenUriUpdate(2);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(2);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(2), "newUri2");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ISynergy.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(3);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 3, ISynergy.SynergyAction.Accepted, "newUri3");
-        tokenContract.acceptTokenUriUpdate(3);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(3);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(3), "newUri3");
-
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ISynergy.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(4);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 4, ISynergy.SynergyAction.Accepted, "newUri4");
-        tokenContract.acceptTokenUriUpdate(4);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(4);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(4), "newUri4");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ISynergy.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-        vm.startPrank(address(2), address(2));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(5);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(2), 5, ISynergy.SynergyAction.Accepted, "newUri5");
-        tokenContract.acceptTokenUriUpdate(5);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(5);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(5), "newUri5");
-
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ISynergy.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(6);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 6, ISynergy.SynergyAction.Accepted, "newUri6");
-        tokenContract.acceptTokenUriUpdate(6);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(6);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(6), "newUri6");
-    }
-
-    function test_acceptTokenUriUpdate_delegate() public {
-        // set delegate registry
-        tokenContract.setNftDelegationRegistry(nftDelegationRegistry);
-
-        // reverts for EOA
-        vm.expectRevert();
-        vm.prank(address(4));
-        tokenContract.acceptTokenUriUpdate(1);
-
-        // set mocks
-        vm.mockCall(
-            nftDelegationRegistry,
-            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector),
-            abi.encode(false)
-        );
-        vm.mockCall(
-            nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector, address(0), address(1), address(tokenContract)
-            ),
-            abi.encode(true)
-        );
-        vm.mockCall(
-            nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector, address(0), address(2), address(tokenContract)
-            ),
-            abi.encode(true)
-        );
-
-        // set variables
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // ensure not delegate or token owner can't accept
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
-        vm.prank(address(4));
-        tokenContract.acceptTokenUriUpdate(1);
-
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ISynergy.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(1);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 1, ISynergy.SynergyAction.Accepted, "newUri");
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(1), "newUri");
-
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ISynergy.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(2);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 2, ISynergy.SynergyAction.Accepted, "newUri2");
-        tokenContract.acceptTokenUriUpdate(2);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(2);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(2), "newUri2");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ISynergy.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(3);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 3, ISynergy.SynergyAction.Accepted, "newUri3");
-        tokenContract.acceptTokenUriUpdate(3);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(3);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(3), "newUri3");
-
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ISynergy.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(4);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 4, ISynergy.SynergyAction.Accepted, "newUri4");
-        tokenContract.acceptTokenUriUpdate(4);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(4);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(4), "newUri4");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ISynergy.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(5);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 5, ISynergy.SynergyAction.Accepted, "newUri5");
-        tokenContract.acceptTokenUriUpdate(5);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(5);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(5), "newUri5");
-
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ISynergy.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit MetadataUpdate(6);
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 6, ISynergy.SynergyAction.Accepted, "newUri6");
-        tokenContract.acceptTokenUriUpdate(6);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.acceptTokenUriUpdate(6);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(6), "newUri6");
-
-        // clear mocked calls
-        vm.clearMockedCalls();
-    }
-
-    function test_rejectTokenUriUpdate_tokenOwner() public {
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // ensure not delegate or token owner can't accept
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
-        vm.prank(address(4));
-        tokenContract.rejectTokenUriUpdate(1);
-
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ISynergy.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 1, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(1), "uri");
-
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ISynergy.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 2, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(2);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(2);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ISynergy.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 3, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(3);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(3);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ISynergy.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 4, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(4);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(4);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ISynergy.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-        vm.startPrank(address(2), address(2));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(2), 5, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(5);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(5);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ISynergy.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-        vm.startPrank(address(1), address(1));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(1), 6, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(6);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(6);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(6), "uri");
-    }
-
-    function test_rejectTokenUriUpdate_delegate() public {
-        // set delegate registry
-        tokenContract.setNftDelegationRegistry(nftDelegationRegistry);
-
-        // reverts for EOA
-        vm.expectRevert();
-        vm.prank(address(4));
-        tokenContract.rejectTokenUriUpdate(1);
-
-        // set mocks
-        vm.mockCall(
-            nftDelegationRegistry,
-            abi.encodeWithSelector(ITLNftDelegationRegistry.checkDelegateForERC721.selector),
-            abi.encode(false)
-        );
-        vm.mockCall(
-            nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector, address(0), address(1), address(tokenContract)
-            ),
-            abi.encode(true)
-        );
-        vm.mockCall(
-            nftDelegationRegistry,
-            abi.encodeWithSelector(
-                ITLNftDelegationRegistry.checkDelegateForERC721.selector, address(0), address(2), address(tokenContract)
-            ),
-            abi.encode(true)
-        );
-
-        // set variables
-        address[] memory addresses = new address[](2);
-        addresses[0] = address(1);
-        addresses[1] = address(2);
-        address[] memory users = new address[](1);
-        users[0] = address(3);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // ensure not delegate or token owner can't accept
-        vm.expectRevert(ERC721TL.CallerNotTokenOwnerOrDelegate.selector);
-        vm.prank(address(4));
-        tokenContract.rejectTokenUriUpdate(1);
-
-        // mint
-        tokenContract.mint(address(1), "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 1, ISynergy.SynergyAction.Created, "newUri");
-        tokenContract.proposeNewTokenUri(1, "newUri");
-        assertEq(tokenContract.tokenURI(1), "uri");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 1, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(1);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(1), "uri");
-
-        // batch mint
-        tokenContract.batchMint(address(1), 2, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 2, ISynergy.SynergyAction.Created, "newUri2");
-        tokenContract.proposeNewTokenUri(2, "newUri2");
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 2, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(2);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(2);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(2), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 3, ISynergy.SynergyAction.Created, "newUri3");
-        tokenContract.proposeNewTokenUri(3, "newUri3");
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 3, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(3);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(3);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(3), "uri/1");
-
-        // airdrop
-        tokenContract.airdrop(addresses, "uri");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 4, ISynergy.SynergyAction.Created, "newUri4");
-        tokenContract.proposeNewTokenUri(4, "newUri4");
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 4, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(4);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(4);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(4), "uri/0");
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 5, ISynergy.SynergyAction.Created, "newUri5");
-        tokenContract.proposeNewTokenUri(5, "newUri5");
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 5, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(5);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(5);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(5), "uri/1");
-
-        // external mint
-        vm.startPrank(address(3), address(3));
-        tokenContract.externalMint(address(1), "uri");
-        vm.stopPrank();
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(this), 6, ISynergy.SynergyAction.Created, "newUri6");
-        tokenContract.proposeNewTokenUri(6, "newUri6");
-        assertEq(tokenContract.tokenURI(6), "uri");
-        vm.startPrank(address(0), address(0));
-        vm.expectEmit(true, true, true, true);
-        emit SynergyStatusChange(address(0), 6, ISynergy.SynergyAction.Rejected, "");
-        tokenContract.rejectTokenUriUpdate(6);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        tokenContract.rejectTokenUriUpdate(6);
-        vm.stopPrank();
-        assertEq(tokenContract.tokenURI(6), "uri");
-
-        // clear mocked calls
-        vm.clearMockedCalls();
     }
 
     /// @notice test story functions
@@ -2868,20 +2315,5 @@ contract ERC721TLTest is Test {
 
         vm.prank(address(1));
         tokenContract.addStory(1, "", "story");
-
-        // synergy reverts open for delegate but deterministic for collector
-        vm.expectRevert();
-        vm.prank(address(2));
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert();
-        vm.prank(address(2));
-        tokenContract.rejectTokenUriUpdate(1);
-
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        vm.prank(address(1));
-        tokenContract.acceptTokenUriUpdate(1);
-        vm.expectRevert(ERC721TL.NoTokenUriUpdateAvailable.selector);
-        vm.prank(address(1));
-        tokenContract.rejectTokenUriUpdate(1);
     }
 }

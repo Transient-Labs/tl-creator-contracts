@@ -6,7 +6,8 @@ import {TRACE} from "src/erc-721/trace/TRACE.sol";
 import {ITRACERSRegistry} from "src/interfaces/ITRACERSRegistry.sol";
 import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
 import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {OwnableAccessControlUpgradeable} from
+    "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {TRACESigUtils} from "test/utils/TRACESigUtils.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 

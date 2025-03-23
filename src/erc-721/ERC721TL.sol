@@ -3,27 +3,32 @@ pragma solidity 0.8.22;
 
 import {IERC4906} from "@openzeppelin-contracts-5.0.2/interfaces/IERC4906.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
-import {ERC721Upgradeable, IERC165, IERC721} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {
+    ERC721Upgradeable,
+    IERC165,
+    IERC721
+} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
+import {OwnableAccessControlUpgradeable} from
+    "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {IBlockListRegistry} from "../interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "../interfaces/ICreatorBase.sol";
+import {IMutableMetadata} from "../interfaces/IMutableMetadata.sol";
 import {IStory} from "../interfaces/IStory.sol";
-import {ISynergy} from "../interfaces/ISynergy.sol";
 import {ITLNftDelegationRegistry} from "../interfaces/ITLNftDelegationRegistry.sol";
 import {IERC721TL} from "./IERC721TL.sol";
 
 /// @title ERC721TL.sol
-/// @notice Sovereign ERC-721 Creator Contract with Synergy and Story Inscriptions
+/// @notice Sovereign ERC-721 Creator Contract with Mutable Metadata and Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.1.0
+/// @custom:version 3.4.0
 contract ERC721TL is
     ERC721Upgradeable,
     OwnableAccessControlUpgradeable,
     EIP2981TLUpgradeable,
     ICreatorBase,
     IERC721TL,
-    ISynergy,
+    IMutableMetadata,
     IStory,
     IERC4906
 {
@@ -49,7 +54,7 @@ contract ERC721TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.1.0";
+    string public constant VERSION = "3.4.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
@@ -57,7 +62,6 @@ contract ERC721TL is
     ITLNftDelegationRegistry public tlNftDelegationRegistry;
     IBlockListRegistry public blocklistRegistry;
     mapping(uint256 => bool) private _burned; // flag to see if a token is burned or not - needed for burning batch mints
-    mapping(uint256 => string) private _proposedTokenUris; // Synergy proposed token uri
     mapping(uint256 => string) private _tokenUris; // established token uris
     BatchMint[] private _batchMints; // dynamic array for batch mints
 
@@ -85,9 +89,6 @@ contract ERC721TL is
 
     /// @dev Token does not exist
     error TokenDoesntExist();
-
-    /// @dev No proposed token uri to change to
-    error NoTokenUriUpdateAvailable();
 
     /// @dev Operator for token approvals blocked
     error OperatorBlocked();
@@ -268,42 +269,16 @@ contract ERC721TL is
     }
 
     /*//////////////////////////////////////////////////////////////////////////
-                                Synergy Functions
+                                Metadata Functions
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc ISynergy
-    function proposeNewTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
+    /// @inheritdoc IMutableMetadata
+    function updateTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
-        if (_ownerOf(tokenId) == owner()) {
-            // creator owns the token
-            _tokenUris[tokenId] = newUri;
-            emit MetadataUpdate(tokenId);
-        } else {
-            // creator does not own the token
-            _proposedTokenUris[tokenId] = newUri;
-            emit SynergyStatusChange(msg.sender, tokenId, SynergyAction.Created, newUri);
-        }
-    }
 
-    /// @inheritdoc ISynergy
-    function acceptTokenUriUpdate(uint256 tokenId) external {
-        if (!_isTokenOwnerOrDelegate(tokenId)) revert CallerNotTokenOwnerOrDelegate();
-        string memory uri = _proposedTokenUris[tokenId];
-        if (bytes(uri).length == 0) revert NoTokenUriUpdateAvailable();
-        _tokenUris[tokenId] = uri;
-        delete _proposedTokenUris[tokenId];
+        _tokenUris[tokenId] = newUri;
         emit MetadataUpdate(tokenId);
-        emit SynergyStatusChange(msg.sender, tokenId, SynergyAction.Accepted, uri);
-    }
-
-    /// @inheritdoc ISynergy
-    function rejectTokenUriUpdate(uint256 tokenId) external {
-        if (!_isTokenOwnerOrDelegate(tokenId)) revert CallerNotTokenOwnerOrDelegate();
-        string memory uri = _proposedTokenUris[tokenId];
-        if (bytes(uri).length == 0) revert NoTokenUriUpdateAvailable();
-        delete _proposedTokenUris[tokenId];
-        emit SynergyStatusChange(msg.sender, tokenId, SynergyAction.Rejected, "");
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -325,15 +300,12 @@ contract ERC721TL is
     //////////////////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc IStory
-    function addCollectionStory(string calldata, /*creatorName*/ string calldata story)
-        external
-        onlyRoleOrOwner(ADMIN_ROLE)
-    {
+    function addCollectionStory(string calldata, string calldata story) external onlyRoleOrOwner(ADMIN_ROLE) {
         emit CollectionStory(msg.sender, msg.sender.toHexString(), story);
     }
 
     /// @inheritdoc IStory
-    function addCreatorStory(uint256 tokenId, string calldata, /*creatorName*/ string calldata story)
+    function addCreatorStory(uint256 tokenId, string calldata, string calldata story)
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -404,7 +376,7 @@ contract ERC721TL is
         return (
             ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
                 || interfaceId == 0x49064906 // ERC-4906
-                || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(ISynergy).interfaceId
+                || interfaceId == type(IMutableMetadata).interfaceId || interfaceId == type(ICreatorBase).interfaceId
                 || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
                 || interfaceId == type(IERC721TL).interfaceId
         );

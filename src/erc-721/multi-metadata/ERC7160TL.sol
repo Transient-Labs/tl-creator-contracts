@@ -3,8 +3,13 @@ pragma solidity 0.8.22;
 
 import {IERC4906} from "@openzeppelin-contracts-5.0.2/interfaces/IERC4906.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
-import {ERC721Upgradeable, IERC165, IERC721} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
-import {OwnableAccessControlUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {
+    ERC721Upgradeable,
+    IERC165,
+    IERC721
+} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
+import {OwnableAccessControlUpgradeable} from
+    "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/royalties/EIP2981TLUpgradeable.sol";
 import {IBlockListRegistry} from "../../interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "../../interfaces/ICreatorBase.sol";
@@ -300,7 +305,6 @@ contract ERC7160TL is
         floatWhenUnpinned = float;
         emit BatchMetadataUpdate(1, _counter);
     }
-
 
     /// @notice Function to add token uris
     /// @dev Written to take in many token ids and a base uri that contains metadata files with file names matching the index of each token id in the `tokenIds` array (aka folderIndex)
