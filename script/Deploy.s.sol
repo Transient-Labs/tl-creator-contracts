@@ -9,178 +9,64 @@ interface ICreate2Deployer {
     function computeAddress(bytes32 salt, bytes32 codeHash) external view returns (address);
 }
 
-contract DeployERC721TL is Script {
+contract Deploy is Script {
     using Strings for address;
 
-    function run() public {
+    function run(string memory bytecodePath, bool isTestnet) public {
         // get environment variables
         ICreate2Deployer create2Deployer = ICreate2Deployer(vm.envAddress("CREATE2_DEPLOYER"));
         bytes memory constructorArgs = vm.envBytes("CONSTRUCTOR_ARGS");
         bytes32 salt = vm.envBytes32("SALT");
 
         // get bytecode
-        bytes memory bytecode = abi.encodePacked(vm.getCode("ERC721TL.sol:ERC721TL"), constructorArgs);
+        bytes memory bytecode = abi.encodePacked(vm.getCode(bytecodePath), constructorArgs);
 
-        // deploy
+        // create address
+        vm.createSelectFork("mainnet"); // use mainnet for computing address
         address deployedContract = create2Deployer.computeAddress(salt, keccak256(bytecode));
         console.logAddress(deployedContract);
-        vm.broadcast();
-        create2Deployer.deploy(0, salt, bytecode);
 
-        // save deployed contract address
-        vm.writeLine("out.txt", deployedContract.toHexString());
-    }
-}
+        if (isTestnet) {
+            // deploy to sepolia
+            vm.createSelectFork("sepolia");
+            vm.broadcast();
+            create2Deployer.deploy(0, salt, bytecode);
 
-contract DeployERC721TLMutable is Script {
-    using Strings for address;
+            // deploy to arbitrum sepolia
+            vm.createSelectFork("arbitrum_sepolia");
+            vm.broadcast();
+            create2Deployer.deploy(0, salt, bytecode);
 
-    function run() public {
-        // get environment variables
-        ICreate2Deployer create2Deployer = ICreate2Deployer(vm.envAddress("CREATE2_DEPLOYER"));
-        bytes memory constructorArgs = vm.envBytes("CONSTRUCTOR_ARGS");
-        bytes32 salt = vm.envBytes32("SALT");
+            // deploy to base sepolia
+            vm.createSelectFork("base_sepolia");
+            vm.broadcast();
+            create2Deployer.deploy(0, salt, bytecode);
 
-        // get bytecode
-        bytes memory bytecode = abi.encodePacked(vm.getCode("ERC721TLMutable.sol:ERC721TLMutable"), constructorArgs);
+            // deploy to shape sepolia
+            vm.createSelectFork("shape_sepolia");
+            vm.broadcast();
+            create2Deployer.deploy(0, salt, bytecode);
+        } else {
+            // deploy to eth
+            vm.createSelectFork("mainnet");
+            vm.broadcast();
+            create2Deployer.deploy(0, salt, bytecode);
 
-        // deploy
-        address deployedContract = create2Deployer.computeAddress(salt, keccak256(bytecode));
-        console.logAddress(deployedContract);
-        vm.broadcast();
-        create2Deployer.deploy(0, salt, bytecode);
+            // deploy to arbitrum
+            vm.createSelectFork("arbitrum");
+            vm.broadcast();
+            create2Deployer.deploy(0, salt, bytecode);
 
-        // save deployed contract address
-        vm.writeLine("out.txt", deployedContract.toHexString());
-    }
-}
+            // deploy to base
+            vm.createSelectFork("base");
+            vm.broadcast();
+            create2Deployer.deploy(0, salt, bytecode);
 
-contract DeployERC1155TL is Script {
-    using Strings for address;
-
-    function run() public {
-        // get environment variables
-        ICreate2Deployer create2Deployer = ICreate2Deployer(vm.envAddress("CREATE2_DEPLOYER"));
-        bytes memory constructorArgs = vm.envBytes("CONSTRUCTOR_ARGS");
-        bytes32 salt = vm.envBytes32("SALT");
-
-        // get bytecode
-        bytes memory bytecode = abi.encodePacked(vm.getCode("ERC1155TL.sol:ERC1155TL"), constructorArgs);
-
-        // deploy
-        address deployedContract = create2Deployer.computeAddress(salt, keccak256(bytecode));
-        vm.broadcast();
-        create2Deployer.deploy(0, salt, bytecode);
-
-        // save deployed contract address
-        vm.writeLine("out.txt", deployedContract.toHexString());
-    }
-}
-
-contract DeployShatter is Script {
-    using Strings for address;
-
-    function run() public {
-        // get environment variables
-        ICreate2Deployer create2Deployer = ICreate2Deployer(vm.envAddress("CREATE2_DEPLOYER"));
-        bytes memory constructorArgs = vm.envBytes("CONSTRUCTOR_ARGS");
-        bytes32 salt = vm.envBytes32("SALT");
-
-        // get bytecode
-        bytes memory bytecode = abi.encodePacked(vm.getCode("Shatter.sol:Shatter"), constructorArgs);
-
-        // deploy
-        address deployedContract = create2Deployer.computeAddress(salt, keccak256(bytecode));
-        vm.broadcast();
-        create2Deployer.deploy(0, salt, bytecode);
-
-        // save deployed contract address
-        vm.writeLine("out.txt", deployedContract.toHexString());
-    }
-}
-
-contract DeployERC7160TL is Script {
-    using Strings for address;
-
-    function run() public {
-        // get environment variables
-        ICreate2Deployer create2Deployer = ICreate2Deployer(vm.envAddress("CREATE2_DEPLOYER"));
-        bytes memory constructorArgs = vm.envBytes("CONSTRUCTOR_ARGS");
-        bytes32 salt = vm.envBytes32("SALT");
-
-        // get bytecode
-        bytes memory bytecode = abi.encodePacked(vm.getCode("ERC7160TL.sol:ERC7160TL"), constructorArgs);
-
-        // deploy
-        address deployedContract = create2Deployer.computeAddress(salt, keccak256(bytecode));
-        vm.broadcast();
-        create2Deployer.deploy(0, salt, bytecode);
-
-        // save deployed contract address
-        vm.writeLine("out.txt", deployedContract.toHexString());
-    }
-}
-
-contract DeployERC7160TLEditions is Script {
-    using Strings for address;
-
-    function run() public {
-        // get environment variables
-        ICreate2Deployer create2Deployer = ICreate2Deployer(vm.envAddress("CREATE2_DEPLOYER"));
-        bytes memory constructorArgs = vm.envBytes("CONSTRUCTOR_ARGS");
-        bytes32 salt = vm.envBytes32("SALT");
-
-        // get bytecode
-        bytes memory bytecode = abi.encodePacked(vm.getCode("ERC7160TLEditions.sol:ERC7160TLEditions"), constructorArgs);
-
-        // deploy
-        address deployedContract = create2Deployer.computeAddress(salt, keccak256(bytecode));
-        vm.broadcast();
-        create2Deployer.deploy(0, salt, bytecode);
-
-        // save deployed contract address
-        vm.writeLine("out.txt", deployedContract.toHexString());
-    }
-}
-
-contract DeployCollectorsChoice is Script {
-    using Strings for address;
-
-    function run() public {
-        // get environment variables
-        ICreate2Deployer create2Deployer = ICreate2Deployer(vm.envAddress("CREATE2_DEPLOYER"));
-        bytes memory constructorArgs = vm.envBytes("CONSTRUCTOR_ARGS");
-        bytes32 salt = vm.envBytes32("SALT");
-
-        // get bytecode
-        bytes memory bytecode = abi.encodePacked(vm.getCode("CollectorsChoice.sol:CollectorsChoice"), constructorArgs);
-
-        // deploy
-        address deployedContract = create2Deployer.computeAddress(salt, keccak256(bytecode));
-        vm.broadcast();
-        create2Deployer.deploy(0, salt, bytecode);
-
-        // save deployed contract address
-        vm.writeLine("out.txt", deployedContract.toHexString());
-    }
-}
-
-contract DeployTRACE is Script {
-    using Strings for address;
-
-    function run() public {
-        // get environment variables
-        ICreate2Deployer create2Deployer = ICreate2Deployer(vm.envAddress("CREATE2_DEPLOYER"));
-        bytes memory constructorArgs = vm.envBytes("CONSTRUCTOR_ARGS");
-        bytes32 salt = vm.envBytes32("SALT");
-
-        // get bytecode
-        bytes memory bytecode = abi.encodePacked(vm.getCode("TRACE.sol:TRACE"), constructorArgs);
-
-        // deploy
-        address deployedContract = create2Deployer.computeAddress(salt, keccak256(bytecode));
-        vm.broadcast();
-        create2Deployer.deploy(0, salt, bytecode);
+            // deploy to shape
+            vm.createSelectFork("shape");
+            vm.broadcast();
+            create2Deployer.deploy(0, salt, bytecode);
+        }
 
         // save deployed contract address
         vm.writeLine("out.txt", deployedContract.toHexString());
