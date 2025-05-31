@@ -1,4 +1,5 @@
 [profile.default]
+version = '3.5.0'
 src = 'src'
 test = 'test'
 out = 'out'
@@ -6,7 +7,7 @@ libs = ['lib', "dependencies"]
 evm_version = 'paris'
 auto_detect_solc = true
 optimizer = true
-optimizer_runs = 10000
+optimizer_runs = 2000
 verbosity = 3
 wrap_comments = true
 gas_reports = ["ERC721TL", "ERC1155TL", "Doppelganger", "CollectorsChoice", "Shatter", "TRACE", "ERC7160TL"]

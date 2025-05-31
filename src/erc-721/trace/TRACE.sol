@@ -3,11 +3,14 @@ pragma solidity 0.8.22;
 
 import {IERC4906} from "@openzeppelin-contracts-5.0.2/interfaces/IERC4906.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
+import {IERC20} from "@openzeppelin-contracts-5.0.2/token/ERC20/IERC20.sol";
 import {ReentrancyGuardUpgradeable} from
     "@openzeppelin-contracts-upgradeable-5.0.2/utils/ReentrancyGuardUpgradeable.sol";
 import {ECDSA} from "@openzeppelin-contracts-5.0.2/utils/cryptography/ECDSA.sol";
 import {
-    ERC721Upgradeable, IERC165
+    IERC721,
+    ERC721Upgradeable,
+    IERC165
 } from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
 import {EIP712Upgradeable} from "@openzeppelin-contracts-upgradeable-5.0.2/utils/cryptography/EIP712Upgradeable.sol";
 import {EIP2981TLUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/royalties/EIP2981TLUpgradeable.sol";
@@ -23,7 +26,7 @@ import {ITRACE} from "./ITRACE.sol";
 /// @title TRACE.sol
 /// @notice Sovereign T.R.A.C.E. Creator Contract allowing for digital Certificates of Authenticity backed by the blockchain
 /// @author transientlabs.xyz
-/// @custom:version 3.1.2
+/// @custom:version 3.5.0
 contract TRACE is
     ERC721Upgradeable,
     ReentrancyGuardUpgradeable,
@@ -360,6 +363,20 @@ contract TRACE is
     /// @inheritdoc ICreatorBase
     function tlNftDelegationRegistry() external pure returns (ITLNftDelegationRegistry) {
         return ITLNftDelegationRegistry(address(0));
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Withdraw Funds
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ICreatorBase
+    function withdrawERC20(address currency, uint256 amount, address recipient) external onlyRoleOrOwner(ADMIN_ROLE) {
+        IERC20(currency).transfer(recipient, amount);
+    }
+
+    /// @inheritdoc ICreatorBase
+    function withdrawERC721(address token, uint256 id, address recipient) external onlyRoleOrOwner(ADMIN_ROLE) {
+        IERC721(token).safeTransferFrom(address(this), recipient, id);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
