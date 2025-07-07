@@ -10,6 +10,8 @@ import {OwnableAccessControlUpgradeable} from
     "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
+import {MockERC20} from "../../utils/MockERC20.sol";
+import {MockERC721} from "../../utils/MockERC721.sol";
 
 contract CollectorsChoiceTest is Test {
     using Strings for uint256;
@@ -150,7 +152,7 @@ contract CollectorsChoiceTest is Test {
 
     /// @notice test ERC-165 support
     function test_supportsInterface() public view {
-        assertTrue(tokenContract.supportsInterface(0x1c8e024d)); // ICreatorBase
+        assertTrue(tokenContract.supportsInterface(0x38d29ef3)); // ICreatorBase
         assertTrue(tokenContract.supportsInterface(0xc74089ae)); // IERC721TL
         assertTrue(tokenContract.supportsInterface(0x06e1bc5b)); // IERC7160
         assertTrue(tokenContract.supportsInterface(0x2464f17b)); // IStory
@@ -3364,5 +3366,41 @@ contract CollectorsChoiceTest is Test {
         tokenContract.pinTokenURI(1, 0);
         vm.prank(address(1));
         tokenContract.unpinTokenURI(1);
+    }
+
+    /// @notice test locked tokens stuff
+    function test_lockedTokens(address hacker) public {
+        vm.assume(hacker != address(this));
+
+        // Create tokens
+        MockERC20 coin = new MockERC20(address(this), 10000000000);
+        MockERC721 nft = new MockERC721(address(this));
+
+        // Deposit tokens
+        coin.transfer(address(tokenContract), 1000);
+        nft.transferFrom(address(this), address(tokenContract), 1);
+
+        assertEq(coin.balanceOf(address(tokenContract)), 1000);
+        assertEq(nft.ownerOf(1), address(tokenContract));
+
+        // Test access control
+        vm.startPrank(hacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.withdrawERC20(address(coin), 1000, hacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.withdrawERC721(address(nft), 1, hacker);
+        vm.stopPrank();
+
+        // Remove tokens
+        tokenContract.withdrawERC20(address(coin), 1000, address(420));
+        tokenContract.withdrawERC721(address(nft), 1, address(420));
+
+        assertEq(coin.balanceOf(address(tokenContract)), 0);
+        assertEq(coin.balanceOf(address(420)), 1000);
+        assertEq(nft.ownerOf(1), address(420));
     }
 }

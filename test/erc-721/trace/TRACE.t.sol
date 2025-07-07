@@ -10,6 +10,8 @@ import {OwnableAccessControlUpgradeable} from
     "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
 import {TRACESigUtils} from "test/utils/TRACESigUtils.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
+import {MockERC20} from "../../utils/MockERC20.sol";
+import {MockERC721} from "../../utils/MockERC721.sol";
 
 contract TRACETest is Test {
     using Strings for address;
@@ -142,7 +144,7 @@ contract TRACETest is Test {
 
     /// @notice test ERC-165 support
     function test_supportsInterface() public view {
-        assertTrue(trace.supportsInterface(0x1c8e024d)); // ICreatorBase
+        assertTrue(trace.supportsInterface(0x38d29ef3)); // ICreatorBase
         assertTrue(trace.supportsInterface(0xcfec4f64)); // ITRACE
         assertTrue(trace.supportsInterface(0x2464f17b)); // IStory
         assertTrue(trace.supportsInterface(0x0d23ecb9)); // IStory (old)
@@ -1338,5 +1340,41 @@ contract TRACETest is Test {
         trace.setNftDelegationRegistry(registry);
 
         assertEq(address(trace.tlNftDelegationRegistry()), address(0));
+    }
+
+    /// @notice test locked tokens stuff
+    function test_lockedTokens(address hacker) public {
+        vm.assume(hacker != address(this));
+
+        // Create tokens
+        MockERC20 coin = new MockERC20(address(this), 10000000000);
+        MockERC721 nft = new MockERC721(address(this));
+
+        // Deposit tokens
+        coin.transfer(address(trace), 1000);
+        nft.transferFrom(address(this), address(trace), 1);
+
+        assertEq(coin.balanceOf(address(trace)), 1000);
+        assertEq(nft.ownerOf(1), address(trace));
+
+        // Test access control
+        vm.startPrank(hacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
+        trace.withdrawERC20(address(coin), 1000, hacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, trace.ADMIN_ROLE())
+        );
+        trace.withdrawERC721(address(nft), 1, hacker);
+        vm.stopPrank();
+
+        // Remove tokens
+        trace.withdrawERC20(address(coin), 1000, address(420));
+        trace.withdrawERC721(address(nft), 1, address(420));
+
+        assertEq(coin.balanceOf(address(trace)), 0);
+        assertEq(coin.balanceOf(address(420)), 1000);
+        assertEq(nft.ownerOf(1), address(420));
     }
 }

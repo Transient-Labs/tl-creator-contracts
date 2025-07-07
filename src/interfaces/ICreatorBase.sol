@@ -6,9 +6,9 @@ import {ITLNftDelegationRegistry} from "./ITLNftDelegationRegistry.sol";
 
 /// @title ICreatorBase.sol
 /// @notice Base interface for creator contracts
-/// @dev Interface id = 0x1c8e024d
+/// @dev Interface id = 0x38d29ef3
 /// @author transientlabs.xyz
-/// @custom:version 3.0.0
+/// @custom:version 3.5.0
 interface ICreatorBase {
     /*//////////////////////////////////////////////////////////////////////////
                                     Events
@@ -77,4 +77,18 @@ interface ICreatorBase {
     /// @notice Function to get the status of collector stories
     /// @return bool Status of collector stories being enabled
     function storyEnabled() external view returns (bool);
+
+    /// @notice Function to withdraw locked ERC20 tokens in the contract
+    /// @dev Requires owner or admin
+    /// @param currency The token contract address
+    /// @param amount The amount to withdraw
+    /// @param recipient The recipient address
+    function withdrawERC20(address currency, uint256 amount, address recipient) external;
+
+    /// @notice Function to withdraw locked ERC721 tokens in the contract
+    /// @dev Requires owner or admin
+    /// @param token The token contract address
+    /// @param id The token id to withdraw
+    /// @param recipient The recipient address
+    function withdrawERC721(address token, uint256 id, address recipient) external;
 }
