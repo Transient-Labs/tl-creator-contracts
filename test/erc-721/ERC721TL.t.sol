@@ -12,6 +12,7 @@ import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 import {MockERC20} from "../utils/MockERC20.sol";
 import {MockERC721} from "../utils/MockERC721.sol";
+import {MockRenderingContract} from "../utils/MockRenderingContract.sol";
 
 contract ERC721TLTest is Test {
     using Strings for uint256;
@@ -33,6 +34,7 @@ contract ERC721TLTest is Test {
     );
     event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
     event MetadataUpdate(uint256 tokenId);
+    event BatchMetadataUpdate(uint256 startTokenId, uint256 toTokenId);
     event CollectionStory(address indexed creatorAddress, string creatorName, string story);
     event CreatorStory(uint256 indexed tokenId, address indexed creatorAddress, string creatorName, string story);
     event Story(uint256 indexed tokenId, address indexed collectorAddress, string collectorName, string story);
@@ -150,7 +152,7 @@ contract ERC721TLTest is Test {
     function test_supportsInterface() public view {
         assertTrue(tokenContract.supportsInterface(0x38d29ef3)); // ICreatorBase
         assertTrue(tokenContract.supportsInterface(0xc74089ae)); // IERC721TL
-        assertTrue(tokenContract.supportsInterface(0xd31af484)); // IMutableMetadat
+        assertTrue(tokenContract.supportsInterface(0x64eb24f6)); // IMutableMetadata
         assertTrue(tokenContract.supportsInterface(0x2464f17b)); // IStory
         assertTrue(tokenContract.supportsInterface(0x0d23ecb9)); // IStory (old)
         assertTrue(tokenContract.supportsInterface(0x01ffc9a7)); // ERC-165
@@ -1600,6 +1602,7 @@ contract ERC721TLTest is Test {
     // - batch mint ✅
     // - airdrop ✅
     // - external mint ✅
+    // - custom rendering contract
     function test_mutable_metadata_customErrors() public {
         vm.expectRevert(ERC721TL.TokenDoesntExist.selector);
         tokenContract.updateTokenUri(1, "uri");
@@ -1621,6 +1624,8 @@ contract ERC721TLTest is Test {
         vm.startPrank(user);
         vm.expectRevert();
         tokenContract.updateTokenUri(1, "newUri");
+        vm.expectRevert();
+        tokenContract.setRenderingContract(address(1));
         vm.stopPrank();
 
         // verify that admin can update
@@ -1628,6 +1633,9 @@ contract ERC721TLTest is Test {
         vm.startPrank(user);
         tokenContract.updateTokenUri(1, "newUri");
         assertEq(tokenContract.tokenURI(1), "newUri");
+        tokenContract.setRenderingContract(address(1));
+        assertEq(address(tokenContract.renderingContract()), address(1));
+        tokenContract.setRenderingContract(address(0));
         vm.stopPrank();
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
 
@@ -1636,12 +1644,17 @@ contract ERC721TLTest is Test {
         vm.startPrank(user);
         vm.expectRevert();
         tokenContract.updateTokenUri(1, "newNewUri");
+        vm.expectRevert();
+        tokenContract.setRenderingContract(address(1));
         vm.stopPrank();
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
 
         // verify owner can update
         tokenContract.updateTokenUri(1, "newNewNewUri");
         assertEq(tokenContract.tokenURI(1), "newNewNewUri");
+        tokenContract.setRenderingContract(address(1));
+        assertEq(address(tokenContract.renderingContract()), address(1));
+        tokenContract.setRenderingContract(address(0));
     }
 
     function test_updateTokenUri() public {
@@ -1688,6 +1701,31 @@ contract ERC721TLTest is Test {
         vm.expectEmit(true, true, true, true);
         emit MetadataUpdate(6);
         tokenContract.updateTokenUri(6, "newUri6");
+        assertEq(tokenContract.tokenURI(6), "newUri6");
+
+        // Override rendering contract
+        address newRenderingContract = address(new MockRenderingContract());
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1,6);
+        tokenContract.setRenderingContract(newRenderingContract);
+
+        assertEq(tokenContract.tokenURI(1), "renderingContract/1");
+        assertEq(tokenContract.tokenURI(2), "renderingContract/2");
+        assertEq(tokenContract.tokenURI(3), "renderingContract/3");
+        assertEq(tokenContract.tokenURI(4), "renderingContract/4");
+        assertEq(tokenContract.tokenURI(5), "renderingContract/5");
+        assertEq(tokenContract.tokenURI(6), "renderingContract/6");
+
+        // Reset rendering contract
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(1,6);
+        tokenContract.setRenderingContract(address(0));
+
+        assertEq(tokenContract.tokenURI(1), "newUri");
+        assertEq(tokenContract.tokenURI(2), "newUri2");
+        assertEq(tokenContract.tokenURI(3), "newUri3");
+        assertEq(tokenContract.tokenURI(4), "newUri4");
+        assertEq(tokenContract.tokenURI(5), "newUri5");
         assertEq(tokenContract.tokenURI(6), "newUri6");
     }
 

@@ -3302,7 +3302,7 @@ contract ERC7160TLEditionsTest is Test {
         vm.prank(address(1));
         tokenContract.unpinTokenURI(1);
     }
-    
+
     /// @notice test locked tokens stuff
     function test_lockedTokens(address hacker) public {
         vm.assume(hacker != address(this));
