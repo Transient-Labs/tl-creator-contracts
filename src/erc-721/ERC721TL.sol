@@ -15,6 +15,7 @@ import {EIP2981TLUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/royalties/EIP
 import {IBlockListRegistry} from "../interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "../interfaces/ICreatorBase.sol";
 import {IMutableMetadata} from "../interfaces/IMutableMetadata.sol";
+import {IRenderingContract} from "../interfaces/IRenderingContract.sol";
 import {IStory} from "../interfaces/IStory.sol";
 import {ITLNftDelegationRegistry} from "../interfaces/ITLNftDelegationRegistry.sol";
 import {IERC721TL} from "./IERC721TL.sol";
@@ -22,7 +23,7 @@ import {IERC721TL} from "./IERC721TL.sol";
 /// @title ERC721TL.sol
 /// @notice Sovereign ERC-721 Creator Contract with Mutable Metadata and Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.5.0
+/// @custom:version 3.6.0
 contract ERC721TL is
     ERC721Upgradeable,
     OwnableAccessControlUpgradeable,
@@ -55,11 +56,12 @@ contract ERC721TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.4.0";
+    string public constant VERSION = "3.6.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
     bool public storyEnabled;
+    IRenderingContract public renderingContract;
     ITLNftDelegationRegistry public tlNftDelegationRegistry;
     IBlockListRegistry public blocklistRegistry;
     mapping(uint256 => bool) private _burned; // flag to see if a token is burned or not - needed for burning batch mints
@@ -282,6 +284,15 @@ contract ERC721TL is
         emit MetadataUpdate(tokenId);
     }
 
+    /// @inheritdoc IMutableMetadata
+    function setRenderingContract(address newRenderingContract) external onlyRoleOrOwner(ADMIN_ROLE) {
+        renderingContract = IRenderingContract(newRenderingContract);
+        if (_counter > 0) {
+            // only emit if tokens are minted
+            emit BatchMetadataUpdate(1, _counter);
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////////////////
                                 Token Uri Override
     //////////////////////////////////////////////////////////////////////////*/
@@ -289,11 +300,17 @@ contract ERC721TL is
     /// @inheritdoc ERC721Upgradeable
     function tokenURI(uint256 tokenId) public view override(ERC721Upgradeable) returns (string memory) {
         if (!_exists(tokenId)) revert TokenDoesntExist();
-        string memory uri = _tokenUris[tokenId];
-        if (bytes(uri).length == 0) {
-            (, uri) = _getBatchInfo(tokenId);
+        if (address(renderingContract) == address(0)) {
+            // return contract storage data
+            string memory uri = _tokenUris[tokenId];
+            if (bytes(uri).length == 0) {
+                (, uri) = _getBatchInfo(tokenId);
+            }
+            return uri;
+        } else {
+            // call rendering contract
+            return renderingContract.tokenURI(tokenId);
         }
-        return uri;
     }
 
     /*//////////////////////////////////////////////////////////////////////////
