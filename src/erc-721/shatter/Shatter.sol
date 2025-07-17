@@ -22,7 +22,7 @@ import {IShatter} from "./IShatter.sol";
 /// @title Shatter.sol
 /// @notice Sovereign Shatter Creator Contract with Synergy and Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.5.0
+/// @custom:version 3.6.0
 contract Shatter is
     ERC721Upgradeable,
     EIP2981TLUpgradeable,
@@ -47,7 +47,7 @@ contract Shatter is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.1.0";
+    string public constant VERSION = "3.6.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bool public isShattered;
     bool public isFused;

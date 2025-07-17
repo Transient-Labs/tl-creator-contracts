@@ -22,7 +22,7 @@ import {IERC721TL} from "../IERC721TL.sol";
 /// @title ERC7160TLEditions.sol
 /// @notice Sovereign ERC-7160 Editions Creator Contract with Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.5.0
+/// @custom:version 3.6.0
 contract ERC7160TLEditions is
     ERC721Upgradeable,
     EIP2981TLUpgradeable,
@@ -60,7 +60,7 @@ contract ERC7160TLEditions is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.5.0";
+    string public constant VERSION = "3.6.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids

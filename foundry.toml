@@ -29,11 +29,11 @@ shape = "${SHAPE_RPC_URL}"
 
 [etherscan]
 sepolia = { key = "${ETHERSCAN_KEY}" }
-arbitrum_sepolia = {  key = "${ARBISCAN_KEY}", url = "https://api-sepolia.arbiscan.io/api" }
-base_sepolia = {  key = "${BASESCAN_KEY}", url = "https://api-sepolia.basescan.org/api" }
+arbitrum_sepolia = {  key = "${ETHERSCAN_KEY}", url = "https://api-sepolia.arbiscan.io/api" }
+base_sepolia = {  key = "${ETHERSCAN_KEY}", url = "https://api-sepolia.basescan.org/api" }
 mainnet = { key = "${ETHERSCAN_KEY}"}
-arbitrum = { key = "${ARBISCAN_KEY}", url = "https://api.arbiscan.io/api" }
-base = { key = "${BASESCAN_KEY}", url = "https://api.basescan.org/api" }
+arbitrum = { key = "${ETHERSCAN_KEY}", url = "https://api.arbiscan.io/api" }
+base = { key = "${ETHERSCAN_KEY}", url = "https://api.basescan.org/api" }
 
 [soldeer]
 recursive_deps=true

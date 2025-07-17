@@ -26,7 +26,7 @@ import {ITRACE} from "./ITRACE.sol";
 /// @title TRACE.sol
 /// @notice Sovereign T.R.A.C.E. Creator Contract allowing for digital Certificates of Authenticity backed by the blockchain
 /// @author transientlabs.xyz
-/// @custom:version 3.5.0
+/// @custom:version 3.6.0
 contract TRACE is
     ERC721Upgradeable,
     ReentrancyGuardUpgradeable,
@@ -66,7 +66,7 @@ contract TRACE is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.5.0";
+    string public constant VERSION = "3.6.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     ITRACERSRegistry public tracersRegistry;
