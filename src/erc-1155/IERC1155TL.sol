@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.22;
+pragma solidity 0.8.28;
 
 /// @title IERC1155TL.sol
 /// @notice Interface for ERC1155TL
-/// @dev Interface id = 0x452d5a4a
+/// @dev Interface id = 0x83b61254
 /// @author transientlabs.xyz
-/// @custom:version 3.0.0
+/// @custom:version 3.7.0
 interface IERC1155TL {
     /*//////////////////////////////////////////////////////////////////////////
                                     Types
@@ -99,4 +99,14 @@ interface IERC1155TL {
     /// @param tokenId The token to mint
     /// @param newUri The new token uri
     function setTokenUri(uint256 tokenId, string calldata newUri) external;
+
+    /// @notice Function to lock a token from any more supply being minted
+    /// @dev Requires owner or admin
+    /// @param tokenId The token to lock
+    function lockToken(uint256 tokenId) external;
+
+    /// @notice Function to see if a token is locked
+    /// @param tokenId The token to check
+    /// @return bool Indicates status of lockage
+    function tokenLocked(uint256 tokenId) external view returns (bool);
 }

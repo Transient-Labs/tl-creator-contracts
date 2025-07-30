@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.22;
+pragma solidity 0.8.28;
 
-import "forge-std/Script.sol";
+import "forge-std-1.9.4/Script.sol";
 import {ERC7160TL} from "../src/erc-721/multi-metadata/ERC7160TL.sol";
 import {ERC721TL} from "../src/erc-721/ERC721TL.sol";
 

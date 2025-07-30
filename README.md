@@ -6,10 +6,10 @@ See https://docs.transientlabs.xyz/tl-creator-contracts/implementation for lates
 
 ## Core Features
 ### Ownership & Access
-We have implemented the `OwnableAccessControlUpgradeable` contract from [tl-sol-tools](https://github.com/Transient-Labs/tl-sol-tools) and have created custom admin and mint contract privileges. Admins are able to perform actions on behalf of the creator (contract owner). Approved mint contracts are allowed to mint NFTs or metadata (ERC7160TL).
+We have implemented an `OwnableAccessControlUpgradeable` that is similar to OpenZeppelin's Access Control contract, but with the Ownable interface added in. There is also a custom admin and mint contract privileges. Admins are able to perform actions on behalf of the creator (contract owner). Approved mint contracts are allowed to mint NFTs or add metadata (ERC7160TL).
 
 ### Creator Royalties
-EIP-2981 is used as it is the on-chain royalty specification used to return a royalty payout address and the royalty amount to pay based on the sale price. 
+ERC-2981 is used as it is the on-chain royalty specification used to return a royalty payout address and the royalty amount to pay based on the sale price. 
 
 For each contract, there is a default royalty specification set that can be altered if needed. There are also individual token overrides in case of collaboration or anything like that.
 
@@ -30,40 +30,20 @@ We only use NFT delegation for NFT ownership utility that does not affect owners
 ## ERC721TL
 Our core ERC-721 creator contract.
 
-### Synergy
-This mechanism protects collectors from having token metadata changed on them unexpectedly. Artists need to be able to update metadata in certain situations, but collectors should have a right to review these changes after they have bought the piece. This is what Synergy allows; the collector must sign a transaction allowing the metadata to be updated.
-
-### Airdrops
-Allows creators to airdrop tokens to a list of addresses.
-
-### Batch Minting
-Allows creators to cheaply batch mint tokens to their wallet. 
-
-Testing shows our implementation is market leading: [view here](https://docs.transientlabs.xyz/creator-contracts/ERC721TL)
+## ERC1155TL
+Our core ERC-1155 creator contract.
 
 ## ERC7160TL
 Our implementation of [ERC-7160](https://eips.ethereum.org/EIPS/eip-7160). This brings multiple pieces of metadata to NFTs and allows token holders to pin or unpin metadata as they please. Only the contract owner/admin have the ability to add metadata for a token.
 
-### Airdrops
-Allows creators to airdrop tokens to a list of addresses.
-
-### Batch Minting
-Allows creators to cheaply batch mint tokens to their wallet. 
-
-Testing shows our implementation is market leading: [view here](https://docs.transientlabs.xyz/creator-contracts/ERC721TL)
-
 ## ERC7160TLEditions
 An implementation of [ERC-7160](https://eips.ethereum.org/EIPS/eip-7160) but with a focus on editions. Rather than have multiple pieces of metadata per token, like in ERC7160TL, there is a contract-wide metadata array from which token holders can choose to pin. This allows for immense flexibility and gas efficiency for ERC-721 editions.
-
-It shares similar features with `ERC7160TL`.
 
 ## Collector's Choice
 A variant of Doppelganger that allows the creator to set a cutoff time, after which, all pinning and unpinning actions by token holders are blocked. This essentially freezes the metadata and can be use for interesting gameification.
 
 ## Shatter
 Allows a 1/1 token to be shattered into many tokens, that can either be an edition or more 1/1 tokens. Later, all the tokens can be fused back into the 1/1 if the tokens are all owned by the same address.
-
-Shares many similar features to `ERC721TL`.
 
 ## Proxy Deployments
 We use immutable [ERC-1167](https://eips.ethereum.org/EIPS/eip-1167) proxies for creators to deploy contracts in a cheap and immutable way. [ERC-1967](https://eips.ethereum.org/EIPS/eip-1967) proxies can also be used.
