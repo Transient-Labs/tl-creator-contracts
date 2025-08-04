@@ -1,0 +1,16 @@
+[project]
+name = "tl-creator-contracts"
+version = "3.7.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13.3"
+dependencies = [
+    "matplotlib>=3.10.3",
+    "numpy>=2.3.2",
+    "slither-analyzer>=0.11.3",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+]

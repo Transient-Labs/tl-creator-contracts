@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.22;
+pragma solidity 0.8.28;
 
 import "forge-std-1.9.4/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 import {ERC1155TL} from "src/erc-1155/ERC1155TL.sol";
 import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
 import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
-import {OwnableAccessControlUpgradeable} from
-    "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {OwnableAccessControlUpgradeable} from "src/lib/OwnableAccessControlUpgradeable.sol";
 import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 import {MockERC20} from "../utils/MockERC20.sol";
@@ -141,7 +140,7 @@ contract ERC1155TLTest is Test {
     /// @notice test ERC-165 support
     function test_supportsInterface() public view {
         assertTrue(tokenContract.supportsInterface(0x38d29ef3)); // ICreatorBase
-        assertTrue(tokenContract.supportsInterface(0x452d5a4a)); // IERC1155TL
+        assertTrue(tokenContract.supportsInterface(0x83b61254)); // IERC1155TL
         assertTrue(tokenContract.supportsInterface(0x2464f17b)); // IStory
         assertTrue(tokenContract.supportsInterface(0x0d23ecb9)); // IStory (old)
         assertTrue(tokenContract.supportsInterface(0x01ffc9a7)); // ERC-165
@@ -317,6 +316,9 @@ contract ERC1155TLTest is Test {
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(recipient, 1), bal);
         }
+
+        // assert total supply
+        assertEq(tokenContract.totalSupply(), 1);
     }
 
     function test_createToken_withRoyalty(
@@ -368,6 +370,9 @@ contract ERC1155TLTest is Test {
             vm.stopPrank();
             assertEq(tokenContract.balanceOf(recipient, 1), bal);
         }
+
+        // assert total supply
+        assertEq(tokenContract.totalSupply(), 1);
     }
 
     /// @notice test batchCreateToken
@@ -576,6 +581,9 @@ contract ERC1155TLTest is Test {
                 assertEq(tokenContract.balanceOf(recipient, i + 1), bal);
             }
         }
+
+        // assert total supply
+        assertEq(tokenContract.totalSupply(), numTokens);
     }
 
     function test_batchCreateToken_withRoyalty(
@@ -646,6 +654,48 @@ contract ERC1155TLTest is Test {
                 assertEq(tokenContract.balanceOf(recipient, i + 1), bal);
             }
         }
+
+        // assert total supply
+        assertEq(tokenContract.totalSupply(), numTokens);
+    }
+
+    /// @notice test locking tokens
+    function test_lockToken_access_control(address hacker) public {
+        vm.assume(hacker != address(this));
+        vm.assume(hacker != address(0));
+
+        address[] memory users = new address[](1);
+        users[0] = hacker;
+
+        // verify hacker can't access
+        vm.startPrank(hacker, hacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.lockToken(1);
+        vm.stopPrank();
+
+        // verify minter can't access
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
+        vm.startPrank(hacker, hacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.lockToken(1);
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
+
+        // verify admin can access
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
+        vm.startPrank(hacker, hacker);
+        tokenContract.lockToken(1);
+        assertTrue(tokenContract.tokenLocked(1));
+        vm.stopPrank();
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
+
+        // verify owner can access
+        tokenContract.lockToken(2);
+        assertTrue(tokenContract.tokenLocked(2));
     }
 
     /// @notice test mint
@@ -656,6 +706,7 @@ contract ERC1155TLTest is Test {
     // - ownership ✅
     // - balance ✅
     // - transfer to another address ✅
+    // - locked tokens can't mint ✅
     function test_mintToken_errors() public {
         address[] memory collectors = new address[](1);
         collectors[0] = address(1);
@@ -673,6 +724,11 @@ contract ERC1155TLTest is Test {
 
         vm.expectRevert(ERC1155TL.ArrayLengthMismatch.selector);
         tokenContract.mintToken(1, collectors, emptyAmounts);
+
+        tokenContract.lockToken(1);
+
+        vm.expectRevert(ERC1155TL.TokenLocked.selector);
+        tokenContract.mintToken(1, collectors, amounts);
     }
 
     function test_mintToken_accessControl(address user) public {
@@ -765,6 +821,7 @@ contract ERC1155TLTest is Test {
     // - ownership ✅
     // - balance ✅
     // - transfer to another address ✅
+    // - locked tokens can't mint ✅
     function test_externalMint_errors() public {
         address[] memory minters = new address[](1);
         minters[0] = address(this);
@@ -785,6 +842,11 @@ contract ERC1155TLTest is Test {
 
         vm.expectRevert(ERC1155TL.ArrayLengthMismatch.selector);
         tokenContract.externalMint(1, collectors, emptyAmounts);
+
+        tokenContract.lockToken(1);
+
+        vm.expectRevert(ERC1155TL.TokenLocked.selector);
+        tokenContract.externalMint(1, collectors, amounts);
     }
 
     function test_externalMint_accessControl(address user) public {

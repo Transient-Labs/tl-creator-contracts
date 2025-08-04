@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.22;
+pragma solidity 0.8.28;
 
 import "forge-std-1.9.4/Test.sol";
 import {TRACE} from "src/erc-721/trace/TRACE.sol";
 import {ITRACERSRegistry} from "src/interfaces/ITRACERSRegistry.sol";
 import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
 import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
-import {OwnableAccessControlUpgradeable} from
-    "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {OwnableAccessControlUpgradeable} from "src/lib/OwnableAccessControlUpgradeable.sol";
 import {TRACESigUtils} from "test/utils/TRACESigUtils.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 import {MockERC20} from "../../utils/MockERC20.sol";
@@ -234,6 +233,9 @@ contract TRACETest is Test {
         trace.ownerOf(tokenId + 1);
         vm.expectRevert(TRACE.TokenDoesntExist.selector);
         trace.tokenURI(tokenId + 1);
+
+        // test total supply
+        assertEq(trace.totalSupply(), tokenId);
     }
 
     function test_mint_withTokenRoyalty(
@@ -273,6 +275,9 @@ contract TRACETest is Test {
         trace.ownerOf(tokenId + 1);
         vm.expectRevert(TRACE.TokenDoesntExist.selector);
         trace.tokenURI(tokenId + 1);
+
+        // test total supply
+        assertEq(trace.totalSupply(), tokenId);
     }
 
     function test_mint_thenTransfer(uint16 tokenId, address recipient, address secondRecipient) public {
@@ -405,6 +410,9 @@ contract TRACETest is Test {
         trace.mint(address(this), "newUri");
         assertEq(trace.ownerOf(numAddresses + 1), address(this));
         assertEq(trace.tokenURI(numAddresses + 1), "newUri");
+
+        // test total supply
+        assertEq(trace.totalSupply(), numAddresses + 1);
     }
 
     function test_airdrop_thenTransfer(uint16 numAddresses, address recipient) public {
@@ -548,7 +556,7 @@ contract TRACETest is Test {
         // set mint contract
         address[] memory minters = new address[](1);
         minters[0] = address(1);
-        trace.setRole(trace.APPROVED_MINT_CONTRACT(), minters, true);
+        trace.setApprovedMintContracts(minters, true);
 
         // mint
         for (uint256 i = 1; i <= numTokens; i++) {
@@ -567,6 +575,9 @@ contract TRACETest is Test {
         trace.ownerOf(numTokens + 1);
         vm.expectRevert(TRACE.TokenDoesntExist.selector);
         trace.tokenURI(numTokens + 1);
+
+        // test total supply
+        assertEq(trace.totalSupply(), numTokens);
     }
 
     function test_externalMint_thenTransfer(

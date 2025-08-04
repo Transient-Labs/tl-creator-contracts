@@ -1,7 +1,7 @@
 on:
   push:
-    branches:
-      - '**'  # This matches all branches
+    branches-ignore:
+      - 'main' # All branches but main
     tags-ignore:
       - '**'  # This ignores all tags
 
@@ -23,4 +23,4 @@ jobs:
         run: make install
 
       - name: Run unit tests
-        run: make quick_test
+        run: make test_quick

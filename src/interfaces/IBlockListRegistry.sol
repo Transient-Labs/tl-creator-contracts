@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.22;
 
 /// @title BlockList Registry
 /// @notice Interface for the BlockListRegistry Contract

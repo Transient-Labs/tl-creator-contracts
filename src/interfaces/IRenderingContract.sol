@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.22;
+pragma solidity ^0.8.22;
 
 /// @title Rendering Contract Interface
 /// @notice Official rendering contract interface that specfies a universal interface for custom rendering contracts

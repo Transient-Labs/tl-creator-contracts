@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 /// @title Transient Labs Story Inscriptions Interface
 /// @dev Interface id: 0x2464f17b

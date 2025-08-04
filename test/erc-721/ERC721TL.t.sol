@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.22;
+pragma solidity 0.8.28;
 
 import "forge-std-1.9.4/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 import {ERC721TL, IMutableMetadata} from "src/erc-721/ERC721TL.sol";
 import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
 import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
-import {OwnableAccessControlUpgradeable} from
-    "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {OwnableAccessControlUpgradeable} from "src/lib/OwnableAccessControlUpgradeable.sol";
 import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 import {MockERC20} from "../utils/MockERC20.sol";
@@ -1706,7 +1705,7 @@ contract ERC721TLTest is Test {
         // Override rendering contract
         address newRenderingContract = address(new MockRenderingContract());
         vm.expectEmit(true, true, true, true);
-        emit BatchMetadataUpdate(1,6);
+        emit BatchMetadataUpdate(1, 6);
         tokenContract.setRenderingContract(newRenderingContract);
 
         assertEq(tokenContract.tokenURI(1), "renderingContract/1");
@@ -1718,7 +1717,7 @@ contract ERC721TLTest is Test {
 
         // Reset rendering contract
         vm.expectEmit(true, true, true, true);
-        emit BatchMetadataUpdate(1,6);
+        emit BatchMetadataUpdate(1, 6);
         tokenContract.setRenderingContract(address(0));
 
         assertEq(tokenContract.tokenURI(1), "newUri");

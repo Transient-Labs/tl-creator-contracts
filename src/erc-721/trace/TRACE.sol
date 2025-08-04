@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.22;
+pragma solidity 0.8.28;
 
 import {IERC4906} from "@openzeppelin-contracts-5.0.2/interfaces/IERC4906.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
@@ -13,9 +13,8 @@ import {
     IERC165
 } from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
 import {EIP712Upgradeable} from "@openzeppelin-contracts-upgradeable-5.0.2/utils/cryptography/EIP712Upgradeable.sol";
-import {EIP2981TLUpgradeable} from "tl-sol-tools-3.1.4/upgradeable/royalties/EIP2981TLUpgradeable.sol";
-import {OwnableAccessControlUpgradeable} from
-    "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {ERC2981TLUpgradeable} from "../../lib/ERC2981TLUpgradeable.sol";
+import {OwnableAccessControlUpgradeable} from "../../lib/OwnableAccessControlUpgradeable.sol";
 import {IBlockListRegistry} from "../../interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "../../interfaces/ICreatorBase.sol";
 import {IStory} from "../../interfaces/IStory.sol";
@@ -26,12 +25,12 @@ import {ITRACE} from "./ITRACE.sol";
 /// @title TRACE.sol
 /// @notice Sovereign T.R.A.C.E. Creator Contract allowing for digital Certificates of Authenticity backed by the blockchain
 /// @author transientlabs.xyz
-/// @custom:version 3.6.0
+/// @custom:version 3.7.0
 contract TRACE is
     ERC721Upgradeable,
     ReentrancyGuardUpgradeable,
     OwnableAccessControlUpgradeable,
-    EIP2981TLUpgradeable,
+    ERC2981TLUpgradeable,
     EIP712Upgradeable,
     ICreatorBase,
     ITRACE,
@@ -66,7 +65,7 @@ contract TRACE is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.6.0";
+    string public constant VERSION = "3.7.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     ITRACERSRegistry public tracersRegistry;
@@ -371,6 +370,7 @@ contract TRACE is
 
     /// @inheritdoc ICreatorBase
     function withdrawERC20(address currency, uint256 amount, address recipient) external onlyRoleOrOwner(ADMIN_ROLE) {
+        // slither-disable-next-line unchecked-transfer
         IERC20(currency).transfer(recipient, amount);
     }
 
@@ -387,11 +387,11 @@ contract TRACE is
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(ERC721Upgradeable, EIP2981TLUpgradeable, IERC165)
+        override(ERC721Upgradeable, ERC2981TLUpgradeable, IERC165)
         returns (bool)
     {
         return (
-            ERC721Upgradeable.supportsInterface(interfaceId) || EIP2981TLUpgradeable.supportsInterface(interfaceId)
+            ERC721Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
                 || interfaceId == 0x49064906 // ERC-4906
                 || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(IStory).interfaceId
                 || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported

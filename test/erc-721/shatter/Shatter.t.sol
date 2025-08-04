@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.22;
+pragma solidity 0.8.28;
 
 import "forge-std-1.9.4/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 import {Shatter, IShatter, ISynergy} from "src/erc-721/shatter/Shatter.sol";
 import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
 import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
-import {OwnableAccessControlUpgradeable} from
-    "tl-sol-tools-3.1.4/upgradeable/access/OwnableAccessControlUpgradeable.sol";
+import {OwnableAccessControlUpgradeable} from "src/lib/OwnableAccessControlUpgradeable.sol";
 import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 import {MockERC20} from "../../utils/MockERC20.sol";
@@ -291,6 +290,10 @@ contract ShatterTest is Test {
         for (uint256 i = 1; i < numShatters; i++) {
             assert(tokenContract.ownerOf(i) == recipient);
         }
+
+        // test invalid token
+        vm.expectRevert();
+        tokenContract.ownerOf(numShatters + 2);
     }
 
     function test_shatter_errors() public {
@@ -1358,6 +1361,7 @@ contract ShatterTest is Test {
     /// @notice test locked tokens stuff
     function test_lockedTokens(address hacker) public {
         vm.assume(hacker != address(this));
+        vm.assume(hacker != admin);
 
         // Create tokens
         MockERC20 coin = new MockERC20(address(this), 10000000000);
