@@ -667,6 +667,14 @@ contract ERC1155TLTest is Test {
         address[] memory users = new address[](1);
         users[0] = hacker;
 
+        // create tokens
+        address[] memory collectors = new address[](1);
+        collectors[0] = address(420);
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 100;
+        tokenContract.createToken("uri1", collectors, amounts);
+        tokenContract.createToken("uri2", collectors, amounts);
+
         // verify hacker can't access
         vm.startPrank(hacker, hacker);
         vm.expectRevert(
@@ -696,6 +704,31 @@ contract ERC1155TLTest is Test {
         // verify owner can access
         tokenContract.lockToken(2);
         assertTrue(tokenContract.tokenLocked(2));
+
+        // make sure tokens that are locked can still be transferred
+        assertEq(tokenContract.balanceOf(address(420), 1), 100);
+        vm.prank(address(420));
+        tokenContract.safeTransferFrom(address(420), address(69), 1, 1, "");
+        assertEq(tokenContract.balanceOf(address(420), 1), 99);
+        assertEq(tokenContract.balanceOf(address(69), 1), 1);
+
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = 1;
+        ids[1] = 2;
+        uint256[] memory values = new uint256[](2);
+        values[0] = 49;
+        values[1] = 50;
+        vm.prank(address(420));
+        tokenContract.safeBatchTransferFrom(address(420), address(69), ids, values, "");
+        assertEq(tokenContract.balanceOf(address(420), 1), 50);
+        assertEq(tokenContract.balanceOf(address(69), 1), 50);
+        assertEq(tokenContract.balanceOf(address(420), 2), 50);
+        assertEq(tokenContract.balanceOf(address(69), 2), 50);
+    }
+
+    function test_lockToken_errors() public {
+        vm.expectRevert(ERC1155TL.TokenDoesntExist.selector);
+        tokenContract.lockToken(1);
     }
 
     /// @notice test mint
