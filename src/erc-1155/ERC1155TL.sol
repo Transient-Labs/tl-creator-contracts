@@ -20,7 +20,7 @@ import {IERC1155TL} from "./IERC1155TL.sol";
 /// @title ERC1155TL.sol
 /// @notice Sovereign ERC-1155 Creator Contract with Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.7.0
+/// @custom:version 3.7.1
 contract ERC1155TL is
     ERC1155Upgradeable,
     ERC2981TLUpgradeable,
@@ -40,7 +40,7 @@ contract ERC1155TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.7.0";
+    string public constant VERSION = "3.7.1";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter;
@@ -249,6 +249,7 @@ contract ERC1155TL is
 
     /// @inheritdoc IERC1155TL
     function lockToken(uint256 tokenId) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (!_exists(tokenId)) revert TokenDoesntExist();
         _tokenLocks[tokenId] = true;
     }
 
