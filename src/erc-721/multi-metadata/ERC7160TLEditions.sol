@@ -269,6 +269,11 @@ contract ERC7160TLEditions is
     function burn(uint256 tokenId) external {
         address owner = ownerOf(tokenId);
         if (!_isAuthorized(owner, msg.sender, tokenId)) revert CallerNotApprovedOrOwner();
+        _burnWithTracking(tokenId);
+    }
+
+    /// @notice Internal helper function to burn with tracking
+    function _burnWithTracking(uint256 tokenId) internal {
         _burn(tokenId);
         _burned[tokenId] = true;
     }

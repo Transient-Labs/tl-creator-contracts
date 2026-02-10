@@ -258,6 +258,11 @@ contract ERC721TL is
     function burn(uint256 tokenId) external {
         address tokenOwner = ownerOf(tokenId);
         if (!_isAuthorized(tokenOwner, msg.sender, tokenId)) revert CallerNotApprovedOrOwner();
+        _burnWithTracking(tokenId);
+    }
+
+    /// @notice Internal helper function to burn with tracking
+    function _burnWithTracking(uint256 tokenId) internal {
         _burn(tokenId);
         _burned[tokenId] = true;
     }
