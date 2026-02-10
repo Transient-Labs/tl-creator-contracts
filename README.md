@@ -46,7 +46,7 @@ A variant of Doppelganger that allows the creator to set a cutoff time, after wh
 Allows a 1/1 token to be shattered into many tokens, that can either be an edition or more 1/1 tokens. Later, all the tokens can be fused back into the 1/1 if the tokens are all owned by the same address.
 
 ## Proxy Deployments
-We use immutable [ERC-1167](https://eips.ethereum.org/EIPS/eip-1167) proxies for creators to deploy contracts in a cheap and immutable way. [ERC-1967](https://eips.ethereum.org/EIPS/eip-1967) proxies can also be used.
+We use immutable [ERC-1167](https://eips.ethereum.org/EIPS/eip-1167) proxies for creators to deploy contracts in a cheap and immutable way. Non-upgradeable [ERC-1967](https://eips.ethereum.org/EIPS/eip-1967) proxies can also be used. These contracts are not meant to be upgraded as changes may not be upgrade friendly (i.e. storage layout may break between versions).
 
 ## Running Tests
 1. Install [foundry](getfoundry.sh)

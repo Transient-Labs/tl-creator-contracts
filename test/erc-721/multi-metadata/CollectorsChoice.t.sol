@@ -1070,6 +1070,8 @@ contract CollectorsChoiceTest is Test {
         admins[0] = admin;
         tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
 
+        vm.expectEmit(true, true, true, true);
+        emit IERC721TL.SupplyLocked(admin);
         vm.startPrank(admin, admin);
         tokenContract.lockSupply();
         vm.stopPrank();
