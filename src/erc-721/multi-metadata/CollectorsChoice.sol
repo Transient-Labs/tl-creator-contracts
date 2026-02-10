@@ -22,7 +22,7 @@ import {IERC721TL} from "../IERC721TL.sol";
 /// @notice Sovereign ERC-7160 Editions with a metadata lock timer (Collectors Choice) Creator Contract with Story Inscriptions
 /// @dev When unpinned, the latest metadata added for a token is returned from `tokenURI` and `tokenURIs`
 /// @author transientlabs.xyz
-/// @custom:version 3.7.0
+/// @custom:version 3.8.0
 contract CollectorsChoice is
     ERC721Upgradeable,
     ERC2981TLUpgradeable,
@@ -60,12 +60,13 @@ contract CollectorsChoice is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.7.0";
+    string public constant VERSION = "3.8.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
     bool public storyEnabled;
     bool public floatWhenUnpinned;
+    bool public supplyLocked;
     ITLNftDelegationRegistry public tlNftDelegationRegistry;
     IBlockListRegistry public blocklistRegistry;
     uint256 public cutoffTime;
@@ -123,6 +124,9 @@ contract CollectorsChoice is
 
     /// @dev Past cutoff time
     error PastCutoffTime();
+
+    /// @dev Supply locked
+    error SupplyIsLocked();
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Constructor
@@ -208,6 +212,7 @@ contract CollectorsChoice is
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
     function mint(address recipient, string calldata /*uri*/ ) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (supplyLocked) revert SupplyIsLocked();
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
         _counter++;
         _mint(recipient, _counter);
@@ -219,6 +224,7 @@ contract CollectorsChoice is
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
+        if (supplyLocked) revert SupplyIsLocked();
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
         _counter++;
         _overrideTokenRoyaltyInfo(_counter, royaltyAddress, royaltyPercent);
@@ -231,6 +237,7 @@ contract CollectorsChoice is
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
+        if (supplyLocked) revert SupplyIsLocked();
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
         if (recipient == address(0)) revert MintToZeroAddress();
         if (numTokens < 2) revert BatchSizeTooSmall();
@@ -249,6 +256,7 @@ contract CollectorsChoice is
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
     function airdrop(address[] calldata addresses, string calldata /*baseUri*/ ) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (supplyLocked) revert SupplyIsLocked();
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
         if (addresses.length < 2) revert AirdropTooFewAddresses();
 
@@ -262,6 +270,7 @@ contract CollectorsChoice is
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
     function externalMint(address recipient, string calldata /*uri*/ ) external onlyRole(APPROVED_MINT_CONTRACT) {
+        if (supplyLocked) revert SupplyIsLocked();
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
         _counter++;
         _mint(recipient, _counter);
@@ -275,8 +284,25 @@ contract CollectorsChoice is
     function burn(uint256 tokenId) external {
         address owner = ownerOf(tokenId);
         if (!_isAuthorized(owner, msg.sender, tokenId)) revert CallerNotApprovedOrOwner();
+        _burnWithTracking(tokenId);
+    }
+
+    /// @notice Internal helper function to burn with tracking
+    function _burnWithTracking(uint256 tokenId) internal {
         _burn(tokenId);
         _burned[tokenId] = true;
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Lock Functions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IERC721TL
+    function lockSupply() external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (supplyLocked) revert SupplyIsLocked();
+        supplyLocked = true;
+
+        emit IERC721TL.SupplyLocked(msg.sender);
     }
 
     /*//////////////////////////////////////////////////////////////////////////

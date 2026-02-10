@@ -3,10 +3,16 @@ pragma solidity ^0.8.22;
 
 /// @title IERC721TL.sol
 /// @notice Interface for ERC721TL
-/// @dev Interface id = 0xc74089ae
+/// @dev Interface id = 0xd294c531
 /// @author transientlabs.xyz
 /// @custom:version 3.0.0
 interface IERC721TL {
+    /*//////////////////////////////////////////////////////////////////////////
+                                    Events
+    //////////////////////////////////////////////////////////////////////////*/
+
+    event SupplyLocked(address indexed sender);
+
     /*//////////////////////////////////////////////////////////////////////////
                                     Functions
     //////////////////////////////////////////////////////////////////////////*/
@@ -53,4 +59,13 @@ interface IERC721TL {
     /// @dev Caller must be approved or owner of the token
     /// @param tokenId The token to burn
     function burn(uint256 tokenId) external;
+
+    /// @notice Function to lock the supply on the contract
+    /// @dev Requires owner or admin
+    /// @dev MUST emit the SupplyLocked event defined in this interface
+    function lockSupply() external;
+
+    /// @notice Function to see if the supply is locked
+    /// @return bool indicating if locked or not
+    function supplyLocked() external view returns (bool);
 }

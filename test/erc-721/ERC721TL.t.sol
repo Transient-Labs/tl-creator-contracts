@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import "forge-std-1.9.4/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 import {ERC721TL, IMutableMetadata} from "src/erc-721/ERC721TL.sol";
+import {IERC721TL} from "src/erc-721/IERC721TL.sol";
 import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
 import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
 import {OwnableAccessControlUpgradeable} from "src/lib/OwnableAccessControlUpgradeable.sol";
@@ -150,8 +151,8 @@ contract ERC721TLTest is Test {
     /// @notice test ERC-165 support
     function test_supportsInterface() public view {
         assertTrue(tokenContract.supportsInterface(0x38d29ef3)); // ICreatorBase
-        assertTrue(tokenContract.supportsInterface(0xc74089ae)); // IERC721TL
-        assertTrue(tokenContract.supportsInterface(0x64eb24f6)); // IMutableMetadata
+        assertTrue(tokenContract.supportsInterface(0xd294c531)); // IERC721TL
+        assertTrue(tokenContract.supportsInterface(0xa5edeaad)); // IMutableMetadata
         assertTrue(tokenContract.supportsInterface(0x2464f17b)); // IStory
         assertTrue(tokenContract.supportsInterface(0x0d23ecb9)); // IStory (old)
         assertTrue(tokenContract.supportsInterface(0x01ffc9a7)); // ERC-165
@@ -947,6 +948,68 @@ contract ERC721TLTest is Test {
         tokenContract.tokenURI(id + 1);
     }
 
+    /// @notice funtion to test supply lock
+    function test_supplyLock_accessControl(address hacker) public {
+        vm.assume(hacker != address(this));
+        vm.assume(hacker != address(0));
+
+        vm.startPrank(hacker, hacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.lockSupply();
+        vm.stopPrank();
+    }
+
+    function test_supplyLock_adminAccess(address admin) public {
+        vm.assume(admin != address(this));
+        vm.assume(admin != address(0));
+
+        address[] memory admins = new address[](1);
+        admins[0] = admin;
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
+
+        vm.expectEmit(true, true, true, true);
+        emit IERC721TL.SupplyLocked(admin);
+        vm.startPrank(admin, admin);
+        tokenContract.lockSupply();
+        vm.stopPrank();
+
+        assertTrue(tokenContract.supplyLocked());
+    }
+
+    /// @notice funtion to test supply lock
+    function test_supplyLock_errors() public {
+        address[] memory minters = new address[](1);
+        minters[0] = address(1);
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
+        address[] memory recipients = new address[](2);
+        recipients[0] = address(2);
+        recipients[1] = address(3);
+
+        tokenContract.lockSupply();
+        assertTrue(tokenContract.supplyLocked());
+
+        vm.expectRevert(ERC721TL.SupplyIsLocked.selector);
+        tokenContract.lockSupply();
+
+        vm.expectRevert(ERC721TL.SupplyIsLocked.selector);
+        tokenContract.mint(address(this), "uri");
+
+        vm.expectRevert(ERC721TL.SupplyIsLocked.selector);
+        tokenContract.mint(address(this), "uri", address(4), 500);
+
+        vm.expectRevert(ERC721TL.SupplyIsLocked.selector);
+        tokenContract.batchMint(address(this), 2, "baseUri");
+
+        vm.expectRevert(ERC721TL.SupplyIsLocked.selector);
+        tokenContract.airdrop(recipients, "baseUri");
+
+        vm.expectRevert(ERC721TL.SupplyIsLocked.selector);
+        vm.prank(address(1));
+        tokenContract.externalMint(address(this), "uri");
+    }
+
     /// @notice test burn
     // - access control ✅
     // - token uri (non-existent) ✅
@@ -1726,6 +1789,27 @@ contract ERC721TLTest is Test {
         assertEq(tokenContract.tokenURI(4), "newUri4");
         assertEq(tokenContract.tokenURI(5), "newUri5");
         assertEq(tokenContract.tokenURI(6), "newUri6");
+    }
+
+    function test_emitMetadataUpdateEvents_renderingContractOnly() public {
+        vm.expectRevert(IMutableMetadata.NotRenderingContract.selector);
+        tokenContract.emitMetadataUpdateEventSingleToken(1);
+
+        vm.expectRevert(IMutableMetadata.NotRenderingContract.selector);
+        tokenContract.emitMetadataUpdateEventBatchToken(1, 2);
+
+        address newRenderingContract = makeAddr("newRenderingContract");
+        tokenContract.setRenderingContract(newRenderingContract);
+
+        vm.expectEmit(true, true, true, true);
+        emit MetadataUpdate(7);
+        vm.prank(newRenderingContract);
+        tokenContract.emitMetadataUpdateEventSingleToken(7);
+
+        vm.expectEmit(true, true, true, true);
+        emit BatchMetadataUpdate(3, 9);
+        vm.prank(newRenderingContract);
+        tokenContract.emitMetadataUpdateEventBatchToken(3, 9);
     }
 
     /// @notice test story functions

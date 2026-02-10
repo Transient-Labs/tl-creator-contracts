@@ -22,7 +22,7 @@ fmt:
 analyze:
 	uv run slither .
 
-install_commit_hookds:
+install-commit-hooks:
 	uv run pre-commit install
 
 ########################################
@@ -34,27 +34,24 @@ clean:
 build:
 	forge build --sizes
 
-clean_build: clean build
-
-build_init_code:
-	@echo see README!
+clean-build: clean build
 
 ########################################
 # Test
 ########################################
-test_quick: build
+test-quick: build
 	forge test --fuzz-runs 256
 
-test_std: build
+test-std: build
 	forge test
 
-test_gas: build
+test-gas: build
 	forge test --gas-report
 
-test_cov: build
+test-cov: build
 	forge coverage --no-match-coverage "(script|test|Foo|Bar)"
 
-test_fuzz: build
+test-fuzz: build
 	forge test --fuzz-runs 10000
 
 

@@ -23,4 +23,4 @@ jobs:
         run: make install
 
       - name: Run unit tests
-        run: make test_quick
+        run: make test-quick

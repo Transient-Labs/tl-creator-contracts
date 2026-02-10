@@ -3,10 +3,12 @@ pragma solidity ^0.8.22;
 
 /// @title IMutableMetadata.sol
 /// @notice Interface for Mutable Metadata
-/// @dev Interface id = 0x64eb24f6
+/// @dev Interface id = 0xa5edeaad
 /// @author transientlabs.xyz
 /// @custom:version 3.6.0
 interface IMutableMetadata {
+    error NotRenderingContract();
+
     /// @notice Function to mutate the metadata for an ERC-721 token
     /// @dev Must be called by contract owner or admin
     /// @dev MUST emit a `MetadataUpdate` event from ERC-4906
@@ -17,4 +19,14 @@ interface IMutableMetadata {
     /// @dev Must be called by contract owner or admin
     /// @dev MUST emit a `MetadataUpdate` event from ERC-4906
     function setRenderingContract(address newRenderingContract) external;
+
+    /// @notice Function to emit metadata update events for a single token
+    /// @dev Must be called by the rendering contract
+    /// @dev MUST emit a `MetadataUpdate` event from ERC-4906
+    function emitMetadataUpdateEventSingleToken(uint256 tokenId) external;
+
+    /// @notice Function to emit metadata update events for a batch of tokens
+    /// @dev Must be called by the rendering contract
+    /// @dev MUST emit a `BatchMetadataUpdate` event from ERC-4906
+    function emitMetadataUpdateEventBatchToken(uint256 startTokenId, uint256 endTokenId) external;
 }

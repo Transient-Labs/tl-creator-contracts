@@ -21,7 +21,7 @@ import {IERC721TL} from "../IERC721TL.sol";
 /// @title ERC7160TL.sol
 /// @notice Sovereign ERC-7160 Creator Contract with Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.7.0
+/// @custom:version 3.8.0
 contract ERC7160TL is
     ERC721Upgradeable,
     ERC2981TLUpgradeable,
@@ -67,12 +67,13 @@ contract ERC7160TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.7.0";
+    string public constant VERSION = "3.8.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
     bool public storyEnabled;
     bool public floatWhenUnpinned;
+    bool public supplyLocked;
     ITLNftDelegationRegistry public tlNftDelegationRegistry;
     IBlockListRegistry public blocklistRegistry;
     mapping(uint256 => bool) private _burned; // flag to see if a token is burned or not -- needed for burning batch mints
@@ -120,6 +121,9 @@ contract ERC7160TL is
 
     /// @dev Story not enabled for collectors
     error StoryNotEnabled();
+
+    /// @dev Supply locked
+    error SupplyIsLocked();
 
     /*//////////////////////////////////////////////////////////////////////////
                                 Constructor
@@ -204,6 +208,7 @@ contract ERC7160TL is
 
     /// @inheritdoc IERC721TL
     function mint(address recipient, string calldata uri) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (supplyLocked) revert SupplyIsLocked();
         if (bytes(uri).length == 0) revert EmptyTokenURI();
         _counter++;
         _tokenUris[_counter] = uri;
@@ -215,6 +220,7 @@ contract ERC7160TL is
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
+        if (supplyLocked) revert SupplyIsLocked();
         if (bytes(uri).length == 0) revert EmptyTokenURI();
         _counter++;
         _tokenUris[_counter] = uri;
@@ -227,6 +233,7 @@ contract ERC7160TL is
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
+        if (supplyLocked) revert SupplyIsLocked();
         if (recipient == address(0)) revert MintToZeroAddress();
         if (bytes(baseUri).length == 0) revert EmptyTokenURI();
         if (numTokens < 2) revert BatchSizeTooSmall();
@@ -244,6 +251,7 @@ contract ERC7160TL is
 
     /// @inheritdoc IERC721TL
     function airdrop(address[] calldata addresses, string calldata baseUri) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (supplyLocked) revert SupplyIsLocked();
         if (bytes(baseUri).length == 0) revert EmptyTokenURI();
         if (addresses.length < 2) revert AirdropTooFewAddresses();
 
@@ -258,6 +266,7 @@ contract ERC7160TL is
 
     /// @inheritdoc IERC721TL
     function externalMint(address recipient, string calldata uri) external onlyRole(APPROVED_MINT_CONTRACT) {
+        if (supplyLocked) revert SupplyIsLocked();
         if (bytes(uri).length == 0) revert EmptyTokenURI();
         _counter++;
         _tokenUris[_counter] = uri;
@@ -272,8 +281,25 @@ contract ERC7160TL is
     function burn(uint256 tokenId) external {
         address owner = ownerOf(tokenId);
         if (!_isAuthorized(owner, msg.sender, tokenId)) revert CallerNotApprovedOrOwner();
+        _burnWithTracking(tokenId);
+    }
+
+    /// @notice Internal helper function to burn with tracking
+    function _burnWithTracking(uint256 tokenId) internal {
         _burn(tokenId);
         _burned[tokenId] = true;
+    }
+
+    /*//////////////////////////////////////////////////////////////////////////
+                                Lock Functions
+    //////////////////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IERC721TL
+    function lockSupply() external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (supplyLocked) revert SupplyIsLocked();
+        supplyLocked = true;
+
+        emit IERC721TL.SupplyLocked(msg.sender);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
