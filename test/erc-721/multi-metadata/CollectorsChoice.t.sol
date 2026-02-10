@@ -1050,6 +1050,34 @@ contract CollectorsChoiceTest is Test {
     }
 
     /// @notice funtion to test supply lock
+    function test_supplyLock_accessControl(address hacker) public {
+        vm.assume(hacker != address(this));
+        vm.assume(hacker != address(0));
+
+        vm.startPrank(hacker, hacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.lockSupply();
+        vm.stopPrank();
+    }
+
+    function test_supplyLock_adminAccess(address admin) public {
+        vm.assume(admin != address(this));
+        vm.assume(admin != address(0));
+
+        address[] memory admins = new address[](1);
+        admins[0] = admin;
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
+
+        vm.startPrank(admin, admin);
+        tokenContract.lockSupply();
+        vm.stopPrank();
+
+        assertTrue(tokenContract.supplyLocked());
+    }
+
+    /// @notice funtion to test supply lock
     function test_supplyLock_errors() public {
         address[] memory minters = new address[](1);
         minters[0] = address(1);
