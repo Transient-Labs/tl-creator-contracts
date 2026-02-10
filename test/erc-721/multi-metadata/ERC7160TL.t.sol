@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 import "forge-std-1.9.4/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 import {ERC7160TL} from "src/erc-721/multi-metadata/ERC7160TL.sol";
+import {IERC721TL} from "src/erc-721/IERC721TL.sol";
 import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
 import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
 import {OwnableAccessControlUpgradeable} from "src/lib/OwnableAccessControlUpgradeable.sol";
@@ -150,7 +151,7 @@ contract ERC7160TLTest is Test {
     /// @notice test ERC-165 support
     function test_supportsInterface() public view {
         assertTrue(tokenContract.supportsInterface(0x38d29ef3)); // ICreatorBase
-        assertTrue(tokenContract.supportsInterface(0xc74089ae)); // IERC721TL
+        assertTrue(tokenContract.supportsInterface(0xd294c531)); // IERC721TL
         assertTrue(tokenContract.supportsInterface(0x06e1bc5b)); // IERC7160
         assertTrue(tokenContract.supportsInterface(0x2464f17b)); // IStory
         assertTrue(tokenContract.supportsInterface(0x0d23ecb9)); // IStory (old)
@@ -945,6 +946,38 @@ contract ERC7160TLTest is Test {
         tokenContract.ownerOf(id + 1);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(id + 1);
+    }
+
+    /// @notice funtion to test supply lock
+    function test_supplyLock_errors() public {
+        address[] memory minters = new address[](1);
+        minters[0] = address(1);
+        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
+        address[] memory recipients = new address[](2);
+        recipients[0] = address(2);
+        recipients[1] = address(3);
+
+        tokenContract.lockSupply();
+        assertTrue(tokenContract.supplyLocked());
+
+        vm.expectRevert(ERC7160TL.SupplyIsLocked.selector);
+        tokenContract.lockSupply();
+
+        vm.expectRevert(ERC7160TL.SupplyIsLocked.selector);
+        tokenContract.mint(address(this), "uri");
+
+        vm.expectRevert(ERC7160TL.SupplyIsLocked.selector);
+        tokenContract.mint(address(this), "uri", address(4), 500);
+
+        vm.expectRevert(ERC7160TL.SupplyIsLocked.selector);
+        tokenContract.batchMint(address(this), 2, "baseUri");
+
+        vm.expectRevert(ERC7160TL.SupplyIsLocked.selector);
+        tokenContract.airdrop(recipients, "baseUri");
+
+        vm.expectRevert(ERC7160TL.SupplyIsLocked.selector);
+        vm.prank(address(1));
+        tokenContract.externalMint(address(this), "uri");
     }
 
     /// @notice test burn

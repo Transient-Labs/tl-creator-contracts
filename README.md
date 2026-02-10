@@ -68,4 +68,4 @@ This codebase is provided on an "as is" and "as available" basis.
 We do not give any warranties and will not be liable for any loss incurred through any use of this codebase.
 
 ## License
-This code is copyright Transient Labs, Inc 2025 and is licensed under the MIT license.
+This code is copyright Transient Labs, Inc 2026 and is licensed under the MIT license.
