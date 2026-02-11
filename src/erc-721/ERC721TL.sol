@@ -11,23 +11,25 @@ import {
 } from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "../lib/OwnableAccessControlUpgradeable.sol";
 import {ERC2981TLUpgradeable} from "../lib/ERC2981TLUpgradeable.sol";
-import {IBlockListRegistry} from "../interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "../interfaces/ICreatorBase.sol";
+import {ICreatorToken} from "../interfaces/ICreatorToken.sol";
 import {IMutableMetadata} from "../interfaces/IMutableMetadata.sol";
 import {IRenderingContract} from "../interfaces/IRenderingContract.sol";
 import {IStory} from "../interfaces/IStory.sol";
 import {ITLNftDelegationRegistry} from "../interfaces/ITLNftDelegationRegistry.sol";
+import {ITransferValidator} from "../interfaces/ITransferValidator.sol";
 import {IERC721TL} from "./IERC721TL.sol";
 
 /// @title ERC721TL.sol
 /// @notice Sovereign ERC-721 Creator Contract with Mutable Metadata and Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.8.0
+/// @custom:version 4.0.0
 contract ERC721TL is
     ERC721Upgradeable,
     OwnableAccessControlUpgradeable,
     ERC2981TLUpgradeable,
     ICreatorBase,
+    ICreatorToken,
     IERC721TL,
     IMutableMetadata,
     IStory,
@@ -55,7 +57,7 @@ contract ERC721TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.8.0";
+    string public constant VERSION = "4.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
@@ -63,7 +65,7 @@ contract ERC721TL is
     bool public supplyLocked;
     IRenderingContract public renderingContract;
     ITLNftDelegationRegistry public tlNftDelegationRegistry;
-    IBlockListRegistry public blocklistRegistry;
+    address private _transferValidator;
     mapping(uint256 => bool) private _burned; // flag to see if a token is burned or not - needed for burning batch mints
     mapping(uint256 => string) private _tokenUris; // established token uris
     BatchMint[] private _batchMints; // dynamic array for batch mints
@@ -93,9 +95,6 @@ contract ERC721TL is
     /// @dev Token does not exist
     error TokenDoesntExist();
 
-    /// @dev Operator for token approvals blocked
-    error OperatorBlocked();
-
     /// @dev Story not enabled for collectors
     error StoryNotEnabled();
 
@@ -123,7 +122,7 @@ contract ERC721TL is
     /// @param initOwner The owner of the contract
     /// @param admins Array of admin addresses to add to the contract
     /// @param enableStory A bool deciding whether to add story fuctionality or not
-    /// @param initBlockListRegistry Address of the blocklist registry to use
+    /// @param initTransferValidator Address of the transfer validator to use
     /// @param initNftDelegationRegistry Address of the TL nft delegation registry to use
     function initialize(
         string memory name,
@@ -134,7 +133,7 @@ contract ERC721TL is
         address initOwner,
         address[] memory admins,
         bool enableStory,
-        address initBlockListRegistry,
+        address initTransferValidator,
         address initNftDelegationRegistry
     ) external initializer {
         // initialize parent contracts
@@ -149,9 +148,12 @@ contract ERC721TL is
         storyEnabled = enableStory;
         emit StoryStatusUpdate(initOwner, enableStory);
 
-        // blocklist and nft delegation registry
-        blocklistRegistry = IBlockListRegistry(initBlockListRegistry);
-        emit BlockListRegistryUpdate(initOwner, address(0), initBlockListRegistry);
+        // transfer validators
+        _transferValidator = initTransferValidator;
+        emit TransferValidatorUpdated(address(0), initTransferValidator);
+        // TODO: later try setting initial transfer validator settings based on Transient's custom list
+
+        // nft delegation registry
         tlNftDelegationRegistry = ITLNftDelegationRegistry(initNftDelegationRegistry);
         emit NftDelegationRegistryUpdate(initOwner, address(0), initNftDelegationRegistry);
 
@@ -382,28 +384,42 @@ contract ERC721TL is
     }
 
     /*//////////////////////////////////////////////////////////////////////////
-                                BlockList
+                                Transfer Validator
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc ICreatorBase
-    function setBlockListRegistry(address newBlockListRegistry) external onlyRoleOrOwner(ADMIN_ROLE) {
-        address oldBlockListRegistry = address(blocklistRegistry);
-        blocklistRegistry = IBlockListRegistry(newBlockListRegistry);
-        emit BlockListRegistryUpdate(msg.sender, oldBlockListRegistry, newBlockListRegistry);
+    /// @inheritdoc ICreatorToken
+    function setTransferValidator(address newTransferValidator) external onlyRoleOrOwner(ADMIN_ROLE) {
+        address oldTransferValidator = _transferValidator;
+        _transferValidator = newTransferValidator;
+        emit TransferValidatorUpdated(oldTransferValidator, newTransferValidator);
+    }
+
+    /// @inheritdoc ICreatorToken
+    function getTransferValidationFunction() external pure returns (bytes4 functionSignature, bool isViewFunction) {
+        functionSignature = bytes4(keccak256("validateTransfer(address,address,address,uint256)"));
+        isViewFunction = true;
+    }
+
+    /// @inheritdoc ICreatorToken
+    function getTransferValidator() external view returns (address validator) {
+        validator = _transferValidator;
     }
 
     /// @inheritdoc ERC721Upgradeable
-    function approve(address to, uint256 tokenId) public override(ERC721Upgradeable, IERC721) {
-        if (_isOperatorBlocked(to)) revert OperatorBlocked();
-        ERC721Upgradeable.approve(to, tokenId);
-    }
-
-    /// @inheritdoc ERC721Upgradeable
-    function setApprovalForAll(address operator, bool approved) public override(ERC721Upgradeable, IERC721) {
-        if (approved) {
-            if (_isOperatorBlocked(operator)) revert OperatorBlocked();
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override(ERC721Upgradeable)
+        returns (address)
+    {
+        // only check transfer validator if not a mint or burn
+        address transferValidator = _transferValidator;
+        address from = _ownerOf(tokenId);
+        if (from != address(0) && to != address(0) && transferValidator != address(0)) {
+            ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, tokenId);
         }
-        ERC721Upgradeable.setApprovalForAll(operator, approved);
+
+        // run the inherited update function
+        return ERC721Upgradeable._update(to, tokenId, auth);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -447,7 +463,8 @@ contract ERC721TL is
             ERC721Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
                 || interfaceId == 0x49064906 // ERC-4906
                 || interfaceId == type(IMutableMetadata).interfaceId || interfaceId == type(ICreatorBase).interfaceId
-                || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
+                || interfaceId == type(ICreatorToken).interfaceId || interfaceId == type(IStory).interfaceId
+                || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
                 || interfaceId == type(IERC721TL).interfaceId
         );
     }
@@ -509,15 +526,6 @@ contract ERC721TL is
             return false;
         } else {
             return tlNftDelegationRegistry.checkDelegateForERC721(msg.sender, tokenOwner, address(this), tokenId);
-        }
-    }
-
-    // @notice Function to get if an operator is blocked for token approvals
-    function _isOperatorBlocked(address operator) internal view returns (bool) {
-        if (address(blocklistRegistry) == address(0)) {
-            return false;
-        } else {
-            return blocklistRegistry.getBlockListStatus(operator);
         }
     }
 }

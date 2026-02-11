@@ -5,7 +5,6 @@ pragma solidity ^0.8.22;
 /// @dev Interface id: 0x2464f17b
 /// @dev Previous interface id that is still supported: 0x0d23ecb9
 /// @author transientlabs.xyz
-/// @custom:version 6.0.0
 interface IStory {
     /*//////////////////////////////////////////////////////////////////////////
                                 Events

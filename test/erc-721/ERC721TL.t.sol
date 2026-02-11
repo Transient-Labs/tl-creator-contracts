@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "forge-std-1.9.4/Test.sol";
+import "forge-std-1.14.0/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 import {ERC721TL, IMutableMetadata} from "src/erc-721/ERC721TL.sol";
 import {IERC721TL} from "src/erc-721/IERC721TL.sol";
 import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
 import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
 import {OwnableAccessControlUpgradeable} from "src/lib/OwnableAccessControlUpgradeable.sol";
-import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 import {MockERC20} from "../utils/MockERC20.sol";
 import {MockERC721} from "../utils/MockERC721.sol";
+import {MockTransferValidator} from "../utils/MockTransferValidator.sol";
 import {MockRenderingContract} from "../utils/MockRenderingContract.sol";
 
 contract ERC721TLTest is Test {
@@ -20,15 +20,12 @@ contract ERC721TLTest is Test {
 
     ERC721TL public tokenContract;
     address public royaltyRecipient = makeAddr("royaltyRecipient");
-    address public blocklistRegistry = makeAddr("blocklistRegistry");
     address public nftDelegationRegistry = makeAddr("nftDelegationRegistry");
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event RoleChange(address indexed from, address indexed user, bool indexed approved, bytes32 role);
     event StoryStatusUpdate(address indexed sender, bool indexed status);
-    event BlockListRegistryUpdate(
-        address indexed sender, address indexed prevBlockListRegistry, address indexed newBlockListRegistry
-    );
+    event TransferValidatorUpdated(address oldValidator, address newValidator);
     event NftDelegationRegistryUpdate(
         address indexed sender, address indexed prevNftDelegationRegistry, address indexed newNftDelegationRegistry
     );
@@ -57,7 +54,7 @@ contract ERC721TLTest is Test {
         address initOwner,
         address[] memory admins,
         bool enableStory,
-        address blockListRegistry,
+        address initTransferValidator,
         address tlNftDelegationRegistry
     ) public {
         // limit fuzz
@@ -81,7 +78,7 @@ contract ERC721TLTest is Test {
         vm.expectEmit(true, true, true, true);
         emit StoryStatusUpdate(initOwner, enableStory);
         vm.expectEmit(true, true, true, true);
-        emit BlockListRegistryUpdate(initOwner, address(0), blockListRegistry);
+        emit TransferValidatorUpdated(address(0), initTransferValidator);
         vm.expectEmit(true, true, true, true);
         emit NftDelegationRegistryUpdate(initOwner, address(0), tlNftDelegationRegistry);
         if (bytes(personalization).length > 0) {
@@ -97,7 +94,7 @@ contract ERC721TLTest is Test {
             initOwner,
             admins,
             enableStory,
-            blockListRegistry,
+            initTransferValidator,
             tlNftDelegationRegistry
         );
         assertEq(tokenContract.name(), name);
@@ -110,7 +107,7 @@ contract ERC721TLTest is Test {
             assertTrue(tokenContract.hasRole(tokenContract.ADMIN_ROLE(), admins[i]));
         }
         assertEq(tokenContract.storyEnabled(), enableStory);
-        assertEq(address(tokenContract.blocklistRegistry()), blockListRegistry);
+        assertEq(tokenContract.getTransferValidator(), initTransferValidator);
         assertEq(address(tokenContract.tlNftDelegationRegistry()), tlNftDelegationRegistry);
 
         // can't initialize again
@@ -124,7 +121,7 @@ contract ERC721TLTest is Test {
             initOwner,
             admins,
             enableStory,
-            blockListRegistry,
+            initTransferValidator,
             tlNftDelegationRegistry
         );
 
@@ -141,7 +138,7 @@ contract ERC721TLTest is Test {
             initOwner,
             admins,
             enableStory,
-            blockListRegistry,
+            initTransferValidator,
             tlNftDelegationRegistry
         );
 
@@ -150,7 +147,8 @@ contract ERC721TLTest is Test {
 
     /// @notice test ERC-165 support
     function test_supportsInterface() public view {
-        assertTrue(tokenContract.supportsInterface(0x38d29ef3)); // ICreatorBase
+        assertTrue(tokenContract.supportsInterface(0x3397523a)); // ICreatorBase
+        assertTrue(tokenContract.supportsInterface(0xad0d7f6c)); // ICreatorToken
         assertTrue(tokenContract.supportsInterface(0xd294c531)); // IERC721TL
         assertTrue(tokenContract.supportsInterface(0xa5edeaad)); // IMutableMetadata
         assertTrue(tokenContract.supportsInterface(0x2464f17b)); // IStory
@@ -159,6 +157,12 @@ contract ERC721TLTest is Test {
         assertTrue(tokenContract.supportsInterface(0x80ac58cd)); // ERC-721
         assertTrue(tokenContract.supportsInterface(0x2a55205a)); // ERC-2981
         assertTrue(tokenContract.supportsInterface(0x49064906)); // ERC-4906
+    }
+
+    function test_getTransferValidationFunction() public view {
+        (bytes4 functionSignature, bool isViewFunction) = tokenContract.getTransferValidationFunction();
+        assertEq(functionSignature, bytes4(0xcaee23ea));
+        assertEq(isViewFunction, true);
     }
 
     /// @notice test mint contract access approvals
@@ -197,6 +201,75 @@ contract ERC721TLTest is Test {
         // verify owner can access
         tokenContract.setApprovedMintContracts(minters, false);
         assertFalse(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(), address(1)));
+    }
+
+    /// @notice transfer validator tests
+    function test_setTransferValidator_accessControl(address user, address validator) public {
+        vm.assume(user != address(this) && user != address(0));
+
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setTransferValidator(validator);
+        vm.stopPrank();
+
+        address[] memory admins = new address[](1);
+        admins[0] = user;
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
+        vm.prank(user, user);
+        tokenContract.setTransferValidator(validator);
+        assertEq(tokenContract.getTransferValidator(), validator);
+    }
+
+    function test_transferValidator_calledOnTransfer(address recipient) public {
+        vm.assume(recipient != address(0));
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+        tokenContract.mint(address(this), "uri");
+
+        vm.expectCall(
+            address(mock),
+            abi.encodeWithSelector(
+                bytes4(keccak256("validateTransfer(address,address,address,uint256)")),
+                address(this),
+                address(this),
+                recipient,
+                uint256(1)
+            )
+        );
+        tokenContract.transferFrom(address(this), recipient, 1);
+    }
+
+    function test_transferValidator_bypassOnMintAndBurn() public {
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+        mock.setRevert721(true);
+
+        tokenContract.mint(address(this), "uri");
+        tokenContract.burn(1);
+    }
+
+    function test_transferValidator_zeroAddressBypass(address recipient) public {
+        vm.assume(recipient != address(0));
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+        tokenContract.mint(address(this), "uri");
+
+        mock.setRevert721(true);
+        tokenContract.setTransferValidator(address(0));
+        tokenContract.transferFrom(address(this), recipient, 1);
+    }
+
+    function test_transferValidator_revertPropagates(address recipient) public {
+        vm.assume(recipient != address(0));
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+        tokenContract.mint(address(this), "uri");
+
+        mock.setRevert721(true);
+        vm.expectRevert(MockTransferValidator.Revert721.selector);
+        tokenContract.transferFrom(address(this), recipient, 1);
     }
 
     /// @notice test mint
@@ -2141,244 +2214,6 @@ contract ERC721TLTest is Test {
         // test that owner can't add collector story
         vm.expectRevert(ERC721TL.StoryNotEnabled.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
-    }
-
-    /// @notice test blocklist functions
-    // - regular mint ✅
-    // - batch mint ✅
-    // - airdrop ✅
-    // - external mint ✅
-    // - test blocked ✅
-    // - test not blocked ✅
-    // - test access control for changing the registry ✅
-    function test_setBlockListRegistry_accessControl(address user) public {
-        vm.assume(user != address(this));
-        address[] memory users = new address[](1);
-        users[0] = user;
-
-        // verify user can't access
-        vm.startPrank(user, user);
-        vm.expectRevert(
-            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
-        );
-        tokenContract.setBlockListRegistry(address(1));
-        vm.stopPrank();
-
-        // verify admin can access
-        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
-        vm.startPrank(user, user);
-        vm.expectEmit(true, true, true, true);
-        emit BlockListRegistryUpdate(user, address(0), address(1));
-        tokenContract.setBlockListRegistry(address(1));
-        assertEq(address(tokenContract.blocklistRegistry()), address(1));
-        vm.stopPrank();
-        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
-
-        // verify minter can't access
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-        vm.startPrank(user, user);
-        vm.expectRevert(
-            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
-        );
-        tokenContract.setBlockListRegistry(address(1));
-        vm.stopPrank();
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
-
-        // verify owner can access
-        vm.expectEmit(true, true, true, true);
-        emit BlockListRegistryUpdate(address(this), address(1), blocklistRegistry);
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-        assertEq(address(tokenContract.blocklistRegistry()), blocklistRegistry);
-    }
-
-    function test_blocklist_eoa() public {
-        // update blocklist registry to EOA
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // mint
-        tokenContract.mint(address(this), "uri");
-
-        // expect revert
-        vm.expectRevert();
-        tokenContract.approve(address(10), 1);
-        vm.expectRevert();
-        tokenContract.setApprovalForAll(address(10), true);
-
-        // expect can set approval for all to false regardless
-        tokenContract.setApprovalForAll(address(10), false);
-    }
-
-    function test_blocklist_mint(address collector, address operator) public {
-        // limit fuzz
-        vm.assume(collector != address(0));
-        vm.assume(collector != operator);
-        vm.assume(operator != address(0));
-
-        // mock call
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
-        );
-
-        // update blocklist registry
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // mint and verify blocked operator
-        tokenContract.mint(collector, "uri");
-        vm.startPrank(collector, collector);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
-        tokenContract.approve(operator, 1);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
-        tokenContract.setApprovalForAll(operator, true);
-        vm.stopPrank();
-
-        // unblock operator and verify approvals
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
-        );
-        vm.startPrank(collector, collector);
-        tokenContract.approve(operator, 1);
-        assertEq(tokenContract.getApproved(1), operator);
-        tokenContract.setApprovalForAll(operator, true);
-        assertTrue(tokenContract.isApprovedForAll(collector, operator));
-        vm.stopPrank();
-
-        // clear mocked call
-        vm.clearMockedCalls();
-    }
-
-    function test_blocklist_batchMint(address collector, address operator) public {
-        // limit fuzz
-        vm.assume(collector != address(0));
-        vm.assume(collector != operator);
-        vm.assume(operator != address(0));
-
-        // mock call
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
-        );
-
-        // update blocklist registry
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // mint and verify blocked operator
-        tokenContract.batchMint(collector, 2, "uri");
-        vm.startPrank(collector, collector);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
-        tokenContract.approve(operator, 1);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
-        tokenContract.approve(operator, 2);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
-        tokenContract.setApprovalForAll(operator, true);
-        vm.stopPrank();
-
-        // unblock operator and verify approvals
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
-        );
-        vm.startPrank(collector, collector);
-        tokenContract.approve(operator, 1);
-        assertEq(tokenContract.getApproved(1), operator);
-        tokenContract.approve(operator, 2);
-        assertEq(tokenContract.getApproved(2), operator);
-        tokenContract.setApprovalForAll(operator, true);
-        assertTrue(tokenContract.isApprovedForAll(collector, operator));
-        vm.stopPrank();
-
-        // clear mocked call
-        vm.clearMockedCalls();
-    }
-
-    function testBlockListAirdrop(address collector, address operator) public {
-        // limit fuzz
-        vm.assume(collector != address(0));
-        vm.assume(collector != operator);
-        vm.assume(operator != address(0));
-
-        // variables
-        address[] memory addresses = new address[](2);
-        addresses[0] = collector;
-        addresses[1] = collector;
-
-        // mock call
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
-        );
-
-        // update blocklist registry
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // mint and verify blocked operator
-        tokenContract.airdrop(addresses, "uri");
-        vm.startPrank(collector, collector);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
-        tokenContract.approve(operator, 1);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
-        tokenContract.approve(operator, 2);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
-        tokenContract.setApprovalForAll(operator, true);
-        vm.stopPrank();
-
-        // unblock operator and verify approvals
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
-        );
-        vm.startPrank(collector, collector);
-        tokenContract.approve(operator, 1);
-        assertEq(tokenContract.getApproved(1), operator);
-        tokenContract.approve(operator, 2);
-        assertEq(tokenContract.getApproved(2), operator);
-        tokenContract.setApprovalForAll(operator, true);
-        assertTrue(tokenContract.isApprovedForAll(collector, operator));
-        vm.stopPrank();
-
-        // clear mocked call
-        vm.clearMockedCalls();
-    }
-
-    function testBlockListExternalMint(address collector, address operator) public {
-        // limit fuzz
-        vm.assume(collector != address(0));
-        vm.assume(collector != address(1));
-        vm.assume(collector != operator);
-        vm.assume(operator != address(0));
-
-        // variables
-        address[] memory users = new address[](1);
-        users[0] = address(1);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // mock call
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
-        );
-
-        // update blocklist registry
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // mint and verify blocked operator
-        vm.startPrank(address(1), address(1));
-        tokenContract.externalMint(collector, "uri");
-        vm.stopPrank();
-        vm.startPrank(collector, collector);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
-        tokenContract.approve(operator, 1);
-        vm.expectRevert(ERC721TL.OperatorBlocked.selector);
-        tokenContract.setApprovalForAll(operator, true);
-        vm.stopPrank();
-
-        // unblock operator and verify approvals
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
-        );
-        vm.startPrank(collector, collector);
-        tokenContract.approve(operator, 1);
-        assertEq(tokenContract.getApproved(1), operator);
-        tokenContract.setApprovalForAll(operator, true);
-        assertTrue(tokenContract.isApprovedForAll(collector, operator));
-        vm.stopPrank();
-
-        // clear mocked call
-        vm.clearMockedCalls();
     }
 
     /// @notice test TL Nft Delegation Registry functions

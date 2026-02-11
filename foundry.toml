@@ -1,5 +1,5 @@
 [profile.default]
-version = '3.8.0'
+version = '4.0.0'
 src = 'src'
 test = 'test'
 out = 'out'
@@ -35,6 +35,6 @@ arbitrum = { key = "${ETHERSCAN_KEY}", url = "https://api.arbiscan.io/api" }
 base = { key = "${ETHERSCAN_KEY}", url = "https://api.basescan.org/api" }
 
 [dependencies]
-forge-std = "1.9.4"
+forge-std = "1.14.0"
 "@openzeppelin-contracts" = "5.0.2"
 "@openzeppelin-contracts-upgradeable" = "5.0.2"

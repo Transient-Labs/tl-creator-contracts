@@ -5,7 +5,6 @@ pragma solidity ^0.8.22;
 /// @notice Interface for Synergy
 /// @dev Interface id = 0x8193ebea
 /// @author transientlabs.xyz
-/// @custom:version 3.0.0
 interface ISynergy {
     /*//////////////////////////////////////////////////////////////////////////
                                     Types

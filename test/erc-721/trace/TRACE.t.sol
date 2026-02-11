@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "forge-std-1.9.4/Test.sol";
+import "forge-std-1.14.0/Test.sol";
 import {TRACE} from "src/erc-721/trace/TRACE.sol";
 import {ITRACERSRegistry} from "src/interfaces/ITRACERSRegistry.sol";
 import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
@@ -106,7 +106,6 @@ contract TRACETest is Test {
             assertTrue(trace.hasRole(trace.ADMIN_ROLE(), admins[i]));
         }
         assertEq(trace.storyEnabled(), true);
-        assertEq(address(trace.blocklistRegistry()), address(0));
         assertEq(address(trace.tlNftDelegationRegistry()), address(0));
         assertEq(address(trace.tracersRegistry()), tracersRegistry_);
 
@@ -143,7 +142,7 @@ contract TRACETest is Test {
 
     /// @notice test ERC-165 support
     function test_supportsInterface() public view {
-        assertTrue(trace.supportsInterface(0x38d29ef3)); // ICreatorBase
+        assertTrue(trace.supportsInterface(0x3397523a)); // ICreatorBase
         assertTrue(trace.supportsInterface(0xcfec4f64)); // ITRACE
         assertTrue(trace.supportsInterface(0x2464f17b)); // IStory
         assertTrue(trace.supportsInterface(0x0d23ecb9)); // IStory (old)
@@ -1134,6 +1133,17 @@ contract TRACETest is Test {
         trace.setTokenUri(1, "");
     }
 
+    function test_tokenURI_batchInfoFallback_returnsEmptyString() public {
+        // mint with direct token URI, then clear storage for that URI to force _getBatchInfo fallback
+        trace.mint(address(this), "uri");
+
+        // _tokenUris is mapping(uint256 => string) at slot 2
+        bytes32 tokenUriSlot = keccak256(abi.encode(uint256(1), uint256(2)));
+        vm.store(address(trace), tokenUriSlot, bytes32(0));
+
+        assertEq(trace.tokenURI(1), "");
+    }
+
     function test_setTokenUri_accessControl(address user) public {
         vm.assume(user != address(this) && user != address(0));
         address[] memory users = new address[](1);
@@ -1336,15 +1346,7 @@ contract TRACETest is Test {
         vm.stopPrank();
     }
 
-    /// @notice blocklist and delegation registry tests
-    function test_blocklist(address user, address registry) public {
-        vm.expectRevert();
-        vm.prank(user);
-        trace.setBlockListRegistry(registry);
-
-        assertEq(address(trace.blocklistRegistry()), address(0));
-    }
-
+    /// @notice delegation registry tests
     function test_tlNftDelegationRegistry(address user, address registry) public {
         vm.expectRevert();
         vm.prank(user);

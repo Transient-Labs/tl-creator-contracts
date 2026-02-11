@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import "forge-std-1.9.4/Test.sol";
+import "forge-std-1.14.0/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 import {ERC1155TL} from "src/erc-1155/ERC1155TL.sol";
-import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
 import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
 import {OwnableAccessControlUpgradeable} from "src/lib/OwnableAccessControlUpgradeable.sol";
-import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
-import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 import {MockERC20} from "../utils/MockERC20.sol";
 import {MockERC721} from "../utils/MockERC721.sol";
+import {MockTransferValidator} from "../utils/MockTransferValidator.sol";
 
 contract ERC1155TLTest is Test {
     using Strings for uint256;
@@ -18,14 +16,11 @@ contract ERC1155TLTest is Test {
 
     ERC1155TL public tokenContract;
     address public royaltyRecipient = makeAddr("royaltyRecipient");
-    address public blocklistRegistry = makeAddr("blocklistRegistry");
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event RoleChange(address indexed from, address indexed user, bool indexed approved, bytes32 role);
     event StoryStatusUpdate(address indexed sender, bool indexed status);
-    event BlockListRegistryUpdate(
-        address indexed sender, address indexed prevBlockListRegistry, address indexed newBlockListRegistry
-    );
+    event TransferValidatorUpdated(address oldValidator, address newValidator);
     event URI(string value, uint256 indexed id);
     event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value);
     event TransferBatch(
@@ -53,7 +48,7 @@ contract ERC1155TLTest is Test {
         address initOwner,
         address[] memory admins,
         bool enableStory,
-        address blockListRegistry
+        address initTransferValidator
     ) public {
         // limit fuzz
         vm.assume(defaultRoyaltyRecipient != address(0));
@@ -76,7 +71,7 @@ contract ERC1155TLTest is Test {
         vm.expectEmit(true, true, true, true);
         emit StoryStatusUpdate(initOwner, enableStory);
         vm.expectEmit(true, true, true, true);
-        emit BlockListRegistryUpdate(initOwner, address(0), blockListRegistry);
+        emit TransferValidatorUpdated(address(0), initTransferValidator);
         if (bytes(personalization).length > 0) {
             vm.expectEmit(true, true, true, true);
             emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
@@ -90,7 +85,7 @@ contract ERC1155TLTest is Test {
             initOwner,
             admins,
             enableStory,
-            blockListRegistry
+            initTransferValidator
         );
         assertEq(tokenContract.name(), name);
         assertEq(tokenContract.symbol(), symbol);
@@ -102,7 +97,7 @@ contract ERC1155TLTest is Test {
             assertTrue(tokenContract.hasRole(tokenContract.ADMIN_ROLE(), admins[i]));
         }
         assertEq(tokenContract.storyEnabled(), enableStory);
-        assertEq(address(tokenContract.blocklistRegistry()), blockListRegistry);
+        assertEq(tokenContract.getTransferValidator(), initTransferValidator);
 
         // can't initialize again
         vm.expectRevert(Initializable.InvalidInitialization.selector);
@@ -115,7 +110,7 @@ contract ERC1155TLTest is Test {
             initOwner,
             admins,
             enableStory,
-            blockListRegistry
+            initTransferValidator
         );
 
         // can't get by initializers disabled
@@ -131,7 +126,7 @@ contract ERC1155TLTest is Test {
             initOwner,
             admins,
             enableStory,
-            blockListRegistry
+            initTransferValidator
         );
 
         vm.stopPrank();
@@ -139,13 +134,20 @@ contract ERC1155TLTest is Test {
 
     /// @notice test ERC-165 support
     function test_supportsInterface() public view {
-        assertTrue(tokenContract.supportsInterface(0x38d29ef3)); // ICreatorBase
+        assertTrue(tokenContract.supportsInterface(0x3397523a)); // ICreatorBase
+        assertTrue(tokenContract.supportsInterface(0xad0d7f6c)); // ICreatorToken
         assertTrue(tokenContract.supportsInterface(0x83b61254)); // IERC1155TL
         assertTrue(tokenContract.supportsInterface(0x2464f17b)); // IStory
         assertTrue(tokenContract.supportsInterface(0x0d23ecb9)); // IStory (old)
         assertTrue(tokenContract.supportsInterface(0x01ffc9a7)); // ERC-165
         assertTrue(tokenContract.supportsInterface(0xd9b67a26)); // ERC-1155
         assertTrue(tokenContract.supportsInterface(0x2a55205a)); // ERC-2981
+    }
+
+    function test_getTransferValidationFunction() public view {
+        (bytes4 functionSignature, bool isViewFunction) = tokenContract.getTransferValidationFunction();
+        assertEq(functionSignature, bytes4(0x1854b241));
+        assertEq(isViewFunction, false);
     }
 
     /// @notice test mint contract access approvals
@@ -184,6 +186,131 @@ contract ERC1155TLTest is Test {
         // verify owner can access
         tokenContract.setApprovedMintContracts(minters, false);
         assertFalse(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(), address(1)));
+    }
+
+    /// @notice transfer validator tests
+    function test_setTransferValidator_accessControl(address user, address validator) public {
+        vm.assume(user != address(this) && user != address(0));
+
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setTransferValidator(validator);
+        vm.stopPrank();
+
+        address[] memory admins = new address[](1);
+        admins[0] = user;
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
+        vm.prank(user, user);
+        tokenContract.setTransferValidator(validator);
+        assertEq(tokenContract.getTransferValidator(), validator);
+    }
+
+    function test_transferValidator_calledOnTransfer(
+        address from,
+        address to,
+        uint256 mintAmount,
+        uint256 transferAmount
+    ) public {
+        vm.assume(from != address(0));
+        vm.assume(to != address(0));
+        vm.assume(to != from);
+        vm.assume(from.code.length == 0);
+        vm.assume(to.code.length == 0);
+        mintAmount = bound(mintAmount, 2, type(uint64).max);
+        transferAmount = bound(transferAmount, 1, mintAmount - 1);
+
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+
+        address[] memory recipients = new address[](1);
+        recipients[0] = from;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = mintAmount;
+        tokenContract.createToken("uri", recipients, amounts);
+
+        vm.prank(from, from);
+        vm.expectCall(
+            address(mock),
+            abi.encodeWithSelector(
+                bytes4(keccak256("validateTransfer(address,address,address,uint256,uint256)")),
+                from,
+                from,
+                to,
+                uint256(1),
+                transferAmount
+            )
+        );
+        tokenContract.safeTransferFrom(from, to, 1, transferAmount, "");
+    }
+
+    function test_transferValidator_bypassOnMintAndBurn(address owner_, uint256 amount) public {
+        vm.assume(owner_ != address(0));
+        vm.assume(owner_.code.length == 0);
+        amount = bound(amount, 2, type(uint64).max);
+
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+        mock.setRevert1155(true);
+
+        address[] memory recipients = new address[](1);
+        recipients[0] = owner_;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = amount;
+        tokenContract.createToken("uri", recipients, amounts);
+
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = 1;
+        uint256[] memory burnAmounts = new uint256[](1);
+        burnAmounts[0] = 1;
+        vm.prank(owner_, owner_);
+        tokenContract.burn(owner_, tokenIds, burnAmounts);
+    }
+
+    function test_transferValidator_zeroAddressBypass(address from, address to) public {
+        vm.assume(from != address(0));
+        vm.assume(to != address(0));
+        vm.assume(to != from);
+        vm.assume(from.code.length == 0);
+        vm.assume(to.code.length == 0);
+
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+
+        address[] memory recipients = new address[](1);
+        recipients[0] = from;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
+        tokenContract.createToken("uri", recipients, amounts);
+
+        mock.setRevert1155(true);
+        tokenContract.setTransferValidator(address(0));
+
+        vm.prank(from, from);
+        tokenContract.safeTransferFrom(from, to, 1, 1, "");
+    }
+
+    function test_transferValidator_revertPropagates(address from, address to) public {
+        vm.assume(from != address(0));
+        vm.assume(to != address(0));
+        vm.assume(to != from);
+        vm.assume(from.code.length == 0);
+        vm.assume(to.code.length == 0);
+
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+
+        address[] memory recipients = new address[](1);
+        recipients[0] = from;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
+        tokenContract.createToken("uri", recipients, amounts);
+
+        mock.setRevert1155(true);
+        vm.prank(from, from);
+        vm.expectRevert(MockTransferValidator.Revert1155.selector);
+        tokenContract.safeTransferFrom(from, to, 1, 1, "");
     }
 
     /// @notice test createToken
@@ -1395,181 +1522,6 @@ contract ERC1155TLTest is Test {
         // test that owner can't add collector story
         vm.expectRevert(ERC1155TL.StoryNotEnabled.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
-    }
-
-    /// @notice test blocklist functions
-    // - test blocked ✅
-    // - test not blocked ✅
-    // - test access control for changing the registry ✅
-    function test_setBlockListRegistry_accessControl(address user) public {
-        vm.assume(user != address(this));
-        address[] memory users = new address[](1);
-        users[0] = user;
-
-        // verify user can't access
-        vm.startPrank(user, user);
-        vm.expectRevert(
-            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
-        );
-        tokenContract.setBlockListRegistry(address(1));
-        vm.stopPrank();
-
-        // verify admin can access
-        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
-        vm.startPrank(user, user);
-        vm.expectEmit(true, true, true, true);
-        emit BlockListRegistryUpdate(user, address(0), address(1));
-        tokenContract.setBlockListRegistry(address(1));
-        assertEq(address(tokenContract.blocklistRegistry()), address(1));
-        vm.stopPrank();
-        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
-
-        // verify minter can't access
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-        vm.startPrank(user, user);
-        vm.expectRevert(
-            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
-        );
-        tokenContract.setBlockListRegistry(address(1));
-        vm.stopPrank();
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
-
-        // verify owner can access
-        vm.expectEmit(true, true, true, true);
-        emit BlockListRegistryUpdate(address(this), address(1), blocklistRegistry);
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-        assertEq(address(tokenContract.blocklistRegistry()), blocklistRegistry);
-    }
-
-    function test_blocklist_eoa() public {
-        // update blocklist registry to EOA
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // mint
-        address[] memory collectors = new address[](1);
-        collectors[0] = address(10);
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 1;
-        tokenContract.createToken("uri", collectors, amounts);
-
-        // expect revert
-        vm.expectRevert();
-        tokenContract.setApprovalForAll(address(10), true);
-
-        // expect can set approval for all to false regardless
-        tokenContract.setApprovalForAll(address(10), false);
-    }
-
-    function test_blocklist_singleToken(uint16 numAddresses, uint16 amount) public {
-        vm.assume(numAddresses > 0);
-        // limit num addresses to 300
-        if (numAddresses > 300) {
-            numAddresses = numAddresses % 300 + 1;
-        }
-        vm.assume(amount != 0);
-        address operator = makeAddr(uint256(numAddresses).toString());
-        address[] memory recipients = new address[](numAddresses);
-        uint256[] memory amounts = new uint256[](numAddresses);
-        for (uint256 i = 0; i < numAddresses; i++) {
-            recipients[i] = makeAddr(i.toString());
-            amounts[i] = amount;
-        }
-
-        // mock call
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
-        );
-
-        // update blocklist registry
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // create token
-        tokenContract.createToken("uri", recipients, amounts);
-
-        // verify blocked operator
-        for (uint256 i = 0; i < numAddresses; i++) {
-            vm.startPrank(recipients[i], recipients[i]);
-            vm.expectRevert();
-            tokenContract.setApprovalForAll(operator, true);
-            vm.stopPrank();
-        }
-
-        // unblock operator and test approvals
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
-        );
-        for (uint256 i = 0; i < numAddresses; i++) {
-            vm.startPrank(recipients[i], recipients[i]);
-            tokenContract.setApprovalForAll(operator, true);
-            assertTrue(tokenContract.isApprovedForAll(recipients[i], operator));
-            vm.stopPrank();
-        }
-
-        // clear mocked call
-        vm.clearMockedCalls();
-    }
-
-    function test_blocklist_batchTokens(uint16 numTokens, uint16 numAddresses, uint16 amount) public {
-        vm.assume(numTokens > 0);
-        if (numTokens > 10) {
-            numTokens = numTokens % 10 + 1;
-        }
-        vm.assume(numAddresses > 0);
-        // limit num addresses to 300
-        if (numAddresses > 300) {
-            numAddresses = numAddresses % 300 + 1;
-        }
-        vm.assume(amount != 0);
-        address operator = makeAddr(uint256(numAddresses).toString());
-        string[] memory uris = new string[](numTokens);
-        address[][] memory recipients = new address[][](numTokens);
-        uint256[][] memory amounts = new uint256[][](numTokens);
-        for (uint256 i = 0; i < numTokens; i++) {
-            uris[i] = "uri";
-            recipients[i] = new address[](numAddresses);
-            amounts[i] = new uint256[](numAddresses);
-            for (uint256 j = 0; j < numAddresses; j++) {
-                recipients[i][j] = makeAddr(j.toString());
-                amounts[i][j] = amount;
-            }
-        }
-
-        // mock call
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
-        );
-
-        // update blocklist registry
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // create tokens
-        tokenContract.batchCreateToken(uris, recipients, amounts);
-
-        // verify blocked operator
-        for (uint256 i = 0; i < numTokens; i++) {
-            for (uint256 j = 0; j < numAddresses; j++) {
-                vm.startPrank(recipients[i][j], recipients[i][j]);
-                vm.expectRevert();
-                tokenContract.setApprovalForAll(operator, true);
-                vm.stopPrank();
-            }
-        }
-
-        // unblock operator and test approvals
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
-        );
-        for (uint256 i = 0; i < numTokens; i++) {
-            for (uint256 j = 0; j < numAddresses; j++) {
-                vm.startPrank(recipients[i][j], recipients[i][j]);
-                tokenContract.setApprovalForAll(operator, true);
-                assertTrue(tokenContract.isApprovedForAll(recipients[i][j], operator));
-                vm.stopPrank();
-            }
-        }
-
-        // clear mocked calls
-        vm.clearMockedCalls();
     }
 
     /// @notice tl nft delegation registry test

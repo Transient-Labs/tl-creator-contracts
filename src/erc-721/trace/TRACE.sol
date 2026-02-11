@@ -15,7 +15,6 @@ import {
 import {EIP712Upgradeable} from "@openzeppelin-contracts-upgradeable-5.0.2/utils/cryptography/EIP712Upgradeable.sol";
 import {ERC2981TLUpgradeable} from "../../lib/ERC2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "../../lib/OwnableAccessControlUpgradeable.sol";
-import {IBlockListRegistry} from "../../interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "../../interfaces/ICreatorBase.sol";
 import {IStory} from "../../interfaces/IStory.sol";
 import {ITLNftDelegationRegistry} from "../../interfaces/ITLNftDelegationRegistry.sol";
@@ -25,7 +24,7 @@ import {ITRACE} from "./ITRACE.sol";
 /// @title TRACE.sol
 /// @notice Sovereign T.R.A.C.E. Creator Contract allowing for digital Certificates of Authenticity backed by the blockchain
 /// @author transientlabs.xyz
-/// @custom:version 3.7.0
+/// @custom:version 4.0.0
 contract TRACE is
     ERC721Upgradeable,
     ReentrancyGuardUpgradeable,
@@ -65,7 +64,7 @@ contract TRACE is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.7.0";
+    string public constant VERSION = "4.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     ITRACERSRegistry public tracersRegistry;
@@ -334,20 +333,6 @@ contract TRACE is
     /// @inheritdoc ICreatorBase
     function storyEnabled() external pure returns (bool) {
         return true;
-    }
-
-    /*//////////////////////////////////////////////////////////////////////////
-                                BlockList
-    //////////////////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc ICreatorBase
-    function setBlockListRegistry(address /*newBlockListRegistry*/ ) external pure {
-        revert();
-    }
-
-    /// @inheritdoc ICreatorBase
-    function blocklistRegistry() external pure returns (IBlockListRegistry) {
-        return IBlockListRegistry(address(0));
     }
 
     /*//////////////////////////////////////////////////////////////////////////

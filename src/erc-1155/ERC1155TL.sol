@@ -13,19 +13,21 @@ import {ERC2981TLUpgradeable} from "../lib/ERC2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "../lib/OwnableAccessControlUpgradeable.sol";
 import {IStory} from "../interfaces/IStory.sol";
 import {ICreatorBase} from "../interfaces/ICreatorBase.sol";
-import {IBlockListRegistry} from "../interfaces/IBlockListRegistry.sol";
+import {ICreatorToken} from "../interfaces/ICreatorToken.sol";
 import {ITLNftDelegationRegistry} from "../interfaces/ITLNftDelegationRegistry.sol";
+import {ITransferValidator} from "../interfaces/ITransferValidator.sol";
 import {IERC1155TL} from "./IERC1155TL.sol";
 
 /// @title ERC1155TL.sol
 /// @notice Sovereign ERC-1155 Creator Contract with Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.7.1
+/// @custom:version 4.0.0
 contract ERC1155TL is
     ERC1155Upgradeable,
     ERC2981TLUpgradeable,
     OwnableAccessControlUpgradeable,
     ICreatorBase,
+    ICreatorToken,
     IERC1155TL,
     IStory
 {
@@ -40,14 +42,14 @@ contract ERC1155TL is
                                 State Variables
     //////////////////////////////////////////////////////////////////////////*/
 
-    string public constant VERSION = "3.7.1";
+    string public constant VERSION = "4.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter;
     string public name;
     string public symbol;
     bool public storyEnabled;
-    IBlockListRegistry public blocklistRegistry;
+    address private _transferValidator;
     mapping(uint256 => Token) private _tokens;
     mapping(uint256 => bool) private _tokenLocks;
 
@@ -82,9 +84,6 @@ contract ERC1155TL is
     /// @dev Burning zero tokens
     error BurnZeroTokens();
 
-    /// @dev Operator for token approvals blocked
-    error OperatorBlocked();
-
     /// @dev Story not enabled for collectors
     error StoryNotEnabled();
 
@@ -109,7 +108,7 @@ contract ERC1155TL is
     /// @param initOwner The owner of the contract
     /// @param admins Array of admin addresses to add to the contract
     /// @param enableStory A bool deciding whether to add story fuctionality or not
-    /// @param initBlockListRegistry Address of the blocklist registry to use
+    /// @param initTransferValidator Address of the Limit Break transfer validator to use
     function initialize(
         string memory name_,
         string memory symbol_,
@@ -119,7 +118,7 @@ contract ERC1155TL is
         address initOwner,
         address[] memory admins,
         bool enableStory,
-        address initBlockListRegistry
+        address initTransferValidator
     ) external initializer {
         // initialize parent contracts
         __ERC1155_init("");
@@ -137,9 +136,10 @@ contract ERC1155TL is
         storyEnabled = enableStory;
         emit StoryStatusUpdate(initOwner, enableStory);
 
-        // blocklist
-        blocklistRegistry = IBlockListRegistry(initBlockListRegistry);
-        emit BlockListRegistryUpdate(initOwner, address(0), initBlockListRegistry);
+        // transfer validator
+        _transferValidator = initTransferValidator;
+        emit TransferValidatorUpdated(address(0), initTransferValidator);
+        // TODO: later try setting initial transfer validator settings based on Transient's custom list
 
         // emit personalization as collection story
         if (bytes(personalization).length > 0) {
@@ -339,22 +339,42 @@ contract ERC1155TL is
     }
 
     /*//////////////////////////////////////////////////////////////////////////
-                                BlockList
+                                Transfer Validation
     //////////////////////////////////////////////////////////////////////////*/
 
-    /// @inheritdoc ICreatorBase
-    function setBlockListRegistry(address newBlockListRegistry) external onlyRoleOrOwner(ADMIN_ROLE) {
-        address oldBlockListRegistry = address(blocklistRegistry);
-        blocklistRegistry = IBlockListRegistry(newBlockListRegistry);
-        emit BlockListRegistryUpdate(msg.sender, oldBlockListRegistry, newBlockListRegistry);
+    /// @inheritdoc ICreatorToken
+    function setTransferValidator(address newTransferValidator) external onlyRoleOrOwner(ADMIN_ROLE) {
+        address oldTransferValidator = _transferValidator;
+        _transferValidator = newTransferValidator;
+        emit TransferValidatorUpdated(oldTransferValidator, newTransferValidator);
+    }
+
+    /// @inheritdoc ICreatorToken
+    function getTransferValidationFunction() external pure returns (bytes4 functionSignature, bool isViewFunction) {
+        functionSignature = bytes4(keccak256("validateTransfer(address,address,address,uint256,uint256)"));
+        isViewFunction = false;
+    }
+
+    /// @inheritdoc ICreatorToken
+    function getTransferValidator() external view returns (address validator) {
+        validator = _transferValidator;
     }
 
     /// @inheritdoc ERC1155Upgradeable
-    function setApprovalForAll(address operator, bool approved) public override(ERC1155Upgradeable) {
-        if (approved) {
-            if (_isOperatorBlocked(operator)) revert OperatorBlocked();
+    function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
+        internal
+        override(ERC1155Upgradeable)
+    {
+        // only check transfer validator if not a mint or burn
+        address transferValidator = _transferValidator;
+        if (from != address(0) && to != address(0) && transferValidator != address(0)) {
+            for (uint256 i = 0; i < ids.length; ++i) {
+                ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, ids[i], values[i]);
+            }
         }
-        ERC1155Upgradeable.setApprovalForAll(operator, approved);
+
+        // run the inherited update function
+        ERC1155Upgradeable._update(from, to, ids, values);
     }
 
     /*//////////////////////////////////////////////////////////////////////////
@@ -399,8 +419,8 @@ contract ERC1155TL is
     {
         return (
             ERC1155Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
-                || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(IStory).interfaceId
-                || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
+                || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(ICreatorToken).interfaceId
+                || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
                 || interfaceId == type(IERC1155TL).interfaceId
         );
     }
@@ -446,15 +466,6 @@ contract ERC1155TL is
         if (addresses.length != amounts.length) revert ArrayLengthMismatch();
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], tokenId, amounts[i], "");
-        }
-    }
-
-    // @notice Function to get if an operator is blocked for token approvals
-    function _isOperatorBlocked(address operator) internal view returns (bool) {
-        if (address(blocklistRegistry) == address(0)) {
-            return false;
-        } else {
-            return blocklistRegistry.getBlockListStatus(operator);
         }
     }
 }
