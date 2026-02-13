@@ -6,9 +6,9 @@ pragma solidity ^0.8.22;
 /// @dev Previous interface id that is still supported: 0x0d23ecb9
 /// @author transientlabs.xyz
 interface IStory {
-    /*//////////////////////////////////////////////////////////////////////////
-                                Events
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Events
+    /////////////////////////////////////////////////////////////////////
 
     /// @notice Event describing a collection story getting added to a contract
     /// @dev This event stories creator stories on chain in the event log that apply to an entire collection
@@ -33,9 +33,9 @@ interface IStory {
     /// @param story The story written and attached to the token id
     event Story(uint256 indexed tokenId, address indexed collectorAddress, string collectorName, string story);
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Story Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Story Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @notice Function to let the creator add a story to the collection they have created
     /// @dev Depending on the implementation, this function may be restricted in various ways, such as

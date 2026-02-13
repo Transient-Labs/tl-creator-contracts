@@ -34,9 +34,9 @@ contract ERC7160TLEditions is
     IERC4906,
     IERC7160
 {
-    /*//////////////////////////////////////////////////////////////////////////
-                                Custom Types
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Custom Types
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev Struct defining a batch mint
     struct BatchMint {
@@ -57,14 +57,15 @@ contract ERC7160TLEditions is
     /// @dev String representation for address
     using Strings for address;
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                State Variables
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // State Variables
+    /////////////////////////////////////////////////////////////////////
 
     string public constant VERSION = "4.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
+    uint256 private _burnCounter; // total burned token count
     bool public storyEnabled;
     bool public floatWhenUnpinned;
     bool public supplyLocked;
@@ -75,9 +76,9 @@ contract ERC7160TLEditions is
     string[] private _tokenUris;
     BatchMint[] private _batchMints; // dynamic array for batch mints
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Custom Errors
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Custom Errors
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev No token uris added yet
     error EmptyTokenURIs();
@@ -112,18 +113,18 @@ contract ERC7160TLEditions is
     /// @dev Supply locked
     error SupplyIsLocked();
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Constructor
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Constructor
+    /////////////////////////////////////////////////////////////////////
 
     /// @param disable Boolean to disable initialization for the implementation contract
     constructor(bool disable) {
         if (disable) _disableInitializers();
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Initializer
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Initializer
+    /////////////////////////////////////////////////////////////////////
 
     /// @param name The name of the 721 contract
     /// @param symbol The symbol of the 721 contract
@@ -174,34 +175,36 @@ contract ERC7160TLEditions is
         }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                General Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // General Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function totalSupply() external view returns (uint256) {
-        return _counter;
+        return _counter - _burnCounter;
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Access Control Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Access Control Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setApprovedMintContracts(address[] calldata minters, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
         _setRole(APPROVED_MINT_CONTRACT, minters, status);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Mint Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Mint Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
     function mint(address recipient, string calldata /*uri*/ ) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (supplyLocked) revert SupplyIsLocked();
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _mint(recipient, _counter);
     }
 
@@ -213,7 +216,9 @@ contract ERC7160TLEditions is
     {
         if (supplyLocked) revert SupplyIsLocked();
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _overrideTokenRoyaltyInfo(_counter, royaltyAddress, royaltyPercent);
         _mint(recipient, _counter);
     }
@@ -230,7 +235,9 @@ contract ERC7160TLEditions is
         if (numTokens < 2) revert BatchSizeTooSmall();
         uint256 start = _counter + 1;
         uint256 end = start + numTokens - 1;
-        _counter += numTokens;
+        unchecked {
+            _counter += numTokens;
+        }
         _batchMints.push(BatchMint(recipient, start, end));
 
         _increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
@@ -248,7 +255,9 @@ contract ERC7160TLEditions is
         if (addresses.length < 2) revert AirdropTooFewAddresses();
 
         uint256 start = _counter + 1;
-        _counter += addresses.length;
+        unchecked {
+            _counter += addresses.length;
+        }
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], start + i);
         }
@@ -259,13 +268,15 @@ contract ERC7160TLEditions is
     function externalMint(address recipient, string calldata /*uri*/ ) external onlyRole(APPROVED_MINT_CONTRACT) {
         if (supplyLocked) revert SupplyIsLocked();
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _mint(recipient, _counter);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Burn Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Burn Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC721TL
     function burn(uint256 tokenId) external {
@@ -278,11 +289,14 @@ contract ERC7160TLEditions is
     function _burnWithTracking(uint256 tokenId) internal {
         _burn(tokenId);
         _burned[tokenId] = true;
+        unchecked {
+            _burnCounter++;
+        }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Lock Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Lock Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC721TL
     function lockSupply() external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -292,9 +306,9 @@ contract ERC7160TLEditions is
         emit IERC721TL.SupplyLocked(msg.sender);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Royalty Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Royalty Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -309,9 +323,9 @@ contract ERC7160TLEditions is
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                ERC-7160 Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // ERC-7160 Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @notice Function to change the unpinned display state
     /// @dev floating means that the last item in the tokenUris array will be returned from `tokenUri`
@@ -399,9 +413,9 @@ contract ERC7160TLEditions is
         }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Story Inscriptions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Story Inscriptions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IStory
     function addCollectionStory(string calldata, /*creatorName*/ string calldata story)
@@ -433,9 +447,9 @@ contract ERC7160TLEditions is
         emit StoryStatusUpdate(msg.sender, status);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Transfer Validator
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Transfer Validator
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorToken
     function setTransferValidator(address newTransferValidator) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -472,9 +486,9 @@ contract ERC7160TLEditions is
         return ERC721Upgradeable._update(to, tokenId, auth);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                            NFT Delegation Registry
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // NFT Delegation Registry
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setNftDelegationRegistry(address newNftDelegationRegistry) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -483,9 +497,9 @@ contract ERC7160TLEditions is
         emit NftDelegationRegistryUpdate(msg.sender, oldNftDelegationRegistry, newNftDelegationRegistry);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Withdraw Funds
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Withdraw Funds
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function withdrawERC20(address currency, uint256 amount, address recipient) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -498,9 +512,9 @@ contract ERC7160TLEditions is
         IERC721(token).safeTransferFrom(address(this), recipient, id);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                ERC-165 Support
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // ERC-165 Support
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId)
@@ -519,9 +533,9 @@ contract ERC7160TLEditions is
         );
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Internal Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Internal Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @notice Function to get batch mint info
     /// @param tokenId Token id to look up for batch mint info

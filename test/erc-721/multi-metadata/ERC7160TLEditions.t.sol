@@ -1215,6 +1215,27 @@ contract ERC7160TLEditionsTest is Test {
         tokenContract.burn(tokenId);
     }
 
+    function test_totalSupply_tracksBurnCounter() public {
+        string[] memory uris = new string[](1);
+        uris[0] = "uri";
+        tokenContract.addTokenUris(uris);
+
+        tokenContract.mint(address(this), "");
+        tokenContract.mint(address(this), "");
+        tokenContract.mint(address(this), "");
+        assertEq(tokenContract.totalSupply(), 3);
+
+        tokenContract.burn(2);
+        assertEq(tokenContract.totalSupply(), 2);
+
+        tokenContract.mint(address(this), "");
+        assertEq(tokenContract.totalSupply(), 3);
+
+        tokenContract.burn(1);
+        tokenContract.burn(4);
+        assertEq(tokenContract.totalSupply(), 1);
+    }
+
     function test_burn_accessControl(uint16 tokenId, address collector, address hacker) public {
         vm.assume(tokenId != 0);
         vm.assume(collector != address(0));
@@ -1268,12 +1289,16 @@ contract ERC7160TLEditionsTest is Test {
         vm.expectRevert(ERC7160TLEditions.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId);
 
+        uint256 expectedSupply = tokenContract.totalSupply();
+
         // verify collector can burn tokenId
         vm.expectEmit(true, true, true, true);
         emit Transfer(collector, address(0), tokenId);
         vm.startPrank(collector, collector);
         tokenContract.burn(tokenId);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
 
         // ensure
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
@@ -1310,6 +1335,7 @@ contract ERC7160TLEditionsTest is Test {
         tokenContract.mint(collector, "uriOne");
         tokenContract.mint(collector, "uriTwo");
         tokenContract.mint(collector, "uriThree");
+        uint256 expectedSupply = tokenContract.totalSupply();
 
         // verify collector can burn tokenId
         vm.startPrank(collector, collector);
@@ -1317,6 +1343,8 @@ contract ERC7160TLEditionsTest is Test {
         emit Transfer(collector, address(0), tokenId);
         tokenContract.burn(tokenId);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 2);
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
@@ -1340,6 +1368,8 @@ contract ERC7160TLEditionsTest is Test {
         emit Transfer(collector, address(0), tokenId + 1);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 1);
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
@@ -1357,6 +1387,8 @@ contract ERC7160TLEditionsTest is Test {
         emit Transfer(collector, address(0), tokenId + 2);
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 0);
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
@@ -1380,6 +1412,7 @@ contract ERC7160TLEditionsTest is Test {
 
         // batch mint to collector
         tokenContract.batchMint(collector, batchSize, "baseUri");
+        uint256 expectedSupply = tokenContract.totalSupply();
         // verify collector can burn the batch
         for (uint256 i = 1; i <= batchSize; i++) {
             vm.startPrank(collector, collector);
@@ -1387,6 +1420,8 @@ contract ERC7160TLEditionsTest is Test {
             emit Transfer(collector, address(0), i);
             tokenContract.burn(i);
             vm.stopPrank();
+            expectedSupply--;
+            assertEq(tokenContract.totalSupply(), expectedSupply);
             assertEq(tokenContract.balanceOf(collector), batchSize - i);
             vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
@@ -1396,6 +1431,7 @@ contract ERC7160TLEditionsTest is Test {
 
         // batch mint again to collector
         tokenContract.batchMint(collector, batchSize, "baseUri");
+        expectedSupply = tokenContract.totalSupply();
 
         // verify that operator can't burn
         for (uint256 i = batchSize + 1; i <= 2 * batchSize; i++) {
@@ -1415,6 +1451,8 @@ contract ERC7160TLEditionsTest is Test {
             emit Transfer(collector, address(0), i);
             tokenContract.burn(i);
             vm.stopPrank();
+            expectedSupply--;
+            assertEq(tokenContract.totalSupply(), expectedSupply);
             assertEq(tokenContract.balanceOf(collector), 2 * batchSize - i);
             vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
@@ -1424,6 +1462,7 @@ contract ERC7160TLEditionsTest is Test {
 
         // mint batch again
         tokenContract.batchMint(collector, batchSize, "baseUri");
+        expectedSupply = tokenContract.totalSupply();
         vm.startPrank(collector, collector);
         tokenContract.setApprovalForAll(operator, true);
         vm.stopPrank();
@@ -1435,6 +1474,8 @@ contract ERC7160TLEditionsTest is Test {
             emit Transfer(collector, address(0), i);
             tokenContract.burn(i);
             vm.stopPrank();
+            expectedSupply--;
+            assertEq(tokenContract.totalSupply(), expectedSupply);
             assertEq(tokenContract.balanceOf(collector), 3 * batchSize - i);
             vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
@@ -1466,6 +1507,7 @@ contract ERC7160TLEditionsTest is Test {
 
         // airdrop to addresses
         tokenContract.airdrop(addresses, "baseUri");
+        uint256 expectedSupply = tokenContract.totalSupply();
 
         // verify address can burn
         uint256 limit = numAddresses;
@@ -1477,6 +1519,8 @@ contract ERC7160TLEditionsTest is Test {
             emit Transfer(addresses[i], address(0), id);
             tokenContract.burn(id);
             vm.stopPrank();
+            expectedSupply--;
+            assertEq(tokenContract.totalSupply(), expectedSupply);
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
             vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
@@ -1486,6 +1530,7 @@ contract ERC7160TLEditionsTest is Test {
 
         // airdrop again
         tokenContract.airdrop(addresses, "baseUri");
+        expectedSupply = tokenContract.totalSupply();
 
         // verify operator can't burn
         limit = numAddresses;
@@ -1509,6 +1554,8 @@ contract ERC7160TLEditionsTest is Test {
             emit Transfer(addresses[i], address(0), id);
             tokenContract.burn(id);
             vm.stopPrank();
+            expectedSupply--;
+            assertEq(tokenContract.totalSupply(), expectedSupply);
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
             vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
@@ -1518,6 +1565,7 @@ contract ERC7160TLEditionsTest is Test {
 
         // airdrop again
         tokenContract.airdrop(addresses, "baseUri");
+        expectedSupply = tokenContract.totalSupply();
 
         // verify operator can burn the batch
         limit = numAddresses;
@@ -1532,6 +1580,8 @@ contract ERC7160TLEditionsTest is Test {
             emit Transfer(addresses[i], address(0), id);
             tokenContract.burn(id);
             vm.stopPrank();
+            expectedSupply--;
+            assertEq(tokenContract.totalSupply(), expectedSupply);
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
             vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
@@ -1572,6 +1622,7 @@ contract ERC7160TLEditionsTest is Test {
         tokenContract.externalMint(collector, "uriTwo");
         tokenContract.externalMint(collector, "uriThree");
         vm.stopPrank();
+        uint256 expectedSupply = tokenContract.totalSupply();
 
         // verify collector can burn tokenId
         vm.startPrank(collector, collector);
@@ -1579,6 +1630,8 @@ contract ERC7160TLEditionsTest is Test {
         emit Transfer(collector, address(0), tokenId);
         tokenContract.burn(tokenId);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 2);
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
@@ -1602,6 +1655,8 @@ contract ERC7160TLEditionsTest is Test {
         emit Transfer(collector, address(0), tokenId + 1);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 1);
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
@@ -1619,6 +1674,8 @@ contract ERC7160TLEditionsTest is Test {
         emit Transfer(collector, address(0), tokenId + 2);
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 0);
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
@@ -1658,6 +1715,7 @@ contract ERC7160TLEditionsTest is Test {
         tokenContract.transferFrom(address(this), collector, tokenId);
         tokenContract.transferFrom(address(this), collector, tokenId + 1);
         tokenContract.transferFrom(address(this), collector, tokenId + 2);
+        uint256 expectedSupply = tokenContract.totalSupply();
 
         // verify collector can burn tokenId
         vm.startPrank(collector, collector);
@@ -1665,6 +1723,8 @@ contract ERC7160TLEditionsTest is Test {
         emit Transfer(collector, address(0), tokenId);
         tokenContract.burn(tokenId);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 2);
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
@@ -1686,6 +1746,8 @@ contract ERC7160TLEditionsTest is Test {
         emit Transfer(collector, address(0), tokenId + 1);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 1);
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
@@ -1701,6 +1763,8 @@ contract ERC7160TLEditionsTest is Test {
         emit Transfer(collector, address(0), tokenId + 2);
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 0);
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
@@ -1742,6 +1806,7 @@ contract ERC7160TLEditionsTest is Test {
         tokenContract.safeTransferFrom(address(this), collector, tokenId);
         tokenContract.safeTransferFrom(address(this), collector, tokenId + 1);
         tokenContract.safeTransferFrom(address(this), collector, tokenId + 2);
+        uint256 expectedSupply = tokenContract.totalSupply();
 
         // verify collector can burn tokenId
         vm.startPrank(collector, collector);
@@ -1749,6 +1814,8 @@ contract ERC7160TLEditionsTest is Test {
         emit Transfer(collector, address(0), tokenId);
         tokenContract.burn(tokenId);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 2);
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
@@ -1770,6 +1837,8 @@ contract ERC7160TLEditionsTest is Test {
         emit Transfer(collector, address(0), tokenId + 1);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 1);
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
@@ -1785,6 +1854,8 @@ contract ERC7160TLEditionsTest is Test {
         emit Transfer(collector, address(0), tokenId + 2);
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 0);
         vm.expectRevert(ERC7160TLEditions.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);

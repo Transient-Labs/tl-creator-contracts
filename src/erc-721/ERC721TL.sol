@@ -35,9 +35,9 @@ contract ERC721TL is
     IStory,
     IERC4906
 {
-    /*//////////////////////////////////////////////////////////////////////////
-                                Custom Types
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Custom Types
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev Struct defining a batch mint
     struct BatchMint {
@@ -53,14 +53,15 @@ contract ERC721TL is
     /// @dev String representation for address
     using Strings for address;
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                State Variables
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // State Variables
+    /////////////////////////////////////////////////////////////////////
 
     string public constant VERSION = "4.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
+    uint256 private _burnCounter; // total burned token count
     bool public storyEnabled;
     bool public supplyLocked;
     IRenderingContract public renderingContract;
@@ -70,9 +71,9 @@ contract ERC721TL is
     mapping(uint256 => string) private _tokenUris; // established token uris
     BatchMint[] private _batchMints; // dynamic array for batch mints
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                 Custom Errors
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Custom Errors
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev Token uri is an empty string
     error EmptyTokenURI();
@@ -101,18 +102,18 @@ contract ERC721TL is
     /// @dev Supply locked from minting more
     error SupplyIsLocked();
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Constructor
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Constructor
+    /////////////////////////////////////////////////////////////////////
 
     /// @param disable Boolean to disable initialization for the implementation contract
     constructor(bool disable) {
         if (disable) _disableInitializers();
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Initializer
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Initializer
+    /////////////////////////////////////////////////////////////////////
 
     /// @param name The name of the 721 contract
     /// @param symbol The symbol of the 721 contract
@@ -163,33 +164,35 @@ contract ERC721TL is
         }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                General Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // General Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function totalSupply() external view returns (uint256) {
-        return _counter;
+        return _counter - _burnCounter;
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Access Control Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Access Control Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setApprovedMintContracts(address[] calldata minters, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
         _setRole(APPROVED_MINT_CONTRACT, minters, status);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Mint Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Mint Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC721TL
     function mint(address recipient, string calldata uri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (supplyLocked) revert SupplyIsLocked();
         if (bytes(uri).length == 0) revert EmptyTokenURI();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _tokenUris[_counter] = uri;
         _mint(recipient, _counter);
     }
@@ -201,7 +204,9 @@ contract ERC721TL is
     {
         if (supplyLocked) revert SupplyIsLocked();
         if (bytes(uri).length == 0) revert EmptyTokenURI();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _tokenUris[_counter] = uri;
         _overrideTokenRoyaltyInfo(_counter, royaltyAddress, royaltyPercent);
         _mint(recipient, _counter);
@@ -218,7 +223,9 @@ contract ERC721TL is
         if (numTokens < 2) revert BatchSizeTooSmall();
         uint256 start = _counter + 1;
         uint256 end = start + numTokens - 1;
-        _counter += numTokens;
+        unchecked {
+            _counter += numTokens;
+        }
         _batchMints.push(BatchMint(recipient, start, end, baseUri));
 
         _increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
@@ -236,7 +243,9 @@ contract ERC721TL is
 
         uint256 start = _counter + 1;
         uint256 end = start + addresses.length - 1;
-        _counter += addresses.length;
+        unchecked {
+            _counter += addresses.length;
+        }
         _batchMints.push(BatchMint(address(0), start, end, baseUri));
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], start + i);
@@ -247,14 +256,16 @@ contract ERC721TL is
     function externalMint(address recipient, string calldata uri) external onlyRole(APPROVED_MINT_CONTRACT) {
         if (supplyLocked) revert SupplyIsLocked();
         if (bytes(uri).length == 0) revert EmptyTokenURI();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _tokenUris[_counter] = uri;
         _mint(recipient, _counter);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Burn Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Burn Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC721TL
     function burn(uint256 tokenId) external {
@@ -267,11 +278,14 @@ contract ERC721TL is
     function _burnWithTracking(uint256 tokenId) internal {
         _burn(tokenId);
         _burned[tokenId] = true;
+        unchecked {
+            _burnCounter++;
+        }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Lock Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Lock Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC721TL
     function lockSupply() external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -281,9 +295,9 @@ contract ERC721TL is
         emit IERC721TL.SupplyLocked(msg.sender);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Royalty Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Royalty Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -298,9 +312,9 @@ contract ERC721TL is
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Metadata Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Metadata Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IMutableMetadata
     function updateTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -332,9 +346,9 @@ contract ERC721TL is
         emit BatchMetadataUpdate(startTokenId, endTokenId);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Token Uri Override
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Token Uri Override
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ERC721Upgradeable
     function tokenURI(uint256 tokenId) public view override(ERC721Upgradeable) returns (string memory) {
@@ -352,9 +366,9 @@ contract ERC721TL is
         }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Story Inscriptions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Story Inscriptions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IStory
     function addCollectionStory(string calldata, string calldata story) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -383,9 +397,9 @@ contract ERC721TL is
         emit StoryStatusUpdate(msg.sender, status);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Transfer Validator
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Transfer Validator
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorToken
     function setTransferValidator(address newTransferValidator) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -422,9 +436,9 @@ contract ERC721TL is
         return ERC721Upgradeable._update(to, tokenId, auth);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                            NFT Delegation Registry
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // NFT Delegation Registry
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setNftDelegationRegistry(address newNftDelegationRegistry) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -433,9 +447,9 @@ contract ERC721TL is
         emit NftDelegationRegistryUpdate(msg.sender, oldNftDelegationRegistry, newNftDelegationRegistry);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Withdraw Funds
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Withdraw Funds
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function withdrawERC20(address currency, uint256 amount, address recipient) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -448,9 +462,9 @@ contract ERC721TL is
         IERC721(token).safeTransferFrom(address(this), recipient, id);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                ERC-165 Support
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // ERC-165 Support
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId)
@@ -469,9 +483,9 @@ contract ERC721TL is
         );
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Internal Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Internal Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @notice Function to get batch mint info
     /// @param tokenId Token id to look up for batch mint info
