@@ -83,10 +83,7 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
     /// @notice Unchained function to initialize the contract
     /// @param defaultRecipient The default royalty payout address
     /// @param defaultPercentage The deafult royalty percentage, out of 10,000
-    function __EIP2981TL_init_unchained(address defaultRecipient, uint256 defaultPercentage)
-        internal
-        onlyInitializing
-    {
+    function __EIP2981TL_init_unchained(address defaultRecipient, uint256 defaultPercentage) internal onlyInitializing {
         _setDefaultRoyaltyInfo(defaultRecipient, defaultPercentage);
     }
 

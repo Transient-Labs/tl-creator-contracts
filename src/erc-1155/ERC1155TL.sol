@@ -309,7 +309,11 @@ contract ERC1155TL is
     /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IStory
-    function addCollectionStory(string calldata, /*creatorName*/ string calldata story)
+    function addCollectionStory(
+        string calldata,
+        /*creatorName*/
+        string calldata story
+    )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -317,7 +321,12 @@ contract ERC1155TL is
     }
 
     /// @inheritdoc IStory
-    function addCreatorStory(uint256 tokenId, string calldata, /*creatorName*/ string calldata story)
+    function addCreatorStory(
+        uint256 tokenId,
+        string calldata,
+        /*creatorName*/
+        string calldata story
+    )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -326,7 +335,14 @@ contract ERC1155TL is
     }
 
     /// @inheritdoc IStory
-    function addStory(uint256 tokenId, string calldata, /*collectorName*/ string calldata story) external {
+    function addStory(
+        uint256 tokenId,
+        string calldata,
+        /*collectorName*/
+        string calldata story
+    )
+        external
+    {
         if (!storyEnabled) revert StoryNotEnabled();
         if (balanceOf(msg.sender, tokenId) == 0) revert CallerNotTokenOwner();
         emit Story(tokenId, msg.sender, msg.sender.toHexString(), story);
@@ -387,7 +403,12 @@ contract ERC1155TL is
     }
 
     /// @inheritdoc ICreatorBase
-    function setNftDelegationRegistry(address /*newNftDelegationRegistry*/ ) external pure {
+    function setNftDelegationRegistry(
+        address /*newNftDelegationRegistry*/
+    )
+        external
+        pure
+    {
         revert();
     }
 
@@ -417,12 +438,10 @@ contract ERC1155TL is
         override(ERC1155Upgradeable, ERC2981TLUpgradeable)
         returns (bool)
     {
-        return (
-            ERC1155Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
+        return (ERC1155Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
                 || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(ICreatorToken).interfaceId
                 || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
-                || interfaceId == type(IERC1155TL).interfaceId
-        );
+                || interfaceId == type(IERC1155TL).interfaceId);
     }
 
     /////////////////////////////////////////////////////////////////////

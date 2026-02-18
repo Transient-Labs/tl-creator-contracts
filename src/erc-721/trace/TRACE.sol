@@ -4,8 +4,9 @@ pragma solidity 0.8.28;
 import {IERC4906} from "@openzeppelin-contracts-5.0.2/interfaces/IERC4906.sol";
 import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
 import {IERC20} from "@openzeppelin-contracts-5.0.2/token/ERC20/IERC20.sol";
-import {ReentrancyGuardUpgradeable} from
-    "@openzeppelin-contracts-upgradeable-5.0.2/utils/ReentrancyGuardUpgradeable.sol";
+import {
+    ReentrancyGuardUpgradeable
+} from "@openzeppelin-contracts-upgradeable-5.0.2/utils/ReentrancyGuardUpgradeable.sol";
 import {ECDSA} from "@openzeppelin-contracts-5.0.2/utils/cryptography/ECDSA.sol";
 import {
     IERC721,
@@ -308,7 +309,11 @@ contract TRACE is
 
     /// @inheritdoc IStory
     /// @dev ignores the creator name to avoid sybil
-    function addCollectionStory(string calldata, /*creatorName*/ string calldata story)
+    function addCollectionStory(
+        string calldata,
+        /*creatorName*/
+        string calldata story
+    )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -317,7 +322,12 @@ contract TRACE is
 
     /// @inheritdoc IStory
     /// @dev ignores the creator name to avoid sybil
-    function addCreatorStory(uint256 tokenId, string calldata, /*creatorName*/ string calldata story)
+    function addCreatorStory(
+        uint256 tokenId,
+        string calldata,
+        /*creatorName*/
+        string calldata story
+    )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -326,7 +336,13 @@ contract TRACE is
     }
 
     /// @inheritdoc IStory
-    function addStory(uint256, /*tokenId*/ string calldata, /*collectorName*/ string calldata /*story*/ )
+    function addStory(
+        uint256,
+        /*tokenId*/
+        string calldata,
+        /*collectorName*/
+        string calldata /*story*/
+    )
         external
         pure
     {
@@ -334,7 +350,12 @@ contract TRACE is
     }
 
     /// @inheritdoc ICreatorBase
-    function setStoryStatus(bool /*status*/ ) external pure {
+    function setStoryStatus(
+        bool /*status*/
+    )
+        external
+        pure
+    {
         revert();
     }
 
@@ -348,7 +369,12 @@ contract TRACE is
     /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
-    function setNftDelegationRegistry(address /*newNftDelegationRegistry*/ ) external pure {
+    function setNftDelegationRegistry(
+        address /*newNftDelegationRegistry*/
+    )
+        external
+        pure
+    {
         revert();
     }
 
@@ -383,13 +409,11 @@ contract TRACE is
         override(ERC721Upgradeable, ERC2981TLUpgradeable, IERC165)
         returns (bool)
     {
-        return (
-            ERC721Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
+        return (ERC721Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
                 || interfaceId == 0x49064906 // ERC-4906
                 || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(IStory).interfaceId
                 || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
-                || interfaceId == type(ITRACE).interfaceId
-        );
+                || interfaceId == type(ITRACE).interfaceId);
     }
 
     /////////////////////////////////////////////////////////////////////

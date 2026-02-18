@@ -16,9 +16,7 @@ contract TestERC2981TLUpgradeable is Test {
         address indexed sender, uint256 indexed tokenId, address newRecipient, uint256 newPercentage
     );
 
-    function test_DefaultRoyaltyInfo(uint256 tokenId, address recipient, uint16 percentage, uint256 saleAmount)
-        public
-    {
+    function test_DefaultRoyaltyInfo(uint256 tokenId, address recipient, uint16 percentage, uint256 saleAmount) public {
         mockContract = new MockERC2981TLUpgradeable();
         if (recipient == address(0)) {
             vm.expectRevert(ERC2981TLUpgradeable.ZeroAddressError.selector);

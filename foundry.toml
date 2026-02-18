@@ -1,5 +1,7 @@
-[profile.default]
+[profile.general]
 version = '4.0.0'
+
+[profile.default]
 src = 'src'
 test = 'test'
 out = 'out'
@@ -8,10 +10,9 @@ auto_detect_solc = true
 optimizer = true
 optimizer_runs = 2000
 verbosity = 3
-wrap_comments = true
 gas_reports = ["ERC721TL", "ERC1155TL", "Doppelganger", "CollectorsChoice", "Shatter", "TRACE", "ERC7160TL"]
 fs_permissions = [{ access = "read-write", path = "./"}]
-show_progess = true
+show_progress = true
 
 [fuzz]
 runs = 1024

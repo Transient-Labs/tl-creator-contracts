@@ -199,7 +199,13 @@ contract ERC7160TLEditions is
 
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
-    function mint(address recipient, string calldata /*uri*/ ) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function mint(
+        address recipient,
+        string calldata /*uri*/
+    )
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
         if (supplyLocked) revert SupplyIsLocked();
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
         unchecked {
@@ -210,7 +216,13 @@ contract ERC7160TLEditions is
 
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
-    function mint(address recipient, string calldata, /*uri*/ address royaltyAddress, uint256 royaltyPercent)
+    function mint(
+        address recipient,
+        string calldata,
+        /*uri*/
+        address royaltyAddress,
+        uint256 royaltyPercent
+    )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -225,7 +237,11 @@ contract ERC7160TLEditions is
 
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
-    function batchMint(address recipient, uint128 numTokens, string calldata /*baseUri*/ )
+    function batchMint(
+        address recipient,
+        uint128 numTokens,
+        string calldata /*baseUri*/
+    )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -249,7 +265,13 @@ contract ERC7160TLEditions is
 
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
-    function airdrop(address[] calldata addresses, string calldata /*baseUri*/ ) external onlyRoleOrOwner(ADMIN_ROLE) {
+    function airdrop(
+        address[] calldata addresses,
+        string calldata /*baseUri*/
+    )
+        external
+        onlyRoleOrOwner(ADMIN_ROLE)
+    {
         if (supplyLocked) revert SupplyIsLocked();
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
         if (addresses.length < 2) revert AirdropTooFewAddresses();
@@ -265,7 +287,13 @@ contract ERC7160TLEditions is
 
     /// @inheritdoc IERC721TL
     /// @dev cannot mint unless at least one token uri has been added to the array
-    function externalMint(address recipient, string calldata /*uri*/ ) external onlyRole(APPROVED_MINT_CONTRACT) {
+    function externalMint(
+        address recipient,
+        string calldata /*uri*/
+    )
+        external
+        onlyRole(APPROVED_MINT_CONTRACT)
+    {
         if (supplyLocked) revert SupplyIsLocked();
         if (_tokenUris.length == 0) revert EmptyTokenURIs();
         unchecked {
@@ -418,7 +446,11 @@ contract ERC7160TLEditions is
     /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IStory
-    function addCollectionStory(string calldata, /*creatorName*/ string calldata story)
+    function addCollectionStory(
+        string calldata,
+        /*creatorName*/
+        string calldata story
+    )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -426,7 +458,12 @@ contract ERC7160TLEditions is
     }
 
     /// @inheritdoc IStory
-    function addCreatorStory(uint256 tokenId, string calldata, /*creatorName*/ string calldata story)
+    function addCreatorStory(
+        uint256 tokenId,
+        string calldata,
+        /*creatorName*/
+        string calldata story
+    )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -435,7 +472,14 @@ contract ERC7160TLEditions is
     }
 
     /// @inheritdoc IStory
-    function addStory(uint256 tokenId, string calldata, /*collectorName*/ string calldata story) external {
+    function addStory(
+        uint256 tokenId,
+        string calldata,
+        /*collectorName*/
+        string calldata story
+    )
+        external
+    {
         if (!storyEnabled) revert StoryNotEnabled();
         if (!_isTokenOwnerOrDelegate(tokenId)) revert CallerNotTokenOwnerOrDelegate();
         emit Story(tokenId, msg.sender, msg.sender.toHexString(), story);
@@ -470,11 +514,7 @@ contract ERC7160TLEditions is
     }
 
     /// @inheritdoc ERC721Upgradeable
-    function _update(address to, uint256 tokenId, address auth)
-        internal
-        override(ERC721Upgradeable)
-        returns (address)
-    {
+    function _update(address to, uint256 tokenId, address auth) internal override(ERC721Upgradeable) returns (address) {
         // only check transfer validator if not a mint or burn
         address transferValidator = _transferValidator;
         address from = _ownerOf(tokenId);
@@ -523,14 +563,12 @@ contract ERC7160TLEditions is
         override(ERC721Upgradeable, ERC2981TLUpgradeable, IERC165)
         returns (bool)
     {
-        return (
-            ERC721Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
+        return (ERC721Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
                 || interfaceId == 0x49064906 // ERC-4906
                 || interfaceId == type(IERC7160).interfaceId || interfaceId == type(ICreatorBase).interfaceId
                 || interfaceId == type(ICreatorToken).interfaceId || interfaceId == type(IStory).interfaceId
                 || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
-                || interfaceId == type(IERC721TL).interfaceId
-        );
+                || interfaceId == type(IERC721TL).interfaceId);
     }
 
     /////////////////////////////////////////////////////////////////////

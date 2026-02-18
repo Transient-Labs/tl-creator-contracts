@@ -913,9 +913,7 @@ contract ERC7160TLTest is Test {
 
     /// @notice test mint options in a row
     // - randomly make sure that can mint in a row and that there aren't overlapping token ids ✅
-    function test_mints_combined(uint8 n1, uint8 n2, uint8 n3, uint8 n4, uint16 batchSize, uint16 numAddresses)
-        public
-    {
+    function test_mints_combined(uint8 n1, uint8 n2, uint8 n3, uint8 n4, uint16 batchSize, uint16 numAddresses) public {
         address[] memory minters = new address[](1);
         minters[0] = address(1);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);

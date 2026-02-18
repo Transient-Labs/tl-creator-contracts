@@ -385,7 +385,14 @@ contract ERC721TL is
     }
 
     /// @inheritdoc IStory
-    function addStory(uint256 tokenId, string calldata, /*collectorName*/ string calldata story) external {
+    function addStory(
+        uint256 tokenId,
+        string calldata,
+        /*collectorName*/
+        string calldata story
+    )
+        external
+    {
         if (!storyEnabled) revert StoryNotEnabled();
         if (!_isTokenOwnerOrDelegate(tokenId)) revert CallerNotTokenOwnerOrDelegate();
         emit Story(tokenId, msg.sender, msg.sender.toHexString(), story);
@@ -420,11 +427,7 @@ contract ERC721TL is
     }
 
     /// @inheritdoc ERC721Upgradeable
-    function _update(address to, uint256 tokenId, address auth)
-        internal
-        override(ERC721Upgradeable)
-        returns (address)
-    {
+    function _update(address to, uint256 tokenId, address auth) internal override(ERC721Upgradeable) returns (address) {
         // only check transfer validator if not a mint or burn
         address transferValidator = _transferValidator;
         address from = _ownerOf(tokenId);
@@ -473,14 +476,12 @@ contract ERC721TL is
         override(ERC721Upgradeable, ERC2981TLUpgradeable, IERC165)
         returns (bool)
     {
-        return (
-            ERC721Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
+        return (ERC721Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
                 || interfaceId == 0x49064906 // ERC-4906
                 || interfaceId == type(IMutableMetadata).interfaceId || interfaceId == type(ICreatorBase).interfaceId
                 || interfaceId == type(ICreatorToken).interfaceId || interfaceId == type(IStory).interfaceId
                 || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
-                || interfaceId == type(IERC721TL).interfaceId
-        );
+                || interfaceId == type(IERC721TL).interfaceId);
     }
 
     /////////////////////////////////////////////////////////////////////
