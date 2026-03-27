@@ -1,6 +1,3 @@
-[profile.general]
-version = '4.0.0'
-
 [profile.default]
 src = 'src'
 test = 'test'

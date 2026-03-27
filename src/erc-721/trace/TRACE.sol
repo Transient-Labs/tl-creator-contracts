@@ -114,7 +114,6 @@ contract TRACE is
 
     /// @param name The name of the contract
     /// @param symbol The symbol of the contract
-    /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
     /// @param defaultRoyaltyRecipient The default address for royalty payments
     /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
     /// @param initOwner The owner of the contract
@@ -123,7 +122,6 @@ contract TRACE is
     function initialize(
         string memory name,
         string memory symbol,
-        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
@@ -142,11 +140,6 @@ contract TRACE is
 
         // set TRACERS Registry
         tracersRegistry = ITRACERSRegistry(defaultTracersRegistry);
-
-        // emit personalization as collection story
-        if (bytes(personalization).length > 0) {
-            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
-        }
     }
 
     /////////////////////////////////////////////////////////////////////

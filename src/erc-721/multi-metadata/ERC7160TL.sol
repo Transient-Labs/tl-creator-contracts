@@ -140,24 +140,24 @@ contract ERC7160TL is
 
     /// @param name The name of the 721 contract
     /// @param symbol The symbol of the 721 contract
-    /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
     /// @param defaultRoyaltyRecipient The default address for royalty payments
     /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
     /// @param initOwner The owner of the contract
     /// @param admins Array of admin addresses to add to the contract
     /// @param enableStory A bool deciding whether to add story fuctionality or not
     /// @param initTransferValidator Address of the transfer validators to use
+    /// @param initListId The initial list id to use in the transfer validator (allows Transient protocol)
     /// @param initNftDelegationRegistry Address of the TL nft delegation registry to use
     function initialize(
         string memory name,
         string memory symbol,
-        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
         address[] memory admins,
         bool enableStory,
         address initTransferValidator,
+        uint48 initListId,
         address initNftDelegationRegistry
     ) external initializer {
         // initialize parent contracts
@@ -175,16 +175,11 @@ contract ERC7160TL is
         // transfer validator
         _transferValidator = initTransferValidator;
         emit TransferValidatorUpdated(address(0), initTransferValidator);
-        // TODO: later try setting initial transfer validator settings based on Transient's custom list
+        _setupTransferValidatorV5(initTransferValidator, initListId);
 
         // nft delegation registry
         tlNftDelegationRegistry = ITLNftDelegationRegistry(initNftDelegationRegistry);
         emit NftDelegationRegistryUpdate(initOwner, address(0), initNftDelegationRegistry);
-
-        // emit personalization as collection story
-        if (bytes(personalization).length > 0) {
-            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
-        }
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -655,5 +650,16 @@ contract ERC7160TL is
         } else {
             return tlNftDelegationRegistry.checkDelegateForERC721(msg.sender, tokenOwner, address(this), tokenId);
         }
+    }
+
+    /// @notice Function to setup the v5 transfer validator by Limit Break
+    /// @dev We know how the rulset options work by default so all good to fix the values in code here.
+    ///      But we will pass in the initial list id as that is different across chains.
+    function _setupTransferValidatorV5(address transferValidator, uint48 listId) internal view {
+        if (transferValidator == address(0)) return;
+
+        ITransferValidator tv = ITransferValidator(transferValidator);
+        tv.applyListToCollection(address(this), listId);
+        tv.setRulesetOfCollection(address(this), 0, address(0), 0, 6);
     }
 }

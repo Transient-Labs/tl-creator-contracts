@@ -33,22 +33,18 @@ contract ERC1155TLTest is Test {
     function setUp() public {
         address[] memory admins = new address[](0);
         tokenContract = new ERC1155TL(false);
-        tokenContract.initialize(
-            "Test1155", "TEST", "", royaltyRecipient, 1000, address(this), admins, true, address(0)
-        );
+        tokenContract.initialize("Test1155", "TEST", royaltyRecipient, 1000, address(this), admins, true, address(0), 0);
     }
 
     /// @notice initialization Tests
     function test_initialize(
         string memory name,
         string memory symbol,
-        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
         address[] memory admins,
-        bool enableStory,
-        address initTransferValidator
+        bool enableStory
     ) public {
         // limit fuzz
         vm.assume(defaultRoyaltyRecipient != address(0));
@@ -71,21 +67,17 @@ contract ERC1155TLTest is Test {
         vm.expectEmit(true, true, true, true);
         emit StoryStatusUpdate(initOwner, enableStory);
         vm.expectEmit(true, true, true, true);
-        emit TransferValidatorUpdated(address(0), initTransferValidator);
-        if (bytes(personalization).length > 0) {
-            vm.expectEmit(true, true, true, true);
-            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
-        }
+        emit TransferValidatorUpdated(address(0), address(0));
         tokenContract.initialize(
             name,
             symbol,
-            personalization,
             defaultRoyaltyRecipient,
             defaultRoyaltyPercentage,
             initOwner,
             admins,
             enableStory,
-            initTransferValidator
+            address(0),
+            0
         );
         assertEq(tokenContract.name(), name);
         assertEq(tokenContract.symbol(), symbol);
@@ -97,20 +89,20 @@ contract ERC1155TLTest is Test {
             assertTrue(tokenContract.hasRole(tokenContract.ADMIN_ROLE(), admins[i]));
         }
         assertEq(tokenContract.storyEnabled(), enableStory);
-        assertEq(tokenContract.getTransferValidator(), initTransferValidator);
+        assertEq(tokenContract.getTransferValidator(), address(0));
 
         // can't initialize again
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         tokenContract.initialize(
             name,
             symbol,
-            personalization,
             defaultRoyaltyRecipient,
             defaultRoyaltyPercentage,
             initOwner,
             admins,
             enableStory,
-            initTransferValidator
+            address(0),
+            0
         );
 
         // can't get by initializers disabled
@@ -120,16 +112,32 @@ contract ERC1155TLTest is Test {
         tokenContract.initialize(
             name,
             symbol,
-            personalization,
             defaultRoyaltyRecipient,
             defaultRoyaltyPercentage,
             initOwner,
             admins,
             enableStory,
-            initTransferValidator
+            address(0),
+            0
         );
 
         vm.stopPrank();
+    }
+
+    /// @notice Test initialization with a transfer validator and list id
+    function test_initializeWithTransferValidator() public {
+        MockTransferValidator tv = new MockTransferValidator();
+
+        address[] memory admins = new address[](0);
+        tokenContract = new ERC1155TL(false);
+
+        vm.expectEmit(true, true, true, true);
+        emit TransferValidatorUpdated(address(0), address(tv));
+        tokenContract.initialize(
+            "Test1155", "TEST", royaltyRecipient, 1000, address(this), admins, true, address(tv), 42
+        );
+
+        assertEq(tokenContract.getTransferValidator(), address(tv));
     }
 
     /// @notice test ERC-165 support

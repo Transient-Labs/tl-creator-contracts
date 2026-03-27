@@ -24,6 +24,10 @@ contract MockTransferValidator is ITransferValidator {
         revertCollection = status;
     }
 
+    function applyListToCollection(address, uint48) external view {}
+
+    function setRulesetOfCollection(address, uint8, address, uint8, uint16) external view {}
+
     function applyCollectionTransferPolicy(address, address, address) external view {
         if (revertCollection) revert RevertCollection();
     }

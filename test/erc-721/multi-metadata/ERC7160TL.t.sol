@@ -40,7 +40,7 @@ contract ERC7160TLTest is Test {
         address[] memory admins = new address[](0);
         tokenContract = new ERC7160TL(false);
         tokenContract.initialize(
-            "Test7160", "T7160", "", royaltyRecipient, 1000, address(this), admins, true, address(0), address(0)
+            "Test7160", "T7160", royaltyRecipient, 1000, address(this), admins, true, address(0), 0, address(0)
         );
     }
 
@@ -48,13 +48,11 @@ contract ERC7160TLTest is Test {
     function test_initialize(
         string memory name,
         string memory symbol,
-        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
         address[] memory admins,
         bool enableStory,
-        address initTransferValidator,
         address tlNftDelegationRegistry
     ) public {
         // limit fuzz
@@ -78,23 +76,19 @@ contract ERC7160TLTest is Test {
         vm.expectEmit(true, true, true, true);
         emit StoryStatusUpdate(initOwner, enableStory);
         vm.expectEmit(true, true, true, true);
-        emit TransferValidatorUpdated(address(0), initTransferValidator);
+        emit TransferValidatorUpdated(address(0), address(0));
         vm.expectEmit(true, true, true, true);
         emit NftDelegationRegistryUpdate(initOwner, address(0), tlNftDelegationRegistry);
-        if (bytes(personalization).length > 0) {
-            vm.expectEmit(true, true, true, true);
-            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
-        }
         tokenContract.initialize(
             name,
             symbol,
-            personalization,
             defaultRoyaltyRecipient,
             defaultRoyaltyPercentage,
             initOwner,
             admins,
             enableStory,
-            initTransferValidator,
+            address(0),
+            0,
             tlNftDelegationRegistry
         );
         assertEq(tokenContract.name(), name);
@@ -107,7 +101,7 @@ contract ERC7160TLTest is Test {
             assertTrue(tokenContract.hasRole(tokenContract.ADMIN_ROLE(), admins[i]));
         }
         assertEq(tokenContract.storyEnabled(), enableStory);
-        assertEq(tokenContract.getTransferValidator(), initTransferValidator);
+        assertEq(tokenContract.getTransferValidator(), address(0));
         assertEq(address(tokenContract.tlNftDelegationRegistry()), tlNftDelegationRegistry);
 
         // can't initialize again
@@ -115,13 +109,13 @@ contract ERC7160TLTest is Test {
         tokenContract.initialize(
             name,
             symbol,
-            personalization,
             defaultRoyaltyRecipient,
             defaultRoyaltyPercentage,
             initOwner,
             admins,
             enableStory,
-            initTransferValidator,
+            address(0),
+            0,
             tlNftDelegationRegistry
         );
 
@@ -132,17 +126,42 @@ contract ERC7160TLTest is Test {
         tokenContract.initialize(
             name,
             symbol,
-            personalization,
             defaultRoyaltyRecipient,
             defaultRoyaltyPercentage,
             initOwner,
             admins,
             enableStory,
-            initTransferValidator,
+            address(0),
+            0,
             tlNftDelegationRegistry
         );
 
         vm.stopPrank();
+    }
+
+    /// @notice Test initialization with a transfer validator and list id
+    function test_initializeWithTransferValidator() public {
+        MockTransferValidator tv = new MockTransferValidator();
+
+        address[] memory admins = new address[](0);
+        tokenContract = new ERC7160TL(false);
+
+        vm.expectEmit(true, true, true, true);
+        emit TransferValidatorUpdated(address(0), address(tv));
+        tokenContract.initialize(
+            "Test7160",
+            "T7160",
+            royaltyRecipient,
+            1000,
+            address(this),
+            admins,
+            true,
+            address(tv),
+            42,
+            nftDelegationRegistry
+        );
+
+        assertEq(tokenContract.getTransferValidator(), address(tv));
     }
 
     /// @notice test ERC-165 support

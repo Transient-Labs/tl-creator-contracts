@@ -44,7 +44,7 @@ contract TRACETest is Test {
         // create TRACE
         address[] memory admins = new address[](0);
         trace = new TRACE(false);
-        trace.initialize("Test TRACE", "TRACE", "", royaltyRecipient, 1000, address(this), admins, tracersRegistry);
+        trace.initialize("Test TRACE", "TRACE", royaltyRecipient, 1000, address(this), admins, tracersRegistry);
 
         // sig utils
         sigUtils = new TRACESigUtils("3", address(trace));
@@ -54,7 +54,6 @@ contract TRACETest is Test {
     function test_initialize(
         string memory name,
         string memory symbol,
-        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
@@ -80,19 +79,8 @@ contract TRACETest is Test {
             vm.expectEmit(true, true, true, true);
             emit RoleChange(address(this), admins[i], true, trace.ADMIN_ROLE());
         }
-        if (bytes(personalization).length > 0) {
-            vm.expectEmit(true, true, true, true);
-            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
-        }
         trace.initialize(
-            name,
-            symbol,
-            personalization,
-            defaultRoyaltyRecipient,
-            defaultRoyaltyPercentage,
-            initOwner,
-            admins,
-            tracersRegistry_
+            name, symbol, defaultRoyaltyRecipient, defaultRoyaltyPercentage, initOwner, admins, tracersRegistry_
         );
 
         // assert intial values
@@ -112,14 +100,7 @@ contract TRACETest is Test {
         // can't initialize again
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         trace.initialize(
-            name,
-            symbol,
-            personalization,
-            defaultRoyaltyRecipient,
-            defaultRoyaltyPercentage,
-            initOwner,
-            admins,
-            tracersRegistry
+            name, symbol, defaultRoyaltyRecipient, defaultRoyaltyPercentage, initOwner, admins, tracersRegistry
         );
 
         // can't get by initializers disableed
@@ -127,14 +108,7 @@ contract TRACETest is Test {
 
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         trace.initialize(
-            name,
-            symbol,
-            personalization,
-            defaultRoyaltyRecipient,
-            defaultRoyaltyPercentage,
-            initOwner,
-            admins,
-            tracersRegistry
+            name, symbol, defaultRoyaltyRecipient, defaultRoyaltyPercentage, initOwner, admins, tracersRegistry
         );
 
         vm.stopPrank();
