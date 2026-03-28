@@ -2,11 +2,11 @@
 pragma solidity 0.8.28;
 
 import "forge-std-1.14.0/Test.sol";
-import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
+import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
 import {ERC721TL, IMutableMetadata} from "src/erc-721/ERC721TL.sol";
 import {IERC721TL} from "src/erc-721/IERC721TL.sol";
-import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
-import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
+import {IERC721Errors} from "@openzeppelin-contracts-5.6.1/interfaces/draft-IERC6093.sol";
+import {Initializable} from "@openzeppelin-contracts-5.6.1/proxy/utils/Initializable.sol";
 import {OwnableAccessControlUpgradeable} from "src/lib/OwnableAccessControlUpgradeable.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 import {MockERC20} from "../utils/MockERC20.sol";

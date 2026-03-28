@@ -2,7 +2,7 @@
 pragma solidity 0.8.28;
 
 import "forge-std-1.14.0/Script.sol";
-import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
+import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
 
 interface ICreate2Deployer {
     function deploy(uint256 value, bytes32 salt, bytes memory code) external;

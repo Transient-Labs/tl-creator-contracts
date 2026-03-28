@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {IERC2981, IERC165} from "@openzeppelin-contracts-5.0.2/interfaces/IERC2981.sol";
-import {Initializable} from "@openzeppelin-contracts-upgradeable-5.0.2/proxy/utils/Initializable.sol";
+import {IERC2981, IERC165} from "@openzeppelin-contracts-5.6.1/interfaces/IERC2981.sol";
+import {Initializable} from "@openzeppelin-contracts-upgradeable-5.6.1/proxy/utils/Initializable.sol";
 
 /// @title ERC2981TLUpgradeable.sol
 /// @notice Abstract contract to define a default royalty spec

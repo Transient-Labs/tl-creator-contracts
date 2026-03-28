@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {IERC4906} from "@openzeppelin-contracts-5.0.2/interfaces/IERC4906.sol";
-import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
-import {IERC20} from "@openzeppelin-contracts-5.0.2/token/ERC20/IERC20.sol";
-import {
-    ReentrancyGuardUpgradeable
-} from "@openzeppelin-contracts-upgradeable-5.0.2/utils/ReentrancyGuardUpgradeable.sol";
-import {ECDSA} from "@openzeppelin-contracts-5.0.2/utils/cryptography/ECDSA.sol";
+import {IERC4906} from "@openzeppelin-contracts-5.6.1/interfaces/IERC4906.sol";
+import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
+import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.6.1/utils/ReentrancyGuardTransient.sol";
+import {ECDSA} from "@openzeppelin-contracts-5.6.1/utils/cryptography/ECDSA.sol";
 import {
     IERC721,
     ERC721Upgradeable,
     IERC165
-} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
-import {EIP712Upgradeable} from "@openzeppelin-contracts-upgradeable-5.0.2/utils/cryptography/EIP712Upgradeable.sol";
+} from "@openzeppelin-contracts-upgradeable-5.6.1/token/ERC721/ERC721Upgradeable.sol";
+import {EIP712Upgradeable} from "@openzeppelin-contracts-upgradeable-5.6.1/utils/cryptography/EIP712Upgradeable.sol";
 import {ERC2981TLUpgradeable} from "../../lib/ERC2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "../../lib/OwnableAccessControlUpgradeable.sol";
 import {ICreatorBase} from "../../interfaces/ICreatorBase.sol";
@@ -28,7 +26,7 @@ import {ITRACE} from "./ITRACE.sol";
 /// @custom:version 4.0.0
 contract TRACE is
     ERC721Upgradeable,
-    ReentrancyGuardUpgradeable,
+    ReentrancyGuardTransient,
     OwnableAccessControlUpgradeable,
     ERC2981TLUpgradeable,
     EIP712Upgradeable,
@@ -133,7 +131,6 @@ contract TRACE is
         __EIP2981TL_init(defaultRoyaltyRecipient, defaultRoyaltyPercentage);
         __OwnableAccessControl_init(initOwner);
         __EIP712_init("T.R.A.C.E.", "3");
-        __ReentrancyGuard_init();
 
         // add admins
         _setRole(ADMIN_ROLE, admins, true);

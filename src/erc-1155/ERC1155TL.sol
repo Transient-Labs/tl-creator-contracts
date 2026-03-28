@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
-import {IERC20} from "@openzeppelin-contracts-5.0.2/token/ERC20/IERC20.sol";
-import {IERC721} from "@openzeppelin-contracts-5.0.2/token/ERC721/IERC721.sol";
+import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
+import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
+import {IERC721} from "@openzeppelin-contracts-5.6.1/token/ERC721/IERC721.sol";
 import {
     ERC1155Upgradeable,
     IERC1155,
     IERC165
-} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC1155/ERC1155Upgradeable.sol";
+} from "@openzeppelin-contracts-upgradeable-5.6.1/token/ERC1155/ERC1155Upgradeable.sol";
 import {ERC2981TLUpgradeable} from "../lib/ERC2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "../lib/OwnableAccessControlUpgradeable.sol";
 import {IStory} from "../interfaces/IStory.sol";
@@ -488,7 +488,7 @@ contract ERC1155TL is
     /// @notice Function to setup the v5 transfer validator by Limit Break
     /// @dev We know how the rulset options work by default so all good to fix the values in code here.
     ///      But we will pass in the initial list id as that is different across chains.
-    function _setupTransferValidatorV5(address transferValidator, uint48 listId) internal view {
+    function _setupTransferValidatorV5(address transferValidator, uint48 listId) private {
         if (transferValidator == address(0)) return;
 
         ITransferValidator tv = ITransferValidator(transferValidator);

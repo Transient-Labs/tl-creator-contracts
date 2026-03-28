@@ -4,11 +4,11 @@ pragma solidity 0.8.28;
 import "forge-std-1.14.0/Test.sol";
 import {TRACE} from "src/erc-721/trace/TRACE.sol";
 import {ITRACERSRegistry} from "src/interfaces/ITRACERSRegistry.sol";
-import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
-import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
+import {IERC721Errors} from "@openzeppelin-contracts-5.6.1/interfaces/draft-IERC6093.sol";
+import {Initializable} from "@openzeppelin-contracts-5.6.1/proxy/utils/Initializable.sol";
 import {OwnableAccessControlUpgradeable} from "src/lib/OwnableAccessControlUpgradeable.sol";
 import {TRACESigUtils} from "test/utils/TRACESigUtils.sol";
-import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
+import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
 import {MockERC20} from "../../utils/MockERC20.sol";
 import {MockERC721} from "../../utils/MockERC721.sol";
 
