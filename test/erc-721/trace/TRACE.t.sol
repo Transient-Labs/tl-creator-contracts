@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.30;
 
 import "forge-std-1.14.0/Test.sol";
 import {TRACE} from "src/erc-721/trace/TRACE.sol";

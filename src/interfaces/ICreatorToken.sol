@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.30;
 
 /// @title Limit Break's creator token interface
 /// @dev The interface id = 0xad0d7f6c

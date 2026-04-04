@@ -20,7 +20,7 @@ fmt:
 	forge fmt
 
 analyze:
-	uv run slither .
+	uv run slither . --filter-path "dependencies/"
 
 install-commit-hooks:
 	uv run pre-commit install
