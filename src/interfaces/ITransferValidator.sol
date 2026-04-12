@@ -4,14 +4,14 @@ pragma solidity 0.8.30;
 /// @title ITransferValidator
 /// @notice Limit Break's Transfer Validator interface
 interface ITransferValidator {
-    function applyListToCollection(address collection, uint48 id) external view;
+    function applyListToCollection(address collection, uint48 id) external;
     function setRulesetOfCollection(
         address collection,
         uint8 rulesetId,
         address customRuleset,
         uint8 globalOptions,
         uint16 rulesetOptions
-    ) external view;
+    ) external;
 
     function applyCollectionTransferPolicy(address caller, address from, address to) external view;
     function validateTransfer(address caller, address from, address to) external view;

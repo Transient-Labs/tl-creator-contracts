@@ -12,6 +12,9 @@ contract MockTransferValidator is ITransferValidator {
     bool public revert1155;
     bool public revertCollection;
 
+    uint48 public listId;
+    uint16 public rulesetOptions;
+
     function setRevert721(bool status) external {
         revert721 = status;
     }
@@ -24,9 +27,13 @@ contract MockTransferValidator is ITransferValidator {
         revertCollection = status;
     }
 
-    function applyListToCollection(address, uint48) external view {}
+    function applyListToCollection(address, uint48 listId_) external {
+        listId = listId_;
+    }
 
-    function setRulesetOfCollection(address, uint8, address, uint8, uint16) external view {}
+    function setRulesetOfCollection(address, uint8, address, uint8, uint16 rulesetOptions_) external {
+        rulesetOptions = rulesetOptions_;
+    }
 
     function applyCollectionTransferPolicy(address, address, address) external view {
         if (revertCollection) revert RevertCollection();

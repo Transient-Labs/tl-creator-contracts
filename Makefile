@@ -60,6 +60,7 @@ test-fuzz: build
 ########################################
 deploy_ERC721TL_testnets: build
 	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "ERC721TL.sol:ERC721TL" true
+	sleep 60
 	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -79,6 +80,7 @@ deploy_ERC721TL_mainnets: build
 ########################################
 deploy_ERC1155TL_testnets: build
 	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "ERC1155TL.sol:ERC1155TL" true
+	sleep 60
 	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -98,6 +100,7 @@ deploy_ERC1155TL_mainnets: build
 ########################################
 deploy_ERC7160TL_testnets: build
 	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "ERC7160TL.sol:ERC7160TL" true
+	sleep 60
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TL.sol:ERC7160TL --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TL.sol:ERC7160TL --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TL.sol:ERC7160TL --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -117,6 +120,7 @@ deploy_ERC7160TL_mainnets: build
 ########################################
 deploy_ERC7160TLEditions_testnets: build
 	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "ERC7160TLEditions.sol:ERC7160TLEditions" true
+	sleep 60
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TLEditions.sol:ERC7160TLEditions --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TLEditions.sol:ERC7160TLEditions --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TLEditions.sol:ERC7160TLEditions --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -136,6 +140,7 @@ deploy_ERC7160TLEditions_mainnets: build
 ########################################
 deploy_TRACE_testnets: build
 	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "TRACE.sol:TRACE" true
+	sleep 60
 	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}

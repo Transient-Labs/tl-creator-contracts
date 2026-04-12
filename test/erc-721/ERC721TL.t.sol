@@ -162,6 +162,8 @@ contract ERC721TLTest is Test {
         );
 
         assertEq(tokenContract.getTransferValidator(), address(tv));
+        assertEq(tv.listId(), uint48(42));
+        assertEq(tv.rulesetOptions(), uint16(6));
     }
 
     /// @notice test ERC-165 support
