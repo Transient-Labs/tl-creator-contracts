@@ -1,35 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
-import {IBlockListRegistry} from "./IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "./ITLNftDelegationRegistry.sol";
 
 /// @title ICreatorBase.sol
 /// @notice Base interface for creator contracts
-/// @dev Interface id = 0x38d29ef3
+/// @dev Interface id = 0x3397523a
 /// @author transientlabs.xyz
-/// @custom:version 3.5.0
 interface ICreatorBase {
-    /*//////////////////////////////////////////////////////////////////////////
-                                    Events
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Events
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev Event for changing the story status
     event StoryStatusUpdate(address indexed sender, bool indexed status);
-
-    /// @dev Event for changing the BlockList registry
-    event BlockListRegistryUpdate(
-        address indexed sender, address indexed prevBlockListRegistry, address indexed newBlockListRegistry
-    );
 
     /// @dev Event for changing the NFT Delegation registry
     event NftDelegationRegistryUpdate(
         address indexed sender, address indexed prevNftDelegationRegistry, address indexed newNftDelegationRegistry
     );
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                    Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @notice Function to get total supply minted so far
     function totalSupply() external view returns (uint256);
@@ -40,17 +33,9 @@ interface ICreatorBase {
     /// @param status Status for the minters
     function setApprovedMintContracts(address[] calldata minters, bool status) external;
 
-    /// @notice Function to change the blocklist registry
-    /// @dev Access to owner or admin
-    /// @param newBlockListRegistry The new blocklist registry
-    function setBlockListRegistry(address newBlockListRegistry) external;
-
-    /// @notice Function to get the blocklist registry
-    function blocklistRegistry() external view returns (IBlockListRegistry);
-
     /// @notice Function to change the TL NFT delegation registry
     /// @dev Access to owner or admin
-    /// @param newNftDelegationRegistry The new blocklist registry
+    /// @param newNftDelegationRegistry The new delegation registry
     function setNftDelegationRegistry(address newNftDelegationRegistry) external;
 
     /// @notice Function to get the delegation registry

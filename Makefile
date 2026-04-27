@@ -20,7 +20,7 @@ fmt:
 	forge fmt
 
 analyze:
-	uv run slither .
+	uv run slither . --filter-path "dependencies/"
 
 install-commit-hooks:
 	uv run pre-commit install
@@ -60,6 +60,7 @@ test-fuzz: build
 ########################################
 deploy_ERC721TL_testnets: build
 	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "ERC721TL.sol:ERC721TL" true
+	sleep 60
 	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/ERC721TL.sol:ERC721TL --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -79,6 +80,7 @@ deploy_ERC721TL_mainnets: build
 ########################################
 deploy_ERC1155TL_testnets: build
 	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "ERC1155TL.sol:ERC1155TL" true
+	sleep 60
 	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-1155/ERC1155TL.sol:ERC1155TL --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -94,29 +96,11 @@ deploy_ERC1155TL_mainnets: build
 	@bash print_and_clean.sh
 
 ########################################
-# Shatter Deployments
-########################################
-deploy_Shatter_testnets: build
-	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "Shatter.sol:Shatter" true
-	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --verifier blockscout --verifier-url https://sepolia.shapescan.xyz/api  --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	@bash print_and_clean.sh
-
-deploy_Shatter_mainnets: build
-	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "Shatter.sol:Shatter" false
-	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --chain mainnet --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --chain arbitrum --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --chain base --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	forge verify-contract $$(cat out.txt) src/erc-721/shatter/Shatter.sol:Shatter --verifier blockscout --verifier-url https://shapescan.xyz/api  --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	@bash print_and_clean.sh
-
-########################################
 # ERC7160TL Deployments
 ########################################
 deploy_ERC7160TL_testnets: build
 	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "ERC7160TL.sol:ERC7160TL" true
+	sleep 60
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TL.sol:ERC7160TL --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TL.sol:ERC7160TL --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TL.sol:ERC7160TL --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -136,6 +120,7 @@ deploy_ERC7160TL_mainnets: build
 ########################################
 deploy_ERC7160TLEditions_testnets: build
 	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "ERC7160TLEditions.sol:ERC7160TLEditions" true
+	sleep 60
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TLEditions.sol:ERC7160TLEditions --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TLEditions.sol:ERC7160TLEditions --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/ERC7160TLEditions.sol:ERC7160TLEditions --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
@@ -151,29 +136,11 @@ deploy_ERC7160TLEditions_mainnets: build
 	@bash print_and_clean.sh
 
 ########################################
-# CollectorsChoice Deployments
-########################################
-deploy_CollectorsChoice_testnets: build
-	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "CollectorsChoice.sol:CollectorsChoice" true
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --verifier blockscout --verifier-url https://sepolia.shapescan.xyz/api  --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	@bash print_and_clean.sh
-
-deploy_CollectorsChoice_mainnets: build
-	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "CollectorsChoice.sol:CollectorsChoice" false
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --chain mainnet --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --chain arbitrum --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --chain base --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	forge verify-contract $$(cat out.txt) src/erc-721/multi-metadata/CollectorsChoice.sol:CollectorsChoice --verifier blockscout --verifier-url https://shapescan.xyz/api  --watch --constructor-args ${CONSTRUCTOR_ARGS}
-	@bash print_and_clean.sh
-
-########################################
 # TRACE Deployments
 ########################################
 deploy_TRACE_testnets: build
 	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "TRACE.sol:TRACE" true
+	sleep 60
 	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --chain sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --chain arbitrum-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}
 	forge verify-contract $$(cat out.txt) src/erc-721/trace/TRACE.sol:TRACE --chain base-sepolia --watch --constructor-args ${CONSTRUCTOR_ARGS}

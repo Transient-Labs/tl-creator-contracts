@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.30;
 
-import "forge-std-1.9.4/Script.sol";
+import "forge-std-1.14.0/Script.sol";
 import {ERC7160TL} from "../src/erc-721/multi-metadata/ERC7160TL.sol";
 import {ERC721TL} from "../src/erc-721/ERC721TL.sol";
 
@@ -14,7 +14,7 @@ contract Simulate7160AddTokenUris is Script {
 
         // deploy ERC7160TL contract
         ERC7160TL c = new ERC7160TL(false);
-        c.initialize("Test", "TEST", "", address(1), 0, address(1), admins, true, address(0), address(0));
+        c.initialize("Test", "TEST", address(1), 0, address(1), admins, true, address(0), 0, address(0));
 
         // mint tokens
         for (uint256 i = 1; i <= numTokens; ++i) {
@@ -47,7 +47,7 @@ contract SimulateERC721TLAirdrop is Script {
 
         // deploy ERC721TL contract
         ERC721TL c = new ERC721TL(false);
-        c.initialize("Test", "TEST", "", address(1), 0, address(1), admins, true, address(0), address(0));
+        c.initialize("Test", "TEST", address(1), 0, address(1), admins, true, address(0), 0, address(0));
 
         for (uint256 i = 0; i < numTokens / batchSize; ++i) {
             // create address array

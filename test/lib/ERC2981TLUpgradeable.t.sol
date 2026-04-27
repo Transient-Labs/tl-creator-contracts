@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.30;
 
-import "forge-std-1.9.4/Test.sol";
+import "forge-std-1.14.0/Test.sol";
 import {MockERC2981TLUpgradeable} from "test/utils/MockERC2981TLUpgradeable.sol";
 import {ERC2981TLUpgradeable} from "src/lib/ERC2981TLUpgradeable.sol";
 
@@ -16,9 +16,7 @@ contract TestERC2981TLUpgradeable is Test {
         address indexed sender, uint256 indexed tokenId, address newRecipient, uint256 newPercentage
     );
 
-    function test_DefaultRoyaltyInfo(uint256 tokenId, address recipient, uint16 percentage, uint256 saleAmount)
-        public
-    {
+    function test_DefaultRoyaltyInfo(uint256 tokenId, address recipient, uint16 percentage, uint256 saleAmount) public {
         mockContract = new MockERC2981TLUpgradeable();
         if (recipient == address(0)) {
             vm.expectRevert(ERC2981TLUpgradeable.ZeroAddressError.selector);
@@ -104,5 +102,23 @@ contract TestERC2981TLUpgradeable is Test {
             assertEq(recipient, returnedRecipient);
             assertEq(amount, expectedAmount);
         }
+    }
+
+    function test_setDefaultRoyalty_zeroAddress_reverts() public {
+        address defaultRecipient = makeAddr("account");
+        mockContract = new MockERC2981TLUpgradeable();
+        mockContract.initialize(defaultRecipient, 10_000);
+
+        vm.expectRevert(ERC2981TLUpgradeable.ZeroAddressError.selector);
+        mockContract.setDefaultRoyalty(address(0), 10_000);
+    }
+
+    function test_setTokenRoyalty_zeroAddress_reverts(uint256 tokenId) public {
+        address defaultRecipient = makeAddr("account");
+        mockContract = new MockERC2981TLUpgradeable();
+        mockContract.initialize(defaultRecipient, 10_000);
+
+        vm.expectRevert(ERC2981TLUpgradeable.ZeroAddressError.selector);
+        mockContract.setTokenRoyalty(tokenId, address(0), 10_000);
     }
 }

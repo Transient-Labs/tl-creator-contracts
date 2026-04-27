@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.30;
 
-import {IERC2981, IERC165} from "@openzeppelin-contracts-5.0.2/interfaces/IERC2981.sol";
-import {Initializable} from "@openzeppelin-contracts-upgradeable-5.0.2/proxy/utils/Initializable.sol";
+import {IERC2981, IERC165} from "@openzeppelin-contracts-5.6.1/interfaces/IERC2981.sol";
+import {Initializable} from "@openzeppelin-contracts-upgradeable-5.6.1/proxy/utils/Initializable.sol";
 
 /// @title ERC2981TLUpgradeable.sol
 /// @notice Abstract contract to define a default royalty spec
@@ -11,18 +11,18 @@ import {Initializable} from "@openzeppelin-contracts-upgradeable-5.0.2/proxy/uti
 /// @author transientlabs.xyz
 /// @custom:version 3.7.0
 abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
-    /*//////////////////////////////////////////////////////////////////////////
-                                    Types
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Types
+    /////////////////////////////////////////////////////////////////////
 
     struct RoyaltySpec {
         address recipient;
         uint256 percentage;
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                    Storage
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Storage
+    /////////////////////////////////////////////////////////////////////
 
     /// @custom:storage-location erc7201:transientlabs.storage.EIP2981TLStorage
     struct EIP2981TLStorage {
@@ -41,15 +41,15 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
         }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Constants
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Constants
+    /////////////////////////////////////////////////////////////////////
 
     uint256 public constant BASIS = 10_000;
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                    Events
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Events
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev Event to emit when the default roylaty is updated
     event DefaultRoyaltyUpdate(address indexed sender, address newRecipient, uint256 newPercentage);
@@ -59,9 +59,9 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
         address indexed sender, uint256 indexed tokenId, address newRecipient, uint256 newPercentage
     );
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                    Errors
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Errors
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev error if the recipient is set to address(0)
     error ZeroAddressError();
@@ -69,9 +69,9 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
     /// @dev error if the royalty percentage is greater than to 100%
     error MaxRoyaltyError();
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Initializer
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Initializer
+    /////////////////////////////////////////////////////////////////////
 
     /// @notice Function to initialize the contract
     /// @param defaultRecipient The default royalty payout address
@@ -83,16 +83,13 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
     /// @notice Unchained function to initialize the contract
     /// @param defaultRecipient The default royalty payout address
     /// @param defaultPercentage The deafult royalty percentage, out of 10,000
-    function __EIP2981TL_init_unchained(address defaultRecipient, uint256 defaultPercentage)
-        internal
-        onlyInitializing
-    {
+    function __EIP2981TL_init_unchained(address defaultRecipient, uint256 defaultPercentage) internal onlyInitializing {
         _setDefaultRoyaltyInfo(defaultRecipient, defaultPercentage);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Royalty Changing Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Royalty Changing Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @notice Function to set default royalty info
     /// @param newRecipient The new default royalty payout address
@@ -119,9 +116,9 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
         emit TokenRoyaltyOverride(msg.sender, tokenId, newRecipient, newPercentage);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Royalty Info
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Royalty Info
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC2981
     function royaltyInfo(uint256 tokenId, uint256 salePrice)
@@ -139,18 +136,18 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
         return (recipient, salePrice * percentage / BASIS);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                ERC-165 Override
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // ERC-165 Override
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) public view virtual returns (bool) {
         return interfaceId == type(IERC2981).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                            External View Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // External View Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @notice Query the default royalty receiver and percentage.
     /// @return Tuple containing the default royalty recipient and percentage out of 10_000

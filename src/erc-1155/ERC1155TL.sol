@@ -1,59 +1,61 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.30;
 
-import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
-import {IERC20} from "@openzeppelin-contracts-5.0.2/token/ERC20/IERC20.sol";
-import {IERC721} from "@openzeppelin-contracts-5.0.2/token/ERC721/IERC721.sol";
+import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
+import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
+import {IERC721} from "@openzeppelin-contracts-5.6.1/token/ERC721/IERC721.sol";
 import {
     ERC1155Upgradeable,
     IERC1155,
     IERC165
-} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC1155/ERC1155Upgradeable.sol";
+} from "@openzeppelin-contracts-upgradeable-5.6.1/token/ERC1155/ERC1155Upgradeable.sol";
 import {ERC2981TLUpgradeable} from "../lib/ERC2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "../lib/OwnableAccessControlUpgradeable.sol";
 import {IStory} from "../interfaces/IStory.sol";
 import {ICreatorBase} from "../interfaces/ICreatorBase.sol";
-import {IBlockListRegistry} from "../interfaces/IBlockListRegistry.sol";
+import {ICreatorToken} from "../interfaces/ICreatorToken.sol";
 import {ITLNftDelegationRegistry} from "../interfaces/ITLNftDelegationRegistry.sol";
+import {ITransferValidator} from "../interfaces/ITransferValidator.sol";
 import {IERC1155TL} from "./IERC1155TL.sol";
 
 /// @title ERC1155TL.sol
 /// @notice Sovereign ERC-1155 Creator Contract with Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.7.1
+/// @custom:version 4.0.0
 contract ERC1155TL is
     ERC1155Upgradeable,
     ERC2981TLUpgradeable,
     OwnableAccessControlUpgradeable,
     ICreatorBase,
+    ICreatorToken,
     IERC1155TL,
     IStory
 {
-    /*//////////////////////////////////////////////////////////////////////////
-                                Custom Types
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Custom Types
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev String representation for address
     using Strings for address;
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                State Variables
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // State Variables
+    /////////////////////////////////////////////////////////////////////
 
-    string public constant VERSION = "3.7.1";
+    string public constant VERSION = "4.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter;
     string public name;
     string public symbol;
     bool public storyEnabled;
-    IBlockListRegistry public blocklistRegistry;
+    address private _transferValidator;
     mapping(uint256 => Token) private _tokens;
     mapping(uint256 => bool) private _tokenLocks;
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                    Errors
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Errors
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev Token uri is an empty string
     error EmptyTokenURI();
@@ -82,44 +84,41 @@ contract ERC1155TL is
     /// @dev Burning zero tokens
     error BurnZeroTokens();
 
-    /// @dev Operator for token approvals blocked
-    error OperatorBlocked();
-
     /// @dev Story not enabled for collectors
     error StoryNotEnabled();
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Constructor
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Constructor
+    /////////////////////////////////////////////////////////////////////
 
     /// @param disable Boolean to disable initialization for the implementation contract
     constructor(bool disable) {
         if (disable) _disableInitializers();
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Initializer
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Initializer
+    /////////////////////////////////////////////////////////////////////
 
     /// @param name_ The name of the 721 contract
     /// @param symbol_ The symbol of the 721 contract
-    /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
     /// @param defaultRoyaltyRecipient The default address for royalty payments
     /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
     /// @param initOwner The owner of the contract
     /// @param admins Array of admin addresses to add to the contract
     /// @param enableStory A bool deciding whether to add story fuctionality or not
-    /// @param initBlockListRegistry Address of the blocklist registry to use
+    /// @param initTransferValidator Address of the Limit Break transfer validator to use
+    /// @param initListId The initial list id to use in the transfer validator (allows Transient protocol)
     function initialize(
         string memory name_,
         string memory symbol_,
-        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
         address[] memory admins,
         bool enableStory,
-        address initBlockListRegistry
+        address initTransferValidator,
+        uint48 initListId
     ) external initializer {
         // initialize parent contracts
         __ERC1155_init("");
@@ -137,19 +136,15 @@ contract ERC1155TL is
         storyEnabled = enableStory;
         emit StoryStatusUpdate(initOwner, enableStory);
 
-        // blocklist
-        blocklistRegistry = IBlockListRegistry(initBlockListRegistry);
-        emit BlockListRegistryUpdate(initOwner, address(0), initBlockListRegistry);
-
-        // emit personalization as collection story
-        if (bytes(personalization).length > 0) {
-            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
-        }
+        // transfer validator
+        _transferValidator = initTransferValidator;
+        emit TransferValidatorUpdated(address(0), initTransferValidator);
+        _setupTransferValidatorV5(initTransferValidator, initListId);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                General Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // General Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function totalSupply() external view returns (uint256) {
@@ -161,18 +156,18 @@ contract ERC1155TL is
         return _tokens[tokenId];
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Access Control Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Access Control Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setApprovedMintContracts(address[] calldata minters, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
         _setRole(APPROVED_MINT_CONTRACT, minters, status);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Creation Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Creation Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC1155TL
     function createToken(string calldata newUri, address[] calldata addresses, uint256[] calldata amounts)
@@ -225,9 +220,9 @@ contract ERC1155TL is
         }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Mint Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Mint Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC1155TL
     function mintToken(uint256 tokenId, address[] calldata addresses, uint256[] calldata amounts)
@@ -258,9 +253,9 @@ contract ERC1155TL is
         return _tokenLocks[tokenId];
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Burn Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Burn Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC1155TL
     function burn(address from, uint256[] calldata tokenIds, uint256[] calldata amounts) external {
@@ -269,9 +264,9 @@ contract ERC1155TL is
         _burnBatch(from, tokenIds, amounts);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Royalty Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Royalty Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -286,9 +281,9 @@ contract ERC1155TL is
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Token Uri Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Token Uri Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC1155TL
     function setTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -304,12 +299,16 @@ contract ERC1155TL is
         return _tokens[tokenId].uri;
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Story Inscriptions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Story Inscriptions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IStory
-    function addCollectionStory(string calldata, /*creatorName*/ string calldata story)
+    function addCollectionStory(
+        string calldata,
+        /*creatorName*/
+        string calldata story
+    )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -317,7 +316,12 @@ contract ERC1155TL is
     }
 
     /// @inheritdoc IStory
-    function addCreatorStory(uint256 tokenId, string calldata, /*creatorName*/ string calldata story)
+    function addCreatorStory(
+        uint256 tokenId,
+        string calldata,
+        /*creatorName*/
+        string calldata story
+    )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -326,7 +330,14 @@ contract ERC1155TL is
     }
 
     /// @inheritdoc IStory
-    function addStory(uint256 tokenId, string calldata, /*collectorName*/ string calldata story) external {
+    function addStory(
+        uint256 tokenId,
+        string calldata,
+        /*collectorName*/
+        string calldata story
+    )
+        external
+    {
         if (!storyEnabled) revert StoryNotEnabled();
         if (balanceOf(msg.sender, tokenId) == 0) revert CallerNotTokenOwner();
         emit Story(tokenId, msg.sender, msg.sender.toHexString(), story);
@@ -338,28 +349,48 @@ contract ERC1155TL is
         emit StoryStatusUpdate(msg.sender, status);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                BlockList
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Transfer Validation
+    /////////////////////////////////////////////////////////////////////
 
-    /// @inheritdoc ICreatorBase
-    function setBlockListRegistry(address newBlockListRegistry) external onlyRoleOrOwner(ADMIN_ROLE) {
-        address oldBlockListRegistry = address(blocklistRegistry);
-        blocklistRegistry = IBlockListRegistry(newBlockListRegistry);
-        emit BlockListRegistryUpdate(msg.sender, oldBlockListRegistry, newBlockListRegistry);
+    /// @inheritdoc ICreatorToken
+    function setTransferValidator(address newTransferValidator) external onlyRoleOrOwner(ADMIN_ROLE) {
+        address oldTransferValidator = _transferValidator;
+        _transferValidator = newTransferValidator;
+        emit TransferValidatorUpdated(oldTransferValidator, newTransferValidator);
+    }
+
+    /// @inheritdoc ICreatorToken
+    function getTransferValidationFunction() external pure returns (bytes4 functionSignature, bool isViewFunction) {
+        functionSignature = bytes4(keccak256("validateTransfer(address,address,address,uint256,uint256)"));
+        isViewFunction = false;
+    }
+
+    /// @inheritdoc ICreatorToken
+    function getTransferValidator() external view returns (address validator) {
+        validator = _transferValidator;
     }
 
     /// @inheritdoc ERC1155Upgradeable
-    function setApprovalForAll(address operator, bool approved) public override(ERC1155Upgradeable) {
-        if (approved) {
-            if (_isOperatorBlocked(operator)) revert OperatorBlocked();
+    function _update(address from, address to, uint256[] memory ids, uint256[] memory values)
+        internal
+        override(ERC1155Upgradeable)
+    {
+        // only check transfer validator if not a mint or burn
+        address transferValidator = _transferValidator;
+        if (from != address(0) && to != address(0) && transferValidator != address(0)) {
+            for (uint256 i = 0; i < ids.length; ++i) {
+                ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, ids[i], values[i]);
+            }
         }
-        ERC1155Upgradeable.setApprovalForAll(operator, approved);
+
+        // run the inherited update function
+        ERC1155Upgradeable._update(from, to, ids, values);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                            NFT Delegation Registry
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // NFT Delegation Registry
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function tlNftDelegationRegistry() external pure returns (ITLNftDelegationRegistry) {
@@ -367,13 +398,18 @@ contract ERC1155TL is
     }
 
     /// @inheritdoc ICreatorBase
-    function setNftDelegationRegistry(address /*newNftDelegationRegistry*/ ) external pure {
+    function setNftDelegationRegistry(
+        address /*newNftDelegationRegistry*/
+    )
+        external
+        pure
+    {
         revert();
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Withdraw Funds
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Withdraw Funds
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function withdrawERC20(address currency, uint256 amount, address recipient) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -386,9 +422,9 @@ contract ERC1155TL is
         IERC721(token).safeTransferFrom(address(this), recipient, id);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                ERC-165 Support
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // ERC-165 Support
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId)
@@ -397,17 +433,15 @@ contract ERC1155TL is
         override(ERC1155Upgradeable, ERC2981TLUpgradeable)
         returns (bool)
     {
-        return (
-            ERC1155Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
-                || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(IStory).interfaceId
-                || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
-                || interfaceId == type(IERC1155TL).interfaceId
-        );
+        return (ERC1155Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
+                || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(ICreatorToken).interfaceId
+                || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
+                || interfaceId == type(IERC1155TL).interfaceId);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Internal Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Internal Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @notice Private helper function to verify a token exists
     /// @param tokenId The token to check existence for
@@ -427,7 +461,9 @@ contract ERC1155TL is
         if (bytes(newUri).length == 0) revert EmptyTokenURI();
         if (addresses.length == 0) revert MintToZeroAddresses();
         if (addresses.length != amounts.length) revert ArrayLengthMismatch();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _tokens[_counter] = Token(true, newUri);
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], _counter, amounts[i], "");
@@ -449,12 +485,14 @@ contract ERC1155TL is
         }
     }
 
-    // @notice Function to get if an operator is blocked for token approvals
-    function _isOperatorBlocked(address operator) internal view returns (bool) {
-        if (address(blocklistRegistry) == address(0)) {
-            return false;
-        } else {
-            return blocklistRegistry.getBlockListStatus(operator);
-        }
+    /// @notice Function to setup the v5 transfer validator by Limit Break
+    /// @dev We know how the rulset options work by default so all good to fix the values in code here.
+    ///      But we will pass in the initial list id as that is different across chains.
+    function _setupTransferValidatorV5(address transferValidator, uint48 listId) private {
+        if (transferValidator == address(0)) return;
+
+        ITransferValidator tv = ITransferValidator(transferValidator);
+        tv.applyListToCollection(address(this), listId);
+        tv.setRulesetOfCollection(address(this), 0, address(0), 0, 6);
     }
 }

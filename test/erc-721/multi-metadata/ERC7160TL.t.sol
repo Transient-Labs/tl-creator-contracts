@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.30;
 
-import "forge-std-1.9.4/Test.sol";
-import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
+import "forge-std-1.14.0/Test.sol";
+import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
 import {ERC7160TL} from "src/erc-721/multi-metadata/ERC7160TL.sol";
 import {IERC721TL} from "src/erc-721/IERC721TL.sol";
-import {IERC721Errors} from "@openzeppelin-contracts-5.0.2/interfaces/draft-IERC6093.sol";
-import {Initializable} from "@openzeppelin-contracts-5.0.2/proxy/utils/Initializable.sol";
+import {IERC721Errors} from "@openzeppelin-contracts-5.6.1/interfaces/draft-IERC6093.sol";
+import {Initializable} from "@openzeppelin-contracts-5.6.1/proxy/utils/Initializable.sol";
 import {OwnableAccessControlUpgradeable} from "src/lib/OwnableAccessControlUpgradeable.sol";
-import {IBlockListRegistry} from "src/interfaces/IBlockListRegistry.sol";
 import {ITLNftDelegationRegistry} from "src/interfaces/ITLNftDelegationRegistry.sol";
 import {MockERC20} from "../../utils/MockERC20.sol";
 import {MockERC721} from "../../utils/MockERC721.sol";
+import {MockTransferValidator} from "../../utils/MockTransferValidator.sol";
 
 contract ERC7160TLTest is Test {
     using Strings for uint256;
@@ -19,15 +19,12 @@ contract ERC7160TLTest is Test {
 
     ERC7160TL public tokenContract;
     address public royaltyRecipient = makeAddr("royaltyRecipient");
-    address public blocklistRegistry = makeAddr("blocklistRegistry");
     address public nftDelegationRegistry = makeAddr("nftDelegationRegistry");
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event RoleChange(address indexed from, address indexed user, bool indexed approved, bytes32 role);
     event StoryStatusUpdate(address indexed sender, bool indexed status);
-    event BlockListRegistryUpdate(
-        address indexed sender, address indexed prevBlockListRegistry, address indexed newBlockListRegistry
-    );
+    event TransferValidatorUpdated(address oldValidator, address newValidator);
     event NftDelegationRegistryUpdate(
         address indexed sender, address indexed prevNftDelegationRegistry, address indexed newNftDelegationRegistry
     );
@@ -43,7 +40,7 @@ contract ERC7160TLTest is Test {
         address[] memory admins = new address[](0);
         tokenContract = new ERC7160TL(false);
         tokenContract.initialize(
-            "Test7160", "T7160", "", royaltyRecipient, 1000, address(this), admins, true, address(0), address(0)
+            "Test7160", "T7160", royaltyRecipient, 1000, address(this), admins, true, address(0), 0, address(0)
         );
     }
 
@@ -51,13 +48,11 @@ contract ERC7160TLTest is Test {
     function test_initialize(
         string memory name,
         string memory symbol,
-        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
         address[] memory admins,
         bool enableStory,
-        address blockListRegistry,
         address tlNftDelegationRegistry
     ) public {
         // limit fuzz
@@ -81,23 +76,19 @@ contract ERC7160TLTest is Test {
         vm.expectEmit(true, true, true, true);
         emit StoryStatusUpdate(initOwner, enableStory);
         vm.expectEmit(true, true, true, true);
-        emit BlockListRegistryUpdate(initOwner, address(0), blockListRegistry);
+        emit TransferValidatorUpdated(address(0), address(0));
         vm.expectEmit(true, true, true, true);
         emit NftDelegationRegistryUpdate(initOwner, address(0), tlNftDelegationRegistry);
-        if (bytes(personalization).length > 0) {
-            vm.expectEmit(true, true, true, true);
-            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
-        }
         tokenContract.initialize(
             name,
             symbol,
-            personalization,
             defaultRoyaltyRecipient,
             defaultRoyaltyPercentage,
             initOwner,
             admins,
             enableStory,
-            blockListRegistry,
+            address(0),
+            0,
             tlNftDelegationRegistry
         );
         assertEq(tokenContract.name(), name);
@@ -110,7 +101,7 @@ contract ERC7160TLTest is Test {
             assertTrue(tokenContract.hasRole(tokenContract.ADMIN_ROLE(), admins[i]));
         }
         assertEq(tokenContract.storyEnabled(), enableStory);
-        assertEq(address(tokenContract.blocklistRegistry()), blockListRegistry);
+        assertEq(tokenContract.getTransferValidator(), address(0));
         assertEq(address(tokenContract.tlNftDelegationRegistry()), tlNftDelegationRegistry);
 
         // can't initialize again
@@ -118,13 +109,13 @@ contract ERC7160TLTest is Test {
         tokenContract.initialize(
             name,
             symbol,
-            personalization,
             defaultRoyaltyRecipient,
             defaultRoyaltyPercentage,
             initOwner,
             admins,
             enableStory,
-            blockListRegistry,
+            address(0),
+            0,
             tlNftDelegationRegistry
         );
 
@@ -135,22 +126,50 @@ contract ERC7160TLTest is Test {
         tokenContract.initialize(
             name,
             symbol,
-            personalization,
             defaultRoyaltyRecipient,
             defaultRoyaltyPercentage,
             initOwner,
             admins,
             enableStory,
-            blockListRegistry,
+            address(0),
+            0,
             tlNftDelegationRegistry
         );
 
         vm.stopPrank();
     }
 
+    /// @notice Test initialization with a transfer validator and list id
+    function test_initializeWithTransferValidator() public {
+        MockTransferValidator tv = new MockTransferValidator();
+
+        address[] memory admins = new address[](0);
+        tokenContract = new ERC7160TL(false);
+
+        vm.expectEmit(true, true, true, true);
+        emit TransferValidatorUpdated(address(0), address(tv));
+        tokenContract.initialize(
+            "Test7160",
+            "T7160",
+            royaltyRecipient,
+            1000,
+            address(this),
+            admins,
+            true,
+            address(tv),
+            42,
+            nftDelegationRegistry
+        );
+
+        assertEq(tokenContract.getTransferValidator(), address(tv));
+        assertEq(tv.listId(), uint48(42));
+        assertEq(tv.rulesetOptions(), uint16(6));
+    }
+
     /// @notice test ERC-165 support
     function test_supportsInterface() public view {
-        assertTrue(tokenContract.supportsInterface(0x38d29ef3)); // ICreatorBase
+        assertTrue(tokenContract.supportsInterface(0x3397523a)); // ICreatorBase
+        assertTrue(tokenContract.supportsInterface(0xad0d7f6c)); // ICreatorToken
         assertTrue(tokenContract.supportsInterface(0xd294c531)); // IERC721TL
         assertTrue(tokenContract.supportsInterface(0x06e1bc5b)); // IERC7160
         assertTrue(tokenContract.supportsInterface(0x2464f17b)); // IStory
@@ -159,6 +178,12 @@ contract ERC7160TLTest is Test {
         assertTrue(tokenContract.supportsInterface(0x80ac58cd)); // ERC-721
         assertTrue(tokenContract.supportsInterface(0x2a55205a)); // ERC-2981
         assertTrue(tokenContract.supportsInterface(0x49064906)); // ERC-4906
+    }
+
+    function test_getTransferValidationFunction() public view {
+        (bytes4 functionSignature, bool isViewFunction) = tokenContract.getTransferValidationFunction();
+        assertEq(functionSignature, bytes4(0xcaee23ea));
+        assertEq(isViewFunction, true);
     }
 
     /// @notice test mint contract access approvals
@@ -197,6 +222,75 @@ contract ERC7160TLTest is Test {
         // verify owner can access
         tokenContract.setApprovedMintContracts(minters, false);
         assertFalse(tokenContract.hasRole(tokenContract.APPROVED_MINT_CONTRACT(), address(1)));
+    }
+
+    /// @notice transfer validator tests
+    function test_setTransferValidator_accessControl(address user, address validator) public {
+        vm.assume(user != address(this) && user != address(0));
+
+        vm.startPrank(user, user);
+        vm.expectRevert(
+            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
+        );
+        tokenContract.setTransferValidator(validator);
+        vm.stopPrank();
+
+        address[] memory admins = new address[](1);
+        admins[0] = user;
+        tokenContract.setRole(tokenContract.ADMIN_ROLE(), admins, true);
+        vm.prank(user, user);
+        tokenContract.setTransferValidator(validator);
+        assertEq(tokenContract.getTransferValidator(), validator);
+    }
+
+    function test_transferValidator_calledOnTransfer(address recipient) public {
+        vm.assume(recipient != address(0));
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+        tokenContract.mint(address(this), "uri");
+
+        vm.expectCall(
+            address(mock),
+            abi.encodeWithSelector(
+                bytes4(keccak256("validateTransfer(address,address,address,uint256)")),
+                address(this),
+                address(this),
+                recipient,
+                uint256(1)
+            )
+        );
+        tokenContract.transferFrom(address(this), recipient, 1);
+    }
+
+    function test_transferValidator_bypassOnMintAndBurn() public {
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+        mock.setRevert721(true);
+
+        tokenContract.mint(address(this), "uri");
+        tokenContract.burn(1);
+    }
+
+    function test_transferValidator_zeroAddressBypass(address recipient) public {
+        vm.assume(recipient != address(0));
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+        tokenContract.mint(address(this), "uri");
+
+        mock.setRevert721(true);
+        tokenContract.setTransferValidator(address(0));
+        tokenContract.transferFrom(address(this), recipient, 1);
+    }
+
+    function test_transferValidator_revertPropagates(address recipient) public {
+        vm.assume(recipient != address(0));
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+        tokenContract.mint(address(this), "uri");
+
+        mock.setRevert721(true);
+        vm.expectRevert(MockTransferValidator.Revert721.selector);
+        tokenContract.transferFrom(address(this), recipient, 1);
     }
 
     /// @notice test mint
@@ -840,9 +934,7 @@ contract ERC7160TLTest is Test {
 
     /// @notice test mint options in a row
     // - randomly make sure that can mint in a row and that there aren't overlapping token ids ✅
-    function test_mints_combined(uint8 n1, uint8 n2, uint8 n3, uint8 n4, uint16 batchSize, uint16 numAddresses)
-        public
-    {
+    function test_mints_combined(uint8 n1, uint8 n2, uint8 n3, uint8 n4, uint16 batchSize, uint16 numAddresses) public {
         address[] memory minters = new address[](1);
         minters[0] = address(1);
         tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), minters, true);
@@ -1027,6 +1119,23 @@ contract ERC7160TLTest is Test {
         tokenContract.burn(tokenId);
     }
 
+    function test_totalSupply_tracksBurnCounter() public {
+        tokenContract.mint(address(this), "uriOne");
+        tokenContract.mint(address(this), "uriTwo");
+        tokenContract.mint(address(this), "uriThree");
+        assertEq(tokenContract.totalSupply(), 3);
+
+        tokenContract.burn(2);
+        assertEq(tokenContract.totalSupply(), 2);
+
+        tokenContract.mint(address(this), "uriFour");
+        assertEq(tokenContract.totalSupply(), 3);
+
+        tokenContract.burn(1);
+        tokenContract.burn(4);
+        assertEq(tokenContract.totalSupply(), 1);
+    }
+
     function test_burn_accessControl(uint16 tokenId, address collector, address hacker) public {
         vm.assume(tokenId != 0);
         vm.assume(collector != address(0));
@@ -1074,12 +1183,16 @@ contract ERC7160TLTest is Test {
         vm.expectRevert(ERC7160TL.CallerNotApprovedOrOwner.selector);
         tokenContract.burn(tokenId);
 
+        uint256 expectedSupply = tokenContract.totalSupply();
+
         // verify collector can burn tokenId
         vm.expectEmit(true, true, true, true);
         emit Transfer(collector, address(0), tokenId);
         vm.startPrank(collector, collector);
         tokenContract.burn(tokenId);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
 
         // ensure
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
@@ -1111,6 +1224,7 @@ contract ERC7160TLTest is Test {
         tokenContract.mint(collector, "uriOne");
         tokenContract.mint(collector, "uriTwo");
         tokenContract.mint(collector, "uriThree");
+        uint256 expectedSupply = tokenContract.totalSupply();
 
         // verify collector can burn tokenId
         vm.startPrank(collector, collector);
@@ -1118,6 +1232,8 @@ contract ERC7160TLTest is Test {
         emit Transfer(collector, address(0), tokenId);
         tokenContract.burn(tokenId);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 2);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
@@ -1141,6 +1257,8 @@ contract ERC7160TLTest is Test {
         emit Transfer(collector, address(0), tokenId + 1);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 1);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
@@ -1158,6 +1276,8 @@ contract ERC7160TLTest is Test {
         emit Transfer(collector, address(0), tokenId + 2);
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 0);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
@@ -1175,6 +1295,7 @@ contract ERC7160TLTest is Test {
         }
         // batch mint to collector
         tokenContract.batchMint(collector, batchSize, "baseUri");
+        uint256 expectedSupply = tokenContract.totalSupply();
         // verify collector can burn the batch
         for (uint256 i = 1; i <= batchSize; i++) {
             vm.startPrank(collector, collector);
@@ -1182,6 +1303,8 @@ contract ERC7160TLTest is Test {
             emit Transfer(collector, address(0), i);
             tokenContract.burn(i);
             vm.stopPrank();
+            expectedSupply--;
+            assertEq(tokenContract.totalSupply(), expectedSupply);
             assertEq(tokenContract.balanceOf(collector), batchSize - i);
             vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
@@ -1191,6 +1314,7 @@ contract ERC7160TLTest is Test {
 
         // batch mint again to collector
         tokenContract.batchMint(collector, batchSize, "baseUri");
+        expectedSupply = tokenContract.totalSupply();
 
         // verify that operator can't burn
         for (uint256 i = batchSize + 1; i <= 2 * batchSize; i++) {
@@ -1210,6 +1334,8 @@ contract ERC7160TLTest is Test {
             emit Transfer(collector, address(0), i);
             tokenContract.burn(i);
             vm.stopPrank();
+            expectedSupply--;
+            assertEq(tokenContract.totalSupply(), expectedSupply);
             assertEq(tokenContract.balanceOf(collector), 2 * batchSize - i);
             vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
@@ -1219,6 +1345,7 @@ contract ERC7160TLTest is Test {
 
         // mint batch again
         tokenContract.batchMint(collector, batchSize, "baseUri");
+        expectedSupply = tokenContract.totalSupply();
         vm.startPrank(collector, collector);
         tokenContract.setApprovalForAll(operator, true);
         vm.stopPrank();
@@ -1230,6 +1357,8 @@ contract ERC7160TLTest is Test {
             emit Transfer(collector, address(0), i);
             tokenContract.burn(i);
             vm.stopPrank();
+            expectedSupply--;
+            assertEq(tokenContract.totalSupply(), expectedSupply);
             assertEq(tokenContract.balanceOf(collector), 3 * batchSize - i);
             vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
             tokenContract.tokenURI(i);
@@ -1255,6 +1384,7 @@ contract ERC7160TLTest is Test {
 
         // airdrop to addresses
         tokenContract.airdrop(addresses, "baseUri");
+        uint256 expectedSupply = tokenContract.totalSupply();
 
         // verify address can burn
         uint256 limit = numAddresses;
@@ -1266,6 +1396,8 @@ contract ERC7160TLTest is Test {
             emit Transfer(addresses[i], address(0), id);
             tokenContract.burn(id);
             vm.stopPrank();
+            expectedSupply--;
+            assertEq(tokenContract.totalSupply(), expectedSupply);
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
             vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
@@ -1275,6 +1407,7 @@ contract ERC7160TLTest is Test {
 
         // airdrop again
         tokenContract.airdrop(addresses, "baseUri");
+        expectedSupply = tokenContract.totalSupply();
 
         // verify operator can't burn
         limit = numAddresses;
@@ -1298,6 +1431,8 @@ contract ERC7160TLTest is Test {
             emit Transfer(addresses[i], address(0), id);
             tokenContract.burn(id);
             vm.stopPrank();
+            expectedSupply--;
+            assertEq(tokenContract.totalSupply(), expectedSupply);
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
             vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
@@ -1307,6 +1442,7 @@ contract ERC7160TLTest is Test {
 
         // airdrop again
         tokenContract.airdrop(addresses, "baseUri");
+        expectedSupply = tokenContract.totalSupply();
 
         // verify operator can burn the batch
         limit = numAddresses;
@@ -1321,6 +1457,8 @@ contract ERC7160TLTest is Test {
             emit Transfer(addresses[i], address(0), id);
             tokenContract.burn(id);
             vm.stopPrank();
+            expectedSupply--;
+            assertEq(tokenContract.totalSupply(), expectedSupply);
             assertEq(tokenContract.balanceOf(addresses[i]), 0);
             vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
             tokenContract.tokenURI(id);
@@ -1356,6 +1494,7 @@ contract ERC7160TLTest is Test {
         tokenContract.externalMint(collector, "uriTwo");
         tokenContract.externalMint(collector, "uriThree");
         vm.stopPrank();
+        uint256 expectedSupply = tokenContract.totalSupply();
 
         // verify collector can burn tokenId
         vm.startPrank(collector, collector);
@@ -1363,6 +1502,8 @@ contract ERC7160TLTest is Test {
         emit Transfer(collector, address(0), tokenId);
         tokenContract.burn(tokenId);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 2);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
@@ -1386,6 +1527,8 @@ contract ERC7160TLTest is Test {
         emit Transfer(collector, address(0), tokenId + 1);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 1);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
@@ -1403,6 +1546,8 @@ contract ERC7160TLTest is Test {
         emit Transfer(collector, address(0), tokenId + 2);
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 0);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
@@ -1437,6 +1582,7 @@ contract ERC7160TLTest is Test {
         tokenContract.transferFrom(address(this), collector, tokenId);
         tokenContract.transferFrom(address(this), collector, tokenId + 1);
         tokenContract.transferFrom(address(this), collector, tokenId + 2);
+        uint256 expectedSupply = tokenContract.totalSupply();
 
         // verify collector can burn tokenId
         vm.startPrank(collector, collector);
@@ -1444,6 +1590,8 @@ contract ERC7160TLTest is Test {
         emit Transfer(collector, address(0), tokenId);
         tokenContract.burn(tokenId);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 2);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
@@ -1465,6 +1613,8 @@ contract ERC7160TLTest is Test {
         emit Transfer(collector, address(0), tokenId + 1);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 1);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
@@ -1480,6 +1630,8 @@ contract ERC7160TLTest is Test {
         emit Transfer(collector, address(0), tokenId + 2);
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 0);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
@@ -1516,6 +1668,7 @@ contract ERC7160TLTest is Test {
         tokenContract.safeTransferFrom(address(this), collector, tokenId);
         tokenContract.safeTransferFrom(address(this), collector, tokenId + 1);
         tokenContract.safeTransferFrom(address(this), collector, tokenId + 2);
+        uint256 expectedSupply = tokenContract.totalSupply();
 
         // verify collector can burn tokenId
         vm.startPrank(collector, collector);
@@ -1523,6 +1676,8 @@ contract ERC7160TLTest is Test {
         emit Transfer(collector, address(0), tokenId);
         tokenContract.burn(tokenId);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 2);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId);
@@ -1544,6 +1699,8 @@ contract ERC7160TLTest is Test {
         emit Transfer(collector, address(0), tokenId + 1);
         tokenContract.burn(tokenId + 1);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 1);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 1);
@@ -1559,6 +1716,8 @@ contract ERC7160TLTest is Test {
         emit Transfer(collector, address(0), tokenId + 2);
         tokenContract.burn(tokenId + 2);
         vm.stopPrank();
+        expectedSupply--;
+        assertEq(tokenContract.totalSupply(), expectedSupply);
         assertEq(tokenContract.balanceOf(collector), 0);
         vm.expectRevert(ERC7160TL.TokenDoesntExist.selector);
         tokenContract.tokenURI(tokenId + 2);
@@ -2961,244 +3120,6 @@ contract ERC7160TLTest is Test {
         // test that owner can't add collector story
         vm.expectRevert(ERC7160TL.StoryNotEnabled.selector);
         tokenContract.addStory(1, "NOT XCOPY", "I AM NOT XCOPY");
-    }
-
-    /// @notice test blocklist functions
-    // - regular mint ✅
-    // - batch mint ✅
-    // - airdrop ✅
-    // - external mint ✅
-    // - test blocked ✅
-    // - test not blocked
-    // - test access control for changing the registry ✅
-    function test_setBlockListRegistry_accessControl(address user) public {
-        vm.assume(user != address(this));
-        address[] memory users = new address[](1);
-        users[0] = user;
-
-        // verify user can't access
-        vm.startPrank(user, user);
-        vm.expectRevert(
-            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
-        );
-        tokenContract.setBlockListRegistry(address(1));
-        vm.stopPrank();
-
-        // verify admin can access
-        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, true);
-        vm.startPrank(user, user);
-        vm.expectEmit(true, true, true, true);
-        emit BlockListRegistryUpdate(user, address(0), address(1));
-        tokenContract.setBlockListRegistry(address(1));
-        assertEq(address(tokenContract.blocklistRegistry()), address(1));
-        vm.stopPrank();
-        tokenContract.setRole(tokenContract.ADMIN_ROLE(), users, false);
-
-        // verify minter can't access
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-        vm.startPrank(user, user);
-        vm.expectRevert(
-            abi.encodeWithSelector(OwnableAccessControlUpgradeable.NotRoleOrOwner.selector, tokenContract.ADMIN_ROLE())
-        );
-        tokenContract.setBlockListRegistry(address(1));
-        vm.stopPrank();
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, false);
-
-        // verify owner can access
-        vm.expectEmit(true, true, true, true);
-        emit BlockListRegistryUpdate(address(this), address(1), blocklistRegistry);
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-        assertEq(address(tokenContract.blocklistRegistry()), blocklistRegistry);
-    }
-
-    function test_blocklist_eoa() public {
-        // update blocklist registry to EOA
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // mint
-        tokenContract.mint(address(this), "uri");
-
-        // expect revert
-        vm.expectRevert();
-        tokenContract.approve(address(10), 1);
-        vm.expectRevert();
-        tokenContract.setApprovalForAll(address(10), true);
-
-        // expect can set approval for all to false regardless
-        tokenContract.setApprovalForAll(address(10), false);
-    }
-
-    function test_blocklist_mint(address collector, address operator) public {
-        // limit fuzz
-        vm.assume(collector != address(0));
-        vm.assume(collector != operator);
-        vm.assume(operator != address(0));
-
-        // mock call
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
-        );
-
-        // update blocklist registry
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // mint and verify blocked operator
-        tokenContract.mint(collector, "uri");
-        vm.startPrank(collector, collector);
-        vm.expectRevert(ERC7160TL.OperatorBlocked.selector);
-        tokenContract.approve(operator, 1);
-        vm.expectRevert(ERC7160TL.OperatorBlocked.selector);
-        tokenContract.setApprovalForAll(operator, true);
-        vm.stopPrank();
-
-        // unblock operator and verify approvals
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
-        );
-        vm.startPrank(collector, collector);
-        tokenContract.approve(operator, 1);
-        assertEq(tokenContract.getApproved(1), operator);
-        tokenContract.setApprovalForAll(operator, true);
-        assertTrue(tokenContract.isApprovedForAll(collector, operator));
-        vm.stopPrank();
-
-        // clear mocked call
-        vm.clearMockedCalls();
-    }
-
-    function test_blocklist_batchMint(address collector, address operator) public {
-        // limit fuzz
-        vm.assume(collector != address(0));
-        vm.assume(collector != operator);
-        vm.assume(operator != address(0));
-
-        // mock call
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
-        );
-
-        // update blocklist registry
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // mint and verify blocked operator
-        tokenContract.batchMint(collector, 2, "uri");
-        vm.startPrank(collector, collector);
-        vm.expectRevert(ERC7160TL.OperatorBlocked.selector);
-        tokenContract.approve(operator, 1);
-        vm.expectRevert(ERC7160TL.OperatorBlocked.selector);
-        tokenContract.approve(operator, 2);
-        vm.expectRevert(ERC7160TL.OperatorBlocked.selector);
-        tokenContract.setApprovalForAll(operator, true);
-        vm.stopPrank();
-
-        // unblock operator and verify approvals
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
-        );
-        vm.startPrank(collector, collector);
-        tokenContract.approve(operator, 1);
-        assertEq(tokenContract.getApproved(1), operator);
-        tokenContract.approve(operator, 2);
-        assertEq(tokenContract.getApproved(2), operator);
-        tokenContract.setApprovalForAll(operator, true);
-        assertTrue(tokenContract.isApprovedForAll(collector, operator));
-        vm.stopPrank();
-
-        // clear mocked call
-        vm.clearMockedCalls();
-    }
-
-    function testBlockListAirdrop(address collector, address operator) public {
-        // limit fuzz
-        vm.assume(collector != address(0));
-        vm.assume(collector != operator);
-        vm.assume(operator != address(0));
-
-        // variables
-        address[] memory addresses = new address[](2);
-        addresses[0] = collector;
-        addresses[1] = collector;
-
-        // mock call
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
-        );
-
-        // update blocklist registry
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // mint and verify blocked operator
-        tokenContract.airdrop(addresses, "uri");
-        vm.startPrank(collector, collector);
-        vm.expectRevert(ERC7160TL.OperatorBlocked.selector);
-        tokenContract.approve(operator, 1);
-        vm.expectRevert(ERC7160TL.OperatorBlocked.selector);
-        tokenContract.approve(operator, 2);
-        vm.expectRevert(ERC7160TL.OperatorBlocked.selector);
-        tokenContract.setApprovalForAll(operator, true);
-        vm.stopPrank();
-
-        // unblock operator and verify approvals
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
-        );
-        vm.startPrank(collector, collector);
-        tokenContract.approve(operator, 1);
-        assertEq(tokenContract.getApproved(1), operator);
-        tokenContract.approve(operator, 2);
-        assertEq(tokenContract.getApproved(2), operator);
-        tokenContract.setApprovalForAll(operator, true);
-        assertTrue(tokenContract.isApprovedForAll(collector, operator));
-        vm.stopPrank();
-
-        // clear mocked call
-        vm.clearMockedCalls();
-    }
-
-    function testBlockListExternalMint(address collector, address operator) public {
-        // limit fuzz
-        vm.assume(collector != address(0));
-        vm.assume(collector != address(1));
-        vm.assume(collector != operator);
-        vm.assume(operator != address(0));
-
-        // variables
-        address[] memory users = new address[](1);
-        users[0] = address(1);
-        tokenContract.setRole(tokenContract.APPROVED_MINT_CONTRACT(), users, true);
-
-        // mock call
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(true)
-        );
-
-        // update blocklist registry
-        tokenContract.setBlockListRegistry(blocklistRegistry);
-
-        // mint and verify blocked operator
-        vm.startPrank(address(1), address(1));
-        tokenContract.externalMint(collector, "uri");
-        vm.stopPrank();
-        vm.startPrank(collector, collector);
-        vm.expectRevert(ERC7160TL.OperatorBlocked.selector);
-        tokenContract.approve(operator, 1);
-        vm.expectRevert(ERC7160TL.OperatorBlocked.selector);
-        tokenContract.setApprovalForAll(operator, true);
-        vm.stopPrank();
-
-        // unblock operator and verify approvals
-        vm.mockCall(
-            blocklistRegistry, abi.encodeWithSelector(IBlockListRegistry.getBlockListStatus.selector), abi.encode(false)
-        );
-        vm.startPrank(collector, collector);
-        tokenContract.approve(operator, 1);
-        assertEq(tokenContract.getApproved(1), operator);
-        tokenContract.setApprovalForAll(operator, true);
-        assertTrue(tokenContract.isApprovedForAll(collector, operator));
-        vm.stopPrank();
-
-        // clear mocked call
-        vm.clearMockedCalls();
     }
 
     /// @notice test TL Nft Delegation Registry functions

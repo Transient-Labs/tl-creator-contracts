@@ -1,41 +1,43 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.30;
 
-import {IERC4906} from "@openzeppelin-contracts-5.0.2/interfaces/IERC4906.sol";
-import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
-import {IERC20} from "@openzeppelin-contracts-5.0.2/token/ERC20/IERC20.sol";
+import {IERC4906} from "@openzeppelin-contracts-5.6.1/interfaces/IERC4906.sol";
+import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
+import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
 import {
     ERC721Upgradeable,
     IERC165,
     IERC721
-} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
+} from "@openzeppelin-contracts-upgradeable-5.6.1/token/ERC721/ERC721Upgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "../lib/OwnableAccessControlUpgradeable.sol";
 import {ERC2981TLUpgradeable} from "../lib/ERC2981TLUpgradeable.sol";
-import {IBlockListRegistry} from "../interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "../interfaces/ICreatorBase.sol";
+import {ICreatorToken} from "../interfaces/ICreatorToken.sol";
 import {IMutableMetadata} from "../interfaces/IMutableMetadata.sol";
 import {IRenderingContract} from "../interfaces/IRenderingContract.sol";
 import {IStory} from "../interfaces/IStory.sol";
 import {ITLNftDelegationRegistry} from "../interfaces/ITLNftDelegationRegistry.sol";
+import {ITransferValidator} from "../interfaces/ITransferValidator.sol";
 import {IERC721TL} from "./IERC721TL.sol";
 
 /// @title ERC721TL.sol
 /// @notice Sovereign ERC-721 Creator Contract with Mutable Metadata and Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 3.8.0
+/// @custom:version 4.0.0
 contract ERC721TL is
     ERC721Upgradeable,
     OwnableAccessControlUpgradeable,
     ERC2981TLUpgradeable,
     ICreatorBase,
+    ICreatorToken,
     IERC721TL,
     IMutableMetadata,
     IStory,
     IERC4906
 {
-    /*//////////////////////////////////////////////////////////////////////////
-                                Custom Types
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Custom Types
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev Struct defining a batch mint
     struct BatchMint {
@@ -51,26 +53,27 @@ contract ERC721TL is
     /// @dev String representation for address
     using Strings for address;
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                State Variables
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // State Variables
+    /////////////////////////////////////////////////////////////////////
 
-    string public constant VERSION = "3.8.0";
+    string public constant VERSION = "4.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
+    uint256 private _burnCounter; // total burned token count
     bool public storyEnabled;
     bool public supplyLocked;
     IRenderingContract public renderingContract;
     ITLNftDelegationRegistry public tlNftDelegationRegistry;
-    IBlockListRegistry public blocklistRegistry;
+    address private _transferValidator;
     mapping(uint256 => bool) private _burned; // flag to see if a token is burned or not - needed for burning batch mints
     mapping(uint256 => string) private _tokenUris; // established token uris
     BatchMint[] private _batchMints; // dynamic array for batch mints
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                 Custom Errors
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Custom Errors
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev Token uri is an empty string
     error EmptyTokenURI();
@@ -93,48 +96,45 @@ contract ERC721TL is
     /// @dev Token does not exist
     error TokenDoesntExist();
 
-    /// @dev Operator for token approvals blocked
-    error OperatorBlocked();
-
     /// @dev Story not enabled for collectors
     error StoryNotEnabled();
 
     /// @dev Supply locked from minting more
     error SupplyIsLocked();
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Constructor
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Constructor
+    /////////////////////////////////////////////////////////////////////
 
     /// @param disable Boolean to disable initialization for the implementation contract
     constructor(bool disable) {
         if (disable) _disableInitializers();
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Initializer
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Initializer
+    /////////////////////////////////////////////////////////////////////
 
     /// @param name The name of the 721 contract
     /// @param symbol The symbol of the 721 contract
-    /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
     /// @param defaultRoyaltyRecipient The default address for royalty payments
     /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
     /// @param initOwner The owner of the contract
     /// @param admins Array of admin addresses to add to the contract
     /// @param enableStory A bool deciding whether to add story fuctionality or not
-    /// @param initBlockListRegistry Address of the blocklist registry to use
+    /// @param initTransferValidator Address of the transfer validator to use
+    /// @param initListId The initial list id to use in the transfer validator (allows Transient protocol)
     /// @param initNftDelegationRegistry Address of the TL nft delegation registry to use
     function initialize(
         string memory name,
         string memory symbol,
-        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
         address[] memory admins,
         bool enableStory,
-        address initBlockListRegistry,
+        address initTransferValidator,
+        uint48 initListId,
         address initNftDelegationRegistry
     ) external initializer {
         // initialize parent contracts
@@ -149,45 +149,45 @@ contract ERC721TL is
         storyEnabled = enableStory;
         emit StoryStatusUpdate(initOwner, enableStory);
 
-        // blocklist and nft delegation registry
-        blocklistRegistry = IBlockListRegistry(initBlockListRegistry);
-        emit BlockListRegistryUpdate(initOwner, address(0), initBlockListRegistry);
+        // transfer validators
+        _transferValidator = initTransferValidator;
+        emit TransferValidatorUpdated(address(0), initTransferValidator);
+        _setupTransferValidatorV5(initTransferValidator, initListId);
+
+        // nft delegation registry
         tlNftDelegationRegistry = ITLNftDelegationRegistry(initNftDelegationRegistry);
         emit NftDelegationRegistryUpdate(initOwner, address(0), initNftDelegationRegistry);
-
-        // emit personalization as collection story
-        if (bytes(personalization).length > 0) {
-            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
-        }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                General Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // General Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function totalSupply() external view returns (uint256) {
-        return _counter;
+        return _counter - _burnCounter;
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Access Control Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Access Control Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setApprovedMintContracts(address[] calldata minters, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
         _setRole(APPROVED_MINT_CONTRACT, minters, status);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Mint Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Mint Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC721TL
     function mint(address recipient, string calldata uri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (supplyLocked) revert SupplyIsLocked();
         if (bytes(uri).length == 0) revert EmptyTokenURI();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _tokenUris[_counter] = uri;
         _mint(recipient, _counter);
     }
@@ -199,7 +199,9 @@ contract ERC721TL is
     {
         if (supplyLocked) revert SupplyIsLocked();
         if (bytes(uri).length == 0) revert EmptyTokenURI();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _tokenUris[_counter] = uri;
         _overrideTokenRoyaltyInfo(_counter, royaltyAddress, royaltyPercent);
         _mint(recipient, _counter);
@@ -216,7 +218,9 @@ contract ERC721TL is
         if (numTokens < 2) revert BatchSizeTooSmall();
         uint256 start = _counter + 1;
         uint256 end = start + numTokens - 1;
-        _counter += numTokens;
+        unchecked {
+            _counter += numTokens;
+        }
         _batchMints.push(BatchMint(recipient, start, end, baseUri));
 
         _increaseBalance(recipient, numTokens); // this function adds the number of tokens to the recipient address
@@ -234,7 +238,9 @@ contract ERC721TL is
 
         uint256 start = _counter + 1;
         uint256 end = start + addresses.length - 1;
-        _counter += addresses.length;
+        unchecked {
+            _counter += addresses.length;
+        }
         _batchMints.push(BatchMint(address(0), start, end, baseUri));
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], start + i);
@@ -245,14 +251,16 @@ contract ERC721TL is
     function externalMint(address recipient, string calldata uri) external onlyRole(APPROVED_MINT_CONTRACT) {
         if (supplyLocked) revert SupplyIsLocked();
         if (bytes(uri).length == 0) revert EmptyTokenURI();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _tokenUris[_counter] = uri;
         _mint(recipient, _counter);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Burn Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Burn Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC721TL
     function burn(uint256 tokenId) external {
@@ -265,11 +273,14 @@ contract ERC721TL is
     function _burnWithTracking(uint256 tokenId) internal {
         _burn(tokenId);
         _burned[tokenId] = true;
+        unchecked {
+            _burnCounter++;
+        }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Lock Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Lock Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC721TL
     function lockSupply() external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -279,9 +290,9 @@ contract ERC721TL is
         emit IERC721TL.SupplyLocked(msg.sender);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Royalty Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Royalty Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -296,9 +307,9 @@ contract ERC721TL is
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Metadata Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Metadata Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IMutableMetadata
     function updateTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -330,9 +341,9 @@ contract ERC721TL is
         emit BatchMetadataUpdate(startTokenId, endTokenId);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Token Uri Override
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Token Uri Override
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ERC721Upgradeable
     function tokenURI(uint256 tokenId) public view override(ERC721Upgradeable) returns (string memory) {
@@ -350,9 +361,9 @@ contract ERC721TL is
         }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Story Inscriptions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Story Inscriptions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IStory
     function addCollectionStory(string calldata, string calldata story) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -369,7 +380,14 @@ contract ERC721TL is
     }
 
     /// @inheritdoc IStory
-    function addStory(uint256 tokenId, string calldata, /*collectorName*/ string calldata story) external {
+    function addStory(
+        uint256 tokenId,
+        string calldata,
+        /*collectorName*/
+        string calldata story
+    )
+        external
+    {
         if (!storyEnabled) revert StoryNotEnabled();
         if (!_isTokenOwnerOrDelegate(tokenId)) revert CallerNotTokenOwnerOrDelegate();
         emit Story(tokenId, msg.sender, msg.sender.toHexString(), story);
@@ -381,34 +399,44 @@ contract ERC721TL is
         emit StoryStatusUpdate(msg.sender, status);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                BlockList
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Transfer Validator
+    /////////////////////////////////////////////////////////////////////
 
-    /// @inheritdoc ICreatorBase
-    function setBlockListRegistry(address newBlockListRegistry) external onlyRoleOrOwner(ADMIN_ROLE) {
-        address oldBlockListRegistry = address(blocklistRegistry);
-        blocklistRegistry = IBlockListRegistry(newBlockListRegistry);
-        emit BlockListRegistryUpdate(msg.sender, oldBlockListRegistry, newBlockListRegistry);
+    /// @inheritdoc ICreatorToken
+    function setTransferValidator(address newTransferValidator) external onlyRoleOrOwner(ADMIN_ROLE) {
+        address oldTransferValidator = _transferValidator;
+        _transferValidator = newTransferValidator;
+        emit TransferValidatorUpdated(oldTransferValidator, newTransferValidator);
+    }
+
+    /// @inheritdoc ICreatorToken
+    function getTransferValidationFunction() external pure returns (bytes4 functionSignature, bool isViewFunction) {
+        functionSignature = bytes4(keccak256("validateTransfer(address,address,address,uint256)"));
+        isViewFunction = true;
+    }
+
+    /// @inheritdoc ICreatorToken
+    function getTransferValidator() external view returns (address validator) {
+        validator = _transferValidator;
     }
 
     /// @inheritdoc ERC721Upgradeable
-    function approve(address to, uint256 tokenId) public override(ERC721Upgradeable, IERC721) {
-        if (_isOperatorBlocked(to)) revert OperatorBlocked();
-        ERC721Upgradeable.approve(to, tokenId);
-    }
-
-    /// @inheritdoc ERC721Upgradeable
-    function setApprovalForAll(address operator, bool approved) public override(ERC721Upgradeable, IERC721) {
-        if (approved) {
-            if (_isOperatorBlocked(operator)) revert OperatorBlocked();
+    function _update(address to, uint256 tokenId, address auth) internal override(ERC721Upgradeable) returns (address) {
+        // only check transfer validator if not a mint or burn
+        address transferValidator = _transferValidator;
+        address from = _ownerOf(tokenId);
+        if (from != address(0) && to != address(0) && transferValidator != address(0)) {
+            ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, tokenId);
         }
-        ERC721Upgradeable.setApprovalForAll(operator, approved);
+
+        // run the inherited update function
+        return ERC721Upgradeable._update(to, tokenId, auth);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                            NFT Delegation Registry
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // NFT Delegation Registry
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setNftDelegationRegistry(address newNftDelegationRegistry) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -417,9 +445,9 @@ contract ERC721TL is
         emit NftDelegationRegistryUpdate(msg.sender, oldNftDelegationRegistry, newNftDelegationRegistry);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Withdraw Funds
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Withdraw Funds
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function withdrawERC20(address currency, uint256 amount, address recipient) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -432,9 +460,9 @@ contract ERC721TL is
         IERC721(token).safeTransferFrom(address(this), recipient, id);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                ERC-165 Support
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // ERC-165 Support
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId)
@@ -443,18 +471,17 @@ contract ERC721TL is
         override(ERC721Upgradeable, ERC2981TLUpgradeable, IERC165)
         returns (bool)
     {
-        return (
-            ERC721Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
+        return (ERC721Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
                 || interfaceId == 0x49064906 // ERC-4906
                 || interfaceId == type(IMutableMetadata).interfaceId || interfaceId == type(ICreatorBase).interfaceId
-                || interfaceId == type(IStory).interfaceId || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
-                || interfaceId == type(IERC721TL).interfaceId
-        );
+                || interfaceId == type(ICreatorToken).interfaceId || interfaceId == type(IStory).interfaceId
+                || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
+                || interfaceId == type(IERC721TL).interfaceId);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Internal Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Internal Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @notice Function to get batch mint info
     /// @param tokenId Token id to look up for batch mint info
@@ -512,12 +539,14 @@ contract ERC721TL is
         }
     }
 
-    // @notice Function to get if an operator is blocked for token approvals
-    function _isOperatorBlocked(address operator) internal view returns (bool) {
-        if (address(blocklistRegistry) == address(0)) {
-            return false;
-        } else {
-            return blocklistRegistry.getBlockListStatus(operator);
-        }
+    /// @notice Function to setup the v5 transfer validator by Limit Break
+    /// @dev We know how the rulset options work by default so all good to fix the values in code here.
+    ///      But we will pass in the initial list id as that is different across chains.
+    function _setupTransferValidatorV5(address transferValidator, uint48 listId) private {
+        if (transferValidator == address(0)) return;
+
+        ITransferValidator tv = ITransferValidator(transferValidator);
+        tv.applyListToCollection(address(this), listId);
+        tv.setRulesetOfCollection(address(this), 0, address(0), 0, 6);
     }
 }

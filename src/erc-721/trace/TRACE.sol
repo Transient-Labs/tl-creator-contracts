@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity 0.8.30;
 
-import {IERC4906} from "@openzeppelin-contracts-5.0.2/interfaces/IERC4906.sol";
-import {Strings} from "@openzeppelin-contracts-5.0.2/utils/Strings.sol";
-import {IERC20} from "@openzeppelin-contracts-5.0.2/token/ERC20/IERC20.sol";
-import {ReentrancyGuardUpgradeable} from
-    "@openzeppelin-contracts-upgradeable-5.0.2/utils/ReentrancyGuardUpgradeable.sol";
-import {ECDSA} from "@openzeppelin-contracts-5.0.2/utils/cryptography/ECDSA.sol";
+import {IERC4906} from "@openzeppelin-contracts-5.6.1/interfaces/IERC4906.sol";
+import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
+import {IERC20} from "@openzeppelin-contracts-5.6.1/token/ERC20/IERC20.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.6.1/utils/ReentrancyGuardTransient.sol";
+import {ECDSA} from "@openzeppelin-contracts-5.6.1/utils/cryptography/ECDSA.sol";
 import {
     IERC721,
     ERC721Upgradeable,
     IERC165
-} from "@openzeppelin-contracts-upgradeable-5.0.2/token/ERC721/ERC721Upgradeable.sol";
-import {EIP712Upgradeable} from "@openzeppelin-contracts-upgradeable-5.0.2/utils/cryptography/EIP712Upgradeable.sol";
+} from "@openzeppelin-contracts-upgradeable-5.6.1/token/ERC721/ERC721Upgradeable.sol";
+import {EIP712Upgradeable} from "@openzeppelin-contracts-upgradeable-5.6.1/utils/cryptography/EIP712Upgradeable.sol";
 import {ERC2981TLUpgradeable} from "../../lib/ERC2981TLUpgradeable.sol";
 import {OwnableAccessControlUpgradeable} from "../../lib/OwnableAccessControlUpgradeable.sol";
-import {IBlockListRegistry} from "../../interfaces/IBlockListRegistry.sol";
 import {ICreatorBase} from "../../interfaces/ICreatorBase.sol";
 import {IStory} from "../../interfaces/IStory.sol";
 import {ITLNftDelegationRegistry} from "../../interfaces/ITLNftDelegationRegistry.sol";
@@ -25,10 +23,10 @@ import {ITRACE} from "./ITRACE.sol";
 /// @title TRACE.sol
 /// @notice Sovereign T.R.A.C.E. Creator Contract allowing for digital Certificates of Authenticity backed by the blockchain
 /// @author transientlabs.xyz
-/// @custom:version 3.7.0
+/// @custom:version 4.0.0
 contract TRACE is
     ERC721Upgradeable,
-    ReentrancyGuardUpgradeable,
+    ReentrancyGuardTransient,
     OwnableAccessControlUpgradeable,
     ERC2981TLUpgradeable,
     EIP712Upgradeable,
@@ -37,9 +35,9 @@ contract TRACE is
     IStory,
     IERC4906
 {
-    /*//////////////////////////////////////////////////////////////////////////
-                                Custom Types
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Custom Types
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev Struct defining a batch mint - used for airdrops
     struct BatchMint {
@@ -61,11 +59,11 @@ contract TRACE is
     /// @dev String representation for address
     using Strings for address;
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                State Variables
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // State Variables
+    /////////////////////////////////////////////////////////////////////
 
-    string public constant VERSION = "3.7.0";
+    string public constant VERSION = "4.0.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     ITRACERSRegistry public tracersRegistry;
@@ -74,9 +72,9 @@ contract TRACE is
     mapping(bytes32 => bool) private _verifiedStoryHashUsed; // prevent replay attacks
     BatchMint[] private _batchMints; // dynamic array for batch mints
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Custom Errors
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Custom Errors
+    /////////////////////////////////////////////////////////////////////
 
     /// @dev Token uri is an empty string
     error EmptyTokenURI();
@@ -99,22 +97,21 @@ contract TRACE is
     /// @dev Unauthorized to add a verified story
     error Unauthorized();
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Constructor
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Constructor
+    /////////////////////////////////////////////////////////////////////
 
     /// @param disable Boolean to disable initialization for the implementation contract
     constructor(bool disable) {
         if (disable) _disableInitializers();
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Initializer
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Initializer
+    /////////////////////////////////////////////////////////////////////
 
     /// @param name The name of the contract
     /// @param symbol The symbol of the contract
-    /// @param personalization A string to emit as a collection story. Can be ASCII art or something else that is a personalization of the contract.
     /// @param defaultRoyaltyRecipient The default address for royalty payments
     /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
     /// @param initOwner The owner of the contract
@@ -123,7 +120,6 @@ contract TRACE is
     function initialize(
         string memory name,
         string memory symbol,
-        string memory personalization,
         address defaultRoyaltyRecipient,
         uint256 defaultRoyaltyPercentage,
         address initOwner,
@@ -135,46 +131,42 @@ contract TRACE is
         __EIP2981TL_init(defaultRoyaltyRecipient, defaultRoyaltyPercentage);
         __OwnableAccessControl_init(initOwner);
         __EIP712_init("T.R.A.C.E.", "3");
-        __ReentrancyGuard_init();
 
         // add admins
         _setRole(ADMIN_ROLE, admins, true);
 
         // set TRACERS Registry
         tracersRegistry = ITRACERSRegistry(defaultTracersRegistry);
-
-        // emit personalization as collection story
-        if (bytes(personalization).length > 0) {
-            emit CollectionStory(initOwner, initOwner.toHexString(), personalization);
-        }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                General Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // General Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function totalSupply() external view returns (uint256) {
         return _counter;
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Access Control Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Access Control Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setApprovedMintContracts(address[] calldata minters, bool status) external onlyRoleOrOwner(ADMIN_ROLE) {
         _setRole(APPROVED_MINT_CONTRACT, minters, status);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Mint Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Mint Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ITRACE
     function mint(address recipient, string calldata uri) external onlyRoleOrOwner(ADMIN_ROLE) {
         if (bytes(uri).length == 0) revert EmptyTokenURI();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _tokenUris[_counter] = uri;
         _mint(recipient, _counter);
         emit CreatorStory(_counter, msg.sender, "", "{\n\"trace\": {\"type\": \"trace_authentication\"}\n}");
@@ -186,7 +178,9 @@ contract TRACE is
         onlyRoleOrOwner(ADMIN_ROLE)
     {
         if (bytes(uri).length == 0) revert EmptyTokenURI();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _tokenUris[_counter] = uri;
         _overrideTokenRoyaltyInfo(_counter, royaltyAddress, royaltyPercent);
         _mint(recipient, _counter);
@@ -200,7 +194,9 @@ contract TRACE is
 
         uint256 start = _counter + 1;
         uint256 end = start + addresses.length - 1;
-        _counter += addresses.length;
+        unchecked {
+            _counter += addresses.length;
+        }
         _batchMints.push(BatchMint(start, end, baseUri));
         for (uint256 i = 0; i < addresses.length; i++) {
             _mint(addresses[i], start + i);
@@ -211,14 +207,16 @@ contract TRACE is
     /// @inheritdoc ITRACE
     function externalMint(address recipient, string calldata uri) external onlyRole(APPROVED_MINT_CONTRACT) {
         if (bytes(uri).length == 0) revert EmptyTokenURI();
-        _counter++;
+        unchecked {
+            _counter++;
+        }
         _tokenUris[_counter] = uri;
         _mint(recipient, _counter);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                T.R.A.C.E. Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // T.R.A.C.E. Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ITRACE
     function transferToken(address from, address to, uint256 tokenId) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -252,9 +250,9 @@ contract TRACE is
         }
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Royalty Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Royalty Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -269,9 +267,9 @@ contract TRACE is
         _overrideTokenRoyaltyInfo(tokenId, newRecipient, newPercentage);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Metadata Update Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Metadata Update Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ITRACE
     function setTokenUri(uint256 tokenId, string calldata newUri) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -281,9 +279,9 @@ contract TRACE is
         emit MetadataUpdate(tokenId);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Token Uri Override
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Token Uri Override
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ERC721Upgradeable
     function tokenURI(uint256 tokenId) public view override(ERC721Upgradeable) returns (string memory) {
@@ -295,13 +293,17 @@ contract TRACE is
         return uri;
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Story Inscriptions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Story Inscriptions
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IStory
     /// @dev ignores the creator name to avoid sybil
-    function addCollectionStory(string calldata, /*creatorName*/ string calldata story)
+    function addCollectionStory(
+        string calldata,
+        /*creatorName*/
+        string calldata story
+    )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -310,7 +312,12 @@ contract TRACE is
 
     /// @inheritdoc IStory
     /// @dev ignores the creator name to avoid sybil
-    function addCreatorStory(uint256 tokenId, string calldata, /*creatorName*/ string calldata story)
+    function addCreatorStory(
+        uint256 tokenId,
+        string calldata,
+        /*creatorName*/
+        string calldata story
+    )
         external
         onlyRoleOrOwner(ADMIN_ROLE)
     {
@@ -319,7 +326,13 @@ contract TRACE is
     }
 
     /// @inheritdoc IStory
-    function addStory(uint256, /*tokenId*/ string calldata, /*collectorName*/ string calldata /*story*/ )
+    function addStory(
+        uint256,
+        /*tokenId*/
+        string calldata,
+        /*collectorName*/
+        string calldata /*story*/
+    )
         external
         pure
     {
@@ -327,7 +340,12 @@ contract TRACE is
     }
 
     /// @inheritdoc ICreatorBase
-    function setStoryStatus(bool /*status*/ ) external pure {
+    function setStoryStatus(
+        bool /*status*/
+    )
+        external
+        pure
+    {
         revert();
     }
 
@@ -336,26 +354,17 @@ contract TRACE is
         return true;
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                BlockList
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // NFT Delegation Registry
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
-    function setBlockListRegistry(address /*newBlockListRegistry*/ ) external pure {
-        revert();
-    }
-
-    /// @inheritdoc ICreatorBase
-    function blocklistRegistry() external pure returns (IBlockListRegistry) {
-        return IBlockListRegistry(address(0));
-    }
-
-    /*//////////////////////////////////////////////////////////////////////////
-                            NFT Delegation Registry
-    //////////////////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc ICreatorBase
-    function setNftDelegationRegistry(address /*newNftDelegationRegistry*/ ) external pure {
+    function setNftDelegationRegistry(
+        address /*newNftDelegationRegistry*/
+    )
+        external
+        pure
+    {
         revert();
     }
 
@@ -364,9 +373,9 @@ contract TRACE is
         return ITLNftDelegationRegistry(address(0));
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Withdraw Funds
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Withdraw Funds
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc ICreatorBase
     function withdrawERC20(address currency, uint256 amount, address recipient) external onlyRoleOrOwner(ADMIN_ROLE) {
@@ -379,9 +388,9 @@ contract TRACE is
         IERC721(token).safeTransferFrom(address(this), recipient, id);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                ERC-165 Support
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // ERC-165 Support
+    /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId)
@@ -390,18 +399,16 @@ contract TRACE is
         override(ERC721Upgradeable, ERC2981TLUpgradeable, IERC165)
         returns (bool)
     {
-        return (
-            ERC721Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
+        return (ERC721Upgradeable.supportsInterface(interfaceId) || ERC2981TLUpgradeable.supportsInterface(interfaceId)
                 || interfaceId == 0x49064906 // ERC-4906
                 || interfaceId == type(ICreatorBase).interfaceId || interfaceId == type(IStory).interfaceId
                 || interfaceId == 0x0d23ecb9 // previous story contract version that is still supported
-                || interfaceId == type(ITRACE).interfaceId
-        );
+                || interfaceId == type(ITRACE).interfaceId);
     }
 
-    /*//////////////////////////////////////////////////////////////////////////
-                                Internal Functions
-    //////////////////////////////////////////////////////////////////////////*/
+    /////////////////////////////////////////////////////////////////////
+    // Internal Functions
+    /////////////////////////////////////////////////////////////////////
 
     /// @notice function to get batch mint info
     /// @param tokenId token id to look up for batch mint info

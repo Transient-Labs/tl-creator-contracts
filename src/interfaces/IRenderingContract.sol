@@ -5,7 +5,6 @@ pragma solidity ^0.8.22;
 /// @notice Official rendering contract interface that specfies a universal interface for custom rendering contracts
 /// @dev Interface id = 0xc87b56dd
 /// @author transientlabs.xyz
-/// @custom:version 3.6.0
 interface IRenderingContract {
     /// @notice Function for getting the URI for a token id
     /// @param tokenId The token id
