@@ -44,14 +44,14 @@ interface ICreatorBase {
     /// @notice Function to set the default royalty specification
     /// @dev Requires owner or admin
     /// @param newRecipient The new royalty payout address
-    /// @param newPercentage The new royalty percentage in basis (out of 10,000)
+    /// @param newPercentage The new royalty percentage in basis points, capped by the implementation
     function setDefaultRoyalty(address newRecipient, uint256 newPercentage) external;
 
     /// @notice Function to override a token's royalty info
     /// @dev Requires owner or admin
     /// @param tokenId The token to override royalty for
     /// @param newRecipient The new royalty payout address for the token id
-    /// @param newPercentage The new royalty percentage in basis (out of 10,000) for the token id
+    /// @param newPercentage The new royalty percentage in basis points for the token id, capped by the implementation
     function setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage) external;
 
     /// @notice Function to enable or disable collector story inscriptions

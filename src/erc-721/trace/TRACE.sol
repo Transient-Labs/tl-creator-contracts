@@ -23,7 +23,7 @@ import {ITRACE} from "./ITRACE.sol";
 /// @title TRACE.sol
 /// @notice Sovereign T.R.A.C.E. Creator Contract allowing for digital Certificates of Authenticity backed by the blockchain
 /// @author transientlabs.xyz
-/// @custom:version 4.0.0
+/// @custom:version 4.1.0
 contract TRACE is
     ERC721Upgradeable,
     ReentrancyGuardTransient,
@@ -63,7 +63,7 @@ contract TRACE is
     // State Variables
     /////////////////////////////////////////////////////////////////////
 
-    string public constant VERSION = "4.0.0";
+    string public constant VERSION = "4.1.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     ITRACERSRegistry public tracersRegistry;
@@ -113,7 +113,7 @@ contract TRACE is
     /// @param name The name of the contract
     /// @param symbol The symbol of the contract
     /// @param defaultRoyaltyRecipient The default address for royalty payments
-    /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
+    /// @param defaultRoyaltyPercentage The default royalty percentage in basis points, capped at MAX_ROYALTY
     /// @param initOwner The owner of the contract
     /// @param admins Array of admin addresses to add to the contract
     /// @param defaultTracersRegistry Address of the TRACERS registry to use

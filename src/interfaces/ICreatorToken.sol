@@ -15,6 +15,6 @@ interface ICreatorToken {
     function getTransferValidationFunction() external view returns (bytes4 functionSignature, bool isViewFunction);
 
     /// @notice Function to set the transfer validator
-    /// @dev Requires owner or admin role access
+    /// @dev Requires owner or admin role access and should NOT let the validator be set when it is disabled (set to the zero-address)
     function setTransferValidator(address validator) external;
 }

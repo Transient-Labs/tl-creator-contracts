@@ -13,8 +13,10 @@ ERC-2981 is used as it is the on-chain royalty specification used to return a ro
 
 For each contract, there is a default royalty specification set that can be altered if needed. There are also individual token overrides in case of collaboration or anything like that.
 
+As of version 4.1.0, royalties are capped at 10%.
+
 ### Limit Break's Creator Token Standard
-Version 4 introduced Limit Break's Creator Token Standard, which can be used to enforce royalties by blocking transfers from unapproved operators.
+Version 4 introduced Limit Break's Creator Token Standard, which can be used to enforce royalties by blocking transfers from unapproved operators. If the transfer validator is set to the zero-address, it cannot be subsequently set to a value. The zero address specifies that the artist permanently accepts optional royalties.
 
 ### Story Inscriptions
 The ability to add human provenance to the blockchain to fully tell the story behind a token. See more [here](https://github.com/Transient-Labs/tl-story-inscriptions)

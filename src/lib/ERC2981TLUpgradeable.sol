@@ -9,7 +9,7 @@ import {Initializable} from "@openzeppelin-contracts-upgradeable-5.6.1/proxy/uti
 ///         while allowing for specific token overrides
 /// @dev Follows ERC-2981 (https://eips.ethereum.org/EIPS/eip-2981)
 /// @author transientlabs.xyz
-/// @custom:version 3.7.0
+/// @custom:version 4.1.0
 abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
     /////////////////////////////////////////////////////////////////////
     // Types
@@ -46,6 +46,7 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
     /////////////////////////////////////////////////////////////////////
 
     uint256 public constant BASIS = 10_000;
+    uint256 public constant MAX_ROYALTY = 1_000; // 10%
 
     /////////////////////////////////////////////////////////////////////
     // Events
@@ -66,7 +67,7 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
     /// @dev error if the recipient is set to address(0)
     error ZeroAddressError();
 
-    /// @dev error if the royalty percentage is greater than to 100%
+    /// @dev error if the royalty percentage is greater than MAX_ROYALTY
     error MaxRoyaltyError();
 
     /////////////////////////////////////////////////////////////////////
@@ -75,14 +76,14 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
 
     /// @notice Function to initialize the contract
     /// @param defaultRecipient The default royalty payout address
-    /// @param defaultPercentage The deafult royalty percentage, out of 10,000
+    /// @param defaultPercentage The default royalty percentage in basis points, capped at MAX_ROYALTY
     function __EIP2981TL_init(address defaultRecipient, uint256 defaultPercentage) internal onlyInitializing {
         __EIP2981TL_init_unchained(defaultRecipient, defaultPercentage);
     }
 
     /// @notice Unchained function to initialize the contract
     /// @param defaultRecipient The default royalty payout address
-    /// @param defaultPercentage The deafult royalty percentage, out of 10,000
+    /// @param defaultPercentage The default royalty percentage in basis points, capped at MAX_ROYALTY
     function __EIP2981TL_init_unchained(address defaultRecipient, uint256 defaultPercentage) internal onlyInitializing {
         _setDefaultRoyaltyInfo(defaultRecipient, defaultPercentage);
     }
@@ -93,11 +94,11 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
 
     /// @notice Function to set default royalty info
     /// @param newRecipient The new default royalty payout address
-    /// @param newPercentage The new default royalty percentage, out of 10,000
+    /// @param newPercentage The new default royalty percentage in basis points, capped at MAX_ROYALTY
     function _setDefaultRoyaltyInfo(address newRecipient, uint256 newPercentage) internal {
         EIP2981TLStorage storage $ = _getEIP2981TLStorage();
         if (newRecipient == address(0)) revert ZeroAddressError();
-        if (newPercentage > 10_000) revert MaxRoyaltyError();
+        if (newPercentage > MAX_ROYALTY) revert MaxRoyaltyError();
         $.defaultRecipient = newRecipient;
         $.defaultPercentage = newPercentage;
         emit DefaultRoyaltyUpdate(msg.sender, newRecipient, newPercentage);
@@ -106,11 +107,11 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
     /// @notice Function to override royalty spec on a specific token
     /// @param tokenId The token id to override royalty for
     /// @param newRecipient The new royalty payout address
-    /// @param newPercentage The new royalty percentage, out of 10,000
+    /// @param newPercentage The new royalty percentage in basis points, capped at MAX_ROYALTY
     function _overrideTokenRoyaltyInfo(uint256 tokenId, address newRecipient, uint256 newPercentage) internal {
         EIP2981TLStorage storage $ = _getEIP2981TLStorage();
         if (newRecipient == address(0)) revert ZeroAddressError();
-        if (newPercentage > 10_000) revert MaxRoyaltyError();
+        if (newPercentage > MAX_ROYALTY) revert MaxRoyaltyError();
         $.tokenOverrides[tokenId].recipient = newRecipient;
         $.tokenOverrides[tokenId].percentage = newPercentage;
         emit TokenRoyaltyOverride(msg.sender, tokenId, newRecipient, newPercentage);
@@ -126,13 +127,7 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
         view
         returns (address receiver, uint256 royaltyAmount)
     {
-        EIP2981TLStorage storage $ = _getEIP2981TLStorage();
-        address recipient = $.defaultRecipient;
-        uint256 percentage = $.defaultPercentage;
-        if ($.tokenOverrides[tokenId].recipient != address(0)) {
-            recipient = $.tokenOverrides[tokenId].recipient;
-            percentage = $.tokenOverrides[tokenId].percentage;
-        }
+        (address recipient, uint256 percentage) = _getRoyalty(tokenId);
         return (recipient, salePrice * percentage / BASIS);
     }
 
@@ -150,9 +145,26 @@ abstract contract ERC2981TLUpgradeable is Initializable, IERC2981 {
     /////////////////////////////////////////////////////////////////////
 
     /// @notice Query the default royalty receiver and percentage.
-    /// @return Tuple containing the default royalty recipient and percentage out of 10_000
+    /// @return Tuple containing the default royalty recipient and percentage in basis points
     function getDefaultRoyaltyRecipientAndPercentage() external view returns (address, uint256) {
         EIP2981TLStorage storage $ = _getEIP2981TLStorage();
         return ($.defaultRecipient, $.defaultPercentage);
+    }
+
+    /////////////////////////////////////////////////////////////////////
+    // Internal View Functions
+    /////////////////////////////////////////////////////////////////////
+
+    /// @notice Function to get the royalty for a token
+    function _getRoyalty(uint256 tokenId) internal view returns (address, uint256) {
+        EIP2981TLStorage storage $ = _getEIP2981TLStorage();
+        address recipient = $.defaultRecipient;
+        uint256 percentage = $.defaultPercentage;
+        if ($.tokenOverrides[tokenId].recipient != address(0)) {
+            recipient = $.tokenOverrides[tokenId].recipient;
+            percentage = $.tokenOverrides[tokenId].percentage;
+        }
+
+        return (recipient, percentage);
     }
 }
