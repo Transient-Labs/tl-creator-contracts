@@ -15,6 +15,7 @@ contract ERC1155TLTest is Test {
     using Strings for address;
 
     ERC1155TL public tokenContract;
+    MockTransferValidator mockTransferValidator;
     address public royaltyRecipient = makeAddr("royaltyRecipient");
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -31,9 +32,13 @@ contract ERC1155TLTest is Test {
     event Story(uint256 indexed tokenId, address indexed collectorAddress, string collectorName, string story);
 
     function setUp() public {
+        mockTransferValidator = new MockTransferValidator();
+
         address[] memory admins = new address[](0);
         tokenContract = new ERC1155TL(false);
-        tokenContract.initialize("Test1155", "TEST", royaltyRecipient, 1000, address(this), admins, true, address(0), 0);
+        tokenContract.initialize(
+            "Test1155", "TEST", royaltyRecipient, 1000, address(this), admins, true, address(mockTransferValidator), 0
+        );
     }
 
     /// @notice initialization Tests
@@ -48,8 +53,9 @@ contract ERC1155TLTest is Test {
     ) public {
         // limit fuzz
         vm.assume(defaultRoyaltyRecipient != address(0));
-        if (defaultRoyaltyPercentage >= 10_000) {
-            defaultRoyaltyPercentage = defaultRoyaltyPercentage % 10_000;
+        uint256 maxRoyalty = tokenContract.MAX_ROYALTY();
+        if (defaultRoyaltyPercentage >= maxRoyalty) {
+            defaultRoyaltyPercentage = defaultRoyaltyPercentage % maxRoyalty;
         }
         vm.assume(initOwner != address(0));
 
@@ -217,6 +223,16 @@ contract ERC1155TLTest is Test {
         assertEq(tokenContract.getTransferValidator(), validator);
     }
 
+    function test_setTransferValidator_revertsOnceDisabled() public {
+        vm.expectEmit(true, true, false, false);
+        emit TransferValidatorUpdated(address(mockTransferValidator), address(0));
+        tokenContract.setTransferValidator(address(0));
+
+        // expect revert trying to enforce again
+        vm.expectRevert(ERC1155TL.TransferValidatorDisabled.selector);
+        tokenContract.setTransferValidator(address(mockTransferValidator));
+    }
+
     function test_transferValidator_calledOnTransfer(
         address from,
         address to,
@@ -296,6 +312,29 @@ contract ERC1155TLTest is Test {
 
         mock.setRevert1155(true);
         tokenContract.setTransferValidator(address(0));
+
+        vm.prank(from, from);
+        tokenContract.safeTransferFrom(from, to, 1, 1, "");
+    }
+
+    function test_transferValidator_zeroRoyaltyBypass(address from, address to) public {
+        vm.assume(from != address(0));
+        vm.assume(to != address(0));
+        vm.assume(to != from);
+        vm.assume(from.code.length == 0);
+        vm.assume(to.code.length == 0);
+
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+
+        address[] memory recipients = new address[](1);
+        recipients[0] = from;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = 2;
+        tokenContract.createToken("uri", recipients, amounts);
+
+        mock.setRevert1155(true);
+        tokenContract.setDefaultRoyalty(address(this), 0);
 
         vm.prank(from, from);
         tokenContract.safeTransferFrom(from, to, 1, 1, "");
@@ -471,10 +510,8 @@ contract ERC1155TLTest is Test {
         }
         vm.assume(royaltyAddress != royaltyRecipient);
         vm.assume(royaltyAddress != address(0));
-        if (royaltyPercent >= 10_000) royaltyPercent = royaltyPercent % 10_000;
-        // if (amount > 1000) {
-        //     amount = amount % 1000 + 1;
-        // }
+        uint256 maxRoyalty = tokenContract.MAX_ROYALTY();
+        if (royaltyPercent >= maxRoyalty) royaltyPercent = royaltyPercent % uint16(maxRoyalty);
         vm.assume(amount != 0);
         address recipient = makeAddr(uint256(numAddresses).toString());
         address[] memory recipients = new address[](numAddresses);
@@ -737,7 +774,8 @@ contract ERC1155TLTest is Test {
         }
         vm.assume(royaltyAddress != royaltyRecipient);
         vm.assume(royaltyAddress != address(0));
-        if (royaltyPercent >= 10_000) royaltyPercent = royaltyPercent % 10_000;
+        uint256 maxRoyalty = tokenContract.MAX_ROYALTY();
+        if (royaltyPercent >= maxRoyalty) royaltyPercent = royaltyPercent % uint16(maxRoyalty);
         vm.assume(numTokens > 0);
         // limit number of tokens to 10
         if (numTokens > 10) {
@@ -1190,8 +1228,9 @@ contract ERC1155TLTest is Test {
     function test_setDefaultRoyalty(address newRecipient, uint256 newPercentage, address user) public {
         vm.assume(newRecipient != address(0));
         vm.assume(user != address(0) && user != address(this));
-        if (newPercentage >= 10_000) {
-            newPercentage = newPercentage % 10_000;
+        uint256 maxRoyalty = tokenContract.MAX_ROYALTY();
+        if (newPercentage >= maxRoyalty) {
+            newPercentage = newPercentage % maxRoyalty;
         }
         address[] memory users = new address[](1);
         users[0] = user;
@@ -1234,8 +1273,9 @@ contract ERC1155TLTest is Test {
     function test_setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage, address user) public {
         vm.assume(newRecipient != address(0));
         vm.assume(user != address(0) && user != address(this));
-        if (newPercentage >= 10_000) {
-            newPercentage = newPercentage % 10_000;
+        uint256 maxRoyalty = tokenContract.MAX_ROYALTY();
+        if (newPercentage >= maxRoyalty) {
+            newPercentage = newPercentage % maxRoyalty;
         }
         address[] memory users = new address[](1);
         users[0] = user;

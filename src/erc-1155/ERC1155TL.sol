@@ -21,7 +21,7 @@ import {IERC1155TL} from "./IERC1155TL.sol";
 /// @title ERC1155TL.sol
 /// @notice Sovereign ERC-1155 Creator Contract with Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 4.0.0
+/// @custom:version 4.1.0
 contract ERC1155TL is
     ERC1155Upgradeable,
     ERC2981TLUpgradeable,
@@ -42,7 +42,7 @@ contract ERC1155TL is
     // State Variables
     /////////////////////////////////////////////////////////////////////
 
-    string public constant VERSION = "4.0.0";
+    string public constant VERSION = "4.1.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter;
@@ -81,6 +81,9 @@ contract ERC1155TL is
     /// @dev Token is locked from more mints
     error TokenLocked();
 
+    /// @dev Transfer validator disabled
+    error TransferValidatorDisabled();
+
     /// @dev Burning zero tokens
     error BurnZeroTokens();
 
@@ -103,7 +106,7 @@ contract ERC1155TL is
     /// @param name_ The name of the 721 contract
     /// @param symbol_ The symbol of the 721 contract
     /// @param defaultRoyaltyRecipient The default address for royalty payments
-    /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
+    /// @param defaultRoyaltyPercentage The default royalty percentage in basis points, capped at MAX_ROYALTY
     /// @param initOwner The owner of the contract
     /// @param admins Array of admin addresses to add to the contract
     /// @param enableStory A bool deciding whether to add story fuctionality or not
@@ -355,6 +358,7 @@ contract ERC1155TL is
 
     /// @inheritdoc ICreatorToken
     function setTransferValidator(address newTransferValidator) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (_transferValidator == address(0)) revert TransferValidatorDisabled();
         address oldTransferValidator = _transferValidator;
         _transferValidator = newTransferValidator;
         emit TransferValidatorUpdated(oldTransferValidator, newTransferValidator);
@@ -376,11 +380,15 @@ contract ERC1155TL is
         internal
         override(ERC1155Upgradeable)
     {
-        // only check transfer validator if not a mint or burn
+        // only check transfer validator if not a mint or burn, transfer validator is set, and royalty > 0
         address transferValidator = _transferValidator;
         if (from != address(0) && to != address(0) && transferValidator != address(0)) {
             for (uint256 i = 0; i < ids.length; ++i) {
-                ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, ids[i], values[i]);
+                (,uint256 royaltyPerc) = _getRoyalty(ids[i]);
+                if (royaltyPerc > 0) {
+                    // check transfer validator if royalty > 0%
+                    ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, ids[i], values[i]);
+                }
             }
         }
 

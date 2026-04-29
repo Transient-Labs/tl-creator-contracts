@@ -22,7 +22,7 @@ import {IERC721TL} from "../IERC721TL.sol";
 /// @title ERC7160TL.sol
 /// @notice Sovereign ERC-7160 Creator Contract with Story Inscriptions
 /// @author transientlabs.xyz
-/// @custom:version 4.0.0
+/// @custom:version 4.1.0
 contract ERC7160TL is
     ERC721Upgradeable,
     ERC2981TLUpgradeable,
@@ -69,7 +69,7 @@ contract ERC7160TL is
     // State Variables
     /////////////////////////////////////////////////////////////////////
 
-    string public constant VERSION = "4.0.0";
+    string public constant VERSION = "4.1.0";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
@@ -125,6 +125,9 @@ contract ERC7160TL is
     /// @dev Supply locked
     error SupplyIsLocked();
 
+    /// @dev Transfer validator disabled
+    error TransferValidatorDisabled();
+
     /////////////////////////////////////////////////////////////////////
     // Constructor
     /////////////////////////////////////////////////////////////////////
@@ -141,7 +144,7 @@ contract ERC7160TL is
     /// @param name The name of the 721 contract
     /// @param symbol The symbol of the 721 contract
     /// @param defaultRoyaltyRecipient The default address for royalty payments
-    /// @param defaultRoyaltyPercentage The default royalty percentage of basis points (out of 10,000)
+    /// @param defaultRoyaltyPercentage The default royalty percentage in basis points, capped at MAX_ROYALTY
     /// @param initOwner The owner of the contract
     /// @param admins Array of admin addresses to add to the contract
     /// @param enableStory A bool deciding whether to add story fuctionality or not
@@ -493,6 +496,7 @@ contract ERC7160TL is
 
     /// @inheritdoc ICreatorToken
     function setTransferValidator(address newTransferValidator) external onlyRoleOrOwner(ADMIN_ROLE) {
+        if (_transferValidator == address(0)) revert TransferValidatorDisabled();
         address oldTransferValidator = _transferValidator;
         _transferValidator = newTransferValidator;
         emit TransferValidatorUpdated(oldTransferValidator, newTransferValidator);
@@ -511,10 +515,11 @@ contract ERC7160TL is
 
     /// @inheritdoc ERC721Upgradeable
     function _update(address to, uint256 tokenId, address auth) internal override(ERC721Upgradeable) returns (address) {
-        // only check transfer validator if not a mint or burn
+        // only check transfer validator if not a mint or burn, transfer validator is set, and royalty > 0
         address transferValidator = _transferValidator;
         address from = _ownerOf(tokenId);
-        if (from != address(0) && to != address(0) && transferValidator != address(0)) {
+        (,uint256 royaltyPerc) = _getRoyalty(tokenId);
+        if (from != address(0) && to != address(0) && transferValidator != address(0) && royaltyPerc > 0) {
             ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, tokenId);
         }
 

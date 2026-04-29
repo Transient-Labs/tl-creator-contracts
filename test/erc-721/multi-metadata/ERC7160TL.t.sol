@@ -20,6 +20,7 @@ contract ERC7160TLTest is Test {
     ERC7160TL public tokenContract;
     address public royaltyRecipient = makeAddr("royaltyRecipient");
     address public nftDelegationRegistry = makeAddr("nftDelegationRegistry");
+    MockTransferValidator mockTransferValidator;
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event RoleChange(address indexed from, address indexed user, bool indexed approved, bytes32 role);
@@ -37,10 +38,21 @@ contract ERC7160TLTest is Test {
     event Story(uint256 indexed tokenId, address indexed collectorAddress, string collectorName, string story);
 
     function setUp() public {
+        mockTransferValidator = new MockTransferValidator();
+
         address[] memory admins = new address[](0);
         tokenContract = new ERC7160TL(false);
         tokenContract.initialize(
-            "Test7160", "T7160", royaltyRecipient, 1000, address(this), admins, true, address(0), 0, address(0)
+            "Test7160",
+            "T7160",
+            royaltyRecipient,
+            1000,
+            address(this),
+            admins,
+            true,
+            address(mockTransferValidator),
+            0,
+            address(0)
         );
     }
 
@@ -57,8 +69,9 @@ contract ERC7160TLTest is Test {
     ) public {
         // limit fuzz
         vm.assume(defaultRoyaltyRecipient != address(0));
-        if (defaultRoyaltyPercentage >= 10_000) {
-            defaultRoyaltyPercentage = defaultRoyaltyPercentage % 10_000;
+        uint256 maxRoyalty = tokenContract.MAX_ROYALTY();
+        if (defaultRoyaltyPercentage >= maxRoyalty) {
+            defaultRoyaltyPercentage = defaultRoyaltyPercentage % maxRoyalty;
         }
         vm.assume(initOwner != address(0));
 
@@ -243,6 +256,16 @@ contract ERC7160TLTest is Test {
         assertEq(tokenContract.getTransferValidator(), validator);
     }
 
+    function test_setTransferValidator_revertsOnceDisabled() public {
+        vm.expectEmit(true, true, false, false);
+        emit TransferValidatorUpdated(address(mockTransferValidator), address(0));
+        tokenContract.setTransferValidator(address(0));
+
+        // expect revert trying to enforce again
+        vm.expectRevert(ERC7160TL.TransferValidatorDisabled.selector);
+        tokenContract.setTransferValidator(address(mockTransferValidator));
+    }
+
     function test_transferValidator_calledOnTransfer(address recipient) public {
         vm.assume(recipient != address(0));
         MockTransferValidator mock = new MockTransferValidator();
@@ -279,6 +302,17 @@ contract ERC7160TLTest is Test {
 
         mock.setRevert721(true);
         tokenContract.setTransferValidator(address(0));
+        tokenContract.transferFrom(address(this), recipient, 1);
+    }
+
+    function test_transferValidator_zeroRoyaltyBypass(address recipient) public {
+        vm.assume(recipient != address(0));
+        MockTransferValidator mock = new MockTransferValidator();
+        tokenContract.setTransferValidator(address(mock));
+        tokenContract.mint(address(this), "uri");
+        tokenContract.setDefaultRoyalty(address(this), 0);
+
+        mock.setRevert721(true);
         tokenContract.transferFrom(address(this), recipient, 1);
     }
 
@@ -419,7 +453,8 @@ contract ERC7160TLTest is Test {
         vm.assume(recipient != address(0));
         vm.assume(royaltyAddress != royaltyRecipient);
         vm.assume(royaltyAddress != address(0));
-        if (royaltyPercent >= 10_000) royaltyPercent = royaltyPercent % 10_000;
+        uint256 maxRoyalty = tokenContract.MAX_ROYALTY();
+        if (royaltyPercent >= maxRoyalty) royaltyPercent = royaltyPercent % uint16(maxRoyalty);
         if (tokenId > 1000) {
             tokenId = tokenId % 1000 + 1; // map to 1000
         }
@@ -1732,8 +1767,9 @@ contract ERC7160TLTest is Test {
     function test_setDefaultRoyalty(address newRecipient, uint256 newPercentage, address user) public {
         vm.assume(newRecipient != address(0));
         vm.assume(user != address(0) && user != address(this));
-        if (newPercentage >= 10_000) {
-            newPercentage = newPercentage % 10_000;
+        uint256 maxRoyalty = tokenContract.MAX_ROYALTY();
+        if (newPercentage >= maxRoyalty) {
+            newPercentage = newPercentage % maxRoyalty;
         }
         address[] memory users = new address[](1);
         users[0] = user;
@@ -1776,8 +1812,9 @@ contract ERC7160TLTest is Test {
     function test_setTokenRoyalty(uint256 tokenId, address newRecipient, uint256 newPercentage, address user) public {
         vm.assume(newRecipient != address(0));
         vm.assume(user != address(0) && user != address(this));
-        if (newPercentage >= 10_000) {
-            newPercentage = newPercentage % 10_000;
+        uint256 maxRoyalty = tokenContract.MAX_ROYALTY();
+        if (newPercentage >= maxRoyalty) {
+            newPercentage = newPercentage % maxRoyalty;
         }
         address[] memory users = new address[](1);
         users[0] = user;

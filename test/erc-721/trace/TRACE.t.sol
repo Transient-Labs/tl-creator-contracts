@@ -62,8 +62,9 @@ contract TRACETest is Test {
     ) public {
         // limit fuzz
         vm.assume(defaultRoyaltyRecipient != address(0));
-        if (defaultRoyaltyPercentage >= 10_000) {
-            defaultRoyaltyPercentage = defaultRoyaltyPercentage % 10_000;
+        uint256 maxRoyalty = trace.MAX_ROYALTY();
+        if (defaultRoyaltyPercentage >= maxRoyalty) {
+            defaultRoyaltyPercentage = defaultRoyaltyPercentage % maxRoyalty;
         }
         vm.assume(initOwner != address(0));
 
@@ -222,7 +223,8 @@ contract TRACETest is Test {
         vm.assume(recipient != address(0));
         vm.assume(royaltyAddress != royaltyRecipient);
         vm.assume(royaltyAddress != address(0));
-        if (royaltyPercent >= 10_000) royaltyPercent = royaltyPercent % 10_000;
+        uint256 maxRoyalty = trace.MAX_ROYALTY();
+        if (royaltyPercent >= maxRoyalty) royaltyPercent = royaltyPercent % uint16(maxRoyalty);
         if (tokenId > 1000) {
             tokenId = tokenId % 1000 + 1; // map to 1000
         }
