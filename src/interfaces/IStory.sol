@@ -4,7 +4,6 @@ pragma solidity ^0.8.22;
 /// @title Transient Labs Story Inscriptions Interface
 /// @dev Interface id: 0x2464f17b
 /// @dev Previous interface id that is still supported: 0x0d23ecb9
-/// @author transientlabs.xyz
 interface IStory {
     /////////////////////////////////////////////////////////////////////
     // Events

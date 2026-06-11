@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 /// @title IERC1155TL.sol
 /// @notice Interface for ERC1155TL
 /// @dev Interface id = 0x83b61254
-/// @author transientlabs.xyz
+/// @author mpeyfuss
 /// @custom:version 3.7.0
 interface IERC1155TL {
     /////////////////////////////////////////////////////////////////////

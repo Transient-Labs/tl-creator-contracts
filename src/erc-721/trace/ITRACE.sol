@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 /// @title ITRACE.sol
 /// @notice Interface for TRACE
 /// @dev Interface id = 0xcfec4f64
-/// @author transientlabs.xyz
+/// @author mpeyfuss
 /// @custom:version 3.0.0
 interface ITRACE {
     /////////////////////////////////////////////////////////////////////

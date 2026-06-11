@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.22;
 
+import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165.sol";
+
 /// @title Rendering Contract Interface
 /// @notice Official rendering contract interface that specfies a universal interface for custom rendering contracts
 /// @dev Interface id = 0xc87b56dd
-/// @author transientlabs.xyz
-interface IRenderingContract {
+/// @dev Extends ERC-165 so off-chain systems can detect that an address is a rendering contract via `supportsInterface`
+interface IRenderingContract is IERC165 {
     /// @notice Function for getting the URI for a token id
     /// @param tokenId The token id
     /// @return string To the token uri

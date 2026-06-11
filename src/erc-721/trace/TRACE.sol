@@ -22,7 +22,7 @@ import {ITRACE} from "./ITRACE.sol";
 
 /// @title TRACE.sol
 /// @notice Sovereign T.R.A.C.E. Creator Contract allowing for digital Certificates of Authenticity backed by the blockchain
-/// @author transientlabs.xyz
+/// @author mpeyfuss
 /// @custom:version 4.1.0
 contract TRACE is
     ERC721Upgradeable,

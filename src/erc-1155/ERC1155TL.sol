@@ -20,7 +20,7 @@ import {IERC1155TL} from "./IERC1155TL.sol";
 
 /// @title ERC1155TL.sol
 /// @notice Sovereign ERC-1155 Creator Contract with Story Inscriptions
-/// @author transientlabs.xyz
+/// @author mpeyfuss
 /// @custom:version 4.1.0
 contract ERC1155TL is
     ERC1155Upgradeable,

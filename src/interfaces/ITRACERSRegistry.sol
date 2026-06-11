@@ -3,7 +3,6 @@ pragma solidity ^0.8.22;
 
 /// @title ITRACERSRegistry.sol
 /// @notice Interface for TRACE Registered Agents Registry
-/// @author transientlabs.xyz
 interface ITRACERSRegistry {
     /////////////////////////////////////////////////////////////////////
     // Types

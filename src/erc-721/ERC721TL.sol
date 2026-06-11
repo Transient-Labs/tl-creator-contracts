@@ -22,7 +22,7 @@ import {IERC721TL} from "./IERC721TL.sol";
 
 /// @title ERC721TL.sol
 /// @notice Sovereign ERC-721 Creator Contract with Mutable Metadata and Story Inscriptions
-/// @author transientlabs.xyz
+/// @author mpeyfuss
 /// @custom:version 4.1.0
 contract ERC721TL is
     ERC721Upgradeable,

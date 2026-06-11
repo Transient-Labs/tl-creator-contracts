@@ -2,34 +2,27 @@
 pragma solidity 0.8.30;
 
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.6.1/proxy/utils/Initializable.sol";
-import {Strings} from "@openzeppelin-contracts-5.6.1/utils/Strings.sol";
 import {IERC165} from "@openzeppelin-contracts-5.6.1/utils/introspection/IERC165.sol";
 import {IRenderingContract} from "../interfaces/IRenderingContract.sol";
 
-/// @title Standard Rendering Contract
-/// @notice A rendering contract that maps a base uri to token id
-/// @dev Base uri should NOT end in a slash and should point to a folder of files of the format `<tokenId>`
+/// @title Edition Rendering Contract
+/// @notice A rendering contract that returns a single uri for ERC-721 editions
 /// @dev Deployable directly or as an ERC-1167 minimal proxy clone (call `initialize` after cloning)
 /// @author mpeyfuss
-contract StandardRenderingContract is Initializable, IRenderingContract {
-    /////////////////////////////////////////////////////////////////////
-    // TYPES
-    /////////////////////////////////////////////////////////////////////
-
-    using Strings for uint256;
+contract EditionRenderingContract is Initializable, IRenderingContract {
 
     /////////////////////////////////////////////////////////////////////
     // STORAGE
     /////////////////////////////////////////////////////////////////////
 
     address public nftContract;
-    string private _baseUri;
+    string private _uri;
 
     /////////////////////////////////////////////////////////////////////
     // EVENTS
     /////////////////////////////////////////////////////////////////////
 
-    event BaseUriSet(string baseUri);
+    event UriSet(string uri);
 
     /////////////////////////////////////////////////////////////////////
     // ERRORS
@@ -52,13 +45,13 @@ contract StandardRenderingContract is Initializable, IRenderingContract {
     /////////////////////////////////////////////////////////////////////
 
     /// @param initNftContract The nft contract this renderer serves
-    /// @param initBaseUri The base uri (should NOT end in a slash)
-    function initialize(address initNftContract, string memory initBaseUri) external initializer {
+    /// @param initUri The single uri returned for every token
+    function initialize(address initNftContract, string memory initUri) external initializer {
         if (initNftContract == address(0) || initNftContract.code.length == 0) revert InvalidAddress();
         nftContract = initNftContract;
-        _baseUri = initBaseUri;
+        _uri = initUri;
 
-        emit BaseUriSet(initBaseUri);
+        emit UriSet(initUri);
     }
 
     /////////////////////////////////////////////////////////////////////
@@ -66,18 +59,18 @@ contract StandardRenderingContract is Initializable, IRenderingContract {
     /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IRenderingContract
-    function tokenURI(uint256 tokenId) external view returns (string memory) {
+    function tokenURI(uint256 /* tokenId */) external view returns (string memory) {
         if (msg.sender != nftContract) revert NotNftContract();
-        return string(abi.encodePacked(_baseUri, "/", tokenId.toString()));
+        return _uri;
     }
 
     /////////////////////////////////////////////////////////////////////
     // READ FUNCTIONS
     /////////////////////////////////////////////////////////////////////
 
-    /// @notice Function to get the base uri used to build each token pointer (`<baseUri>/<tokenId>`)
-    function getBaseUri() external view returns (string memory) {
-        return _baseUri;
+    /// @notice Function to get the single uri returned for every token
+    function getUri() external view returns (string memory) {
+        return _uri;
     }
 
     /////////////////////////////////////////////////////////////////////
