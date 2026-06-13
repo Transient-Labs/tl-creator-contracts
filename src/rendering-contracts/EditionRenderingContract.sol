@@ -9,6 +9,7 @@ import {IRenderingContract} from "../interfaces/IRenderingContract.sol";
 /// @notice A rendering contract that returns a single uri for ERC-721 editions
 /// @dev Deployable directly or as an ERC-1167 minimal proxy clone (call `initialize` after cloning)
 /// @author mpeyfuss
+/// @custom:version 4.1.1
 contract EditionRenderingContract is Initializable, IRenderingContract {
 
     /////////////////////////////////////////////////////////////////////

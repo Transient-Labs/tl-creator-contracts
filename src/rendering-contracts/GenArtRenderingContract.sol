@@ -53,6 +53,7 @@ import {ERC721TL} from "../erc-721/ERC721TL.sol";
 ///      (mint, royalties, etc.), not a rendering-scoped subset — grant it only to trusted, immutable contracts.
 ///
 /// @dev Deployable directly or as an ERC-1167 minimal proxy clone (call `initialize` after cloning).
+/// @custom:version 4.1.1
 contract GenArtRenderingContract is Initializable, IGenArtRenderingContract {
     /////////////////////////////////////////////////////////////////////
     // TYPES

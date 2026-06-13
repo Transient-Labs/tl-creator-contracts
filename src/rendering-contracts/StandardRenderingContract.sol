@@ -11,6 +11,7 @@ import {IRenderingContract} from "../interfaces/IRenderingContract.sol";
 /// @dev Base uri should NOT end in a slash and should point to a folder of files of the format `<tokenId>`
 /// @dev Deployable directly or as an ERC-1167 minimal proxy clone (call `initialize` after cloning)
 /// @author mpeyfuss
+/// @custom:version 4.1.1
 contract StandardRenderingContract is Initializable, IRenderingContract {
     /////////////////////////////////////////////////////////////////////
     // TYPES
