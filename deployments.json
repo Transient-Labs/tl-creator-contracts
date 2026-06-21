@@ -194,6 +194,13 @@
             "deployed_contract": "0x8a13adc2fbd6f39850aa78d0d602df0cef477f72"
         }
     },
+    "StandardRenderingContract": {
+        "4.1.1": {
+            "constructor_args": "0x0000000000000000000000000000000000000000000000000000000000000001",
+            "salt": "0x0401010000000000000000000000000000000000000000000000000000000000",
+            "deployed_contract": "0x2104647c0eb5e60da05c48a8fa5c13e2d4201bdd"
+        }
+    },
     "GenArtRenderingContract": {
         "4.1.1": {
             "constructor_args": "0x0000000000000000000000000000000000000000000000000000000000000001",

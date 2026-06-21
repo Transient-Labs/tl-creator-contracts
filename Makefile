@@ -156,6 +156,27 @@ deploy_TRACE_mainnets: build
 	@bash print_and_clean.sh
 
 ########################################
+# StandardRenderingContract Deployments
+########################################
+
+deploy_StandardRenderingContract_testnets: build
+	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "StandardRenderingContract.sol:StandardRenderingContract" true
+	sleep 60
+	forge verify-contract $$(cat out.txt) src/rendering-contracts/StandardRenderingContract.sol:StandardRenderingContract --chain 11155111 --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge verify-contract $$(cat out.txt) src/rendering-contracts/StandardRenderingContract.sol:StandardRenderingContract --chain 421614 --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge verify-contract $$(cat out.txt) src/rendering-contracts/StandardRenderingContract.sol:StandardRenderingContract --chain 84532 --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge verify-contract $$(cat out.txt) src/rendering-contracts/StandardRenderingContract.sol:StandardRenderingContract --verifier blockscout --verifier-url https://sepolia.shapescan.xyz/api  --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	@bash print_and_clean.sh
+
+deploy_StandardRenderingContract_mainnets: build
+	forge script --ledger --sender ${SENDER} --broadcast --sig "run(string,bool)" script/Deploy.s.sol:Deploy "StandardRenderingContract.sol:StandardRenderingContract" false
+	forge verify-contract $$(cat out.txt) src/rendering-contracts/StandardRenderingContract.sol:StandardRenderingContract --chain 1 --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge verify-contract $$(cat out.txt) src/rendering-contracts/StandardRenderingContract.sol:StandardRenderingContract --chain 42161 --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge verify-contract $$(cat out.txt) src/rendering-contracts/StandardRenderingContract.sol:StandardRenderingContract --chain 8453 --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	forge verify-contract $$(cat out.txt) src/rendering-contracts/StandardRenderingContract.sol:StandardRenderingContract --verifier blockscout --verifier-url https://shapescan.xyz/api  --watch --constructor-args ${CONSTRUCTOR_ARGS}
+	@bash print_and_clean.sh
+
+########################################
 # GenArtRenderingContract Deployments
 ########################################
 
