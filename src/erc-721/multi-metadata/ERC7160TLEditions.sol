@@ -21,7 +21,7 @@ import {IERC721TL} from "../IERC721TL.sol";
 
 /// @title ERC7160TLEditions.sol
 /// @notice Sovereign ERC-7160 Editions Creator Contract with Story Inscriptions
-/// @author transientlabs.xyz
+/// @author mpeyfuss
 /// @custom:version 4.1.0
 contract ERC7160TLEditions is
     ERC721Upgradeable,

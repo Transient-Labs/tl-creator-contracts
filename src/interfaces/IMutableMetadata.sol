@@ -4,7 +4,6 @@ pragma solidity ^0.8.22;
 /// @title IMutableMetadata.sol
 /// @notice Interface for Mutable Metadata
 /// @dev Interface id = 0xa5edeaad
-/// @author transientlabs.xyz
 interface IMutableMetadata {
     error NotRenderingContract();
 

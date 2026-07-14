@@ -6,7 +6,6 @@ import {ITLNftDelegationRegistry} from "./ITLNftDelegationRegistry.sol";
 /// @title ICreatorBase.sol
 /// @notice Base interface for creator contracts
 /// @dev Interface id = 0x3397523a
-/// @author transientlabs.xyz
 interface ICreatorBase {
     /////////////////////////////////////////////////////////////////////
     // Events

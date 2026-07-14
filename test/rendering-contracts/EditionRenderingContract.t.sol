@@ -5,11 +5,10 @@ import "forge-std-1.14.0/Test.sol";
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.6.1/proxy/utils/Initializable.sol";
 import {Clones} from "@openzeppelin-contracts-5.6.1/proxy/Clones.sol";
 import {ERC721TL} from "src/erc-721/ERC721TL.sol";
-import {StandardRenderingContract} from "src/rendering-contracts/StandardRenderingContract.sol";
+import {EditionRenderingContract} from "src/rendering-contracts/EditionRenderingContract.sol";
 
-contract StandardRenderingContractTest is Test {
-
-    event BaseUriSet(string baseUri);
+contract EditionRenderingContractTest is Test {
+    event UriSet(string uri);
 
     ERC721TL public nft;
 
@@ -34,76 +33,76 @@ contract StandardRenderingContractTest is Test {
         nft.mint(address(this), "test3");
     }
 
-    function _deploy(address initNftContract, string memory baseUri) internal returns (StandardRenderingContract) {
-        StandardRenderingContract renderingContract = new StandardRenderingContract(false);
-        renderingContract.initialize(initNftContract, baseUri);
+    function _deploy(address initNftContract, string memory uri) internal returns (EditionRenderingContract) {
+        EditionRenderingContract renderingContract = new EditionRenderingContract(false);
+        renderingContract.initialize(initNftContract, uri);
         return renderingContract;
     }
 
     function test_initialize_setsStateAndEmits() public {
-        StandardRenderingContract renderingContract = new StandardRenderingContract(false);
+        EditionRenderingContract renderingContract = new EditionRenderingContract(false);
 
         vm.expectEmit(true, true, true, true);
-        emit BaseUriSet("ipfs://example-base");
-        renderingContract.initialize(address(nft), "ipfs://example-base");
+        emit UriSet("ipfs://example");
+        renderingContract.initialize(address(nft), "ipfs://example");
 
         assertEq(renderingContract.nftContract(), address(nft));
-        assertEq(renderingContract.getBaseUri(), "ipfs://example-base");
+        assertEq(renderingContract.getUri(), "ipfs://example");
     }
 
     function test_initialize_errors() public {
-        StandardRenderingContract renderingContract = new StandardRenderingContract(false);
+        EditionRenderingContract renderingContract = new EditionRenderingContract(false);
 
         // fail on zero address
-        vm.expectRevert(StandardRenderingContract.InvalidAddress.selector);
-        renderingContract.initialize(address(0), "ipfs://example-base");
+        vm.expectRevert(EditionRenderingContract.InvalidAddress.selector);
+        renderingContract.initialize(address(0), "ipfs://example");
 
         // fail on address without code
-        vm.expectRevert(StandardRenderingContract.InvalidAddress.selector);
-        renderingContract.initialize(address(42), "ipfs://example-base");
+        vm.expectRevert(EditionRenderingContract.InvalidAddress.selector);
+        renderingContract.initialize(address(42), "ipfs://example");
     }
 
     function test_cannot_reinitialize() public {
-        StandardRenderingContract renderingContract = _deploy(address(nft), "ipfs://example-base");
+        EditionRenderingContract renderingContract = _deploy(address(nft), "ipfs://example");
 
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         renderingContract.initialize(address(nft), "ipfs://other");
     }
 
     function test_implementation_initializers_disabled() public {
-        StandardRenderingContract impl = new StandardRenderingContract(true);
+        EditionRenderingContract impl = new EditionRenderingContract(true);
 
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        impl.initialize(address(nft), "ipfs://example-base");
+        impl.initialize(address(nft), "ipfs://example");
     }
 
     function test_clone_works() public {
-        StandardRenderingContract impl = new StandardRenderingContract(true);
-        StandardRenderingContract renderingContract = StandardRenderingContract(Clones.clone(address(impl)));
-        renderingContract.initialize(address(nft), "ipfs://example-base");
+        EditionRenderingContract impl = new EditionRenderingContract(true);
+        EditionRenderingContract renderingContract = EditionRenderingContract(Clones.clone(address(impl)));
+        renderingContract.initialize(address(nft), "ipfs://example");
         nft.setRenderingContract(address(renderingContract));
 
-        assertEq(nft.tokenURI(1), "ipfs://example-base/1");
+        assertEq(nft.tokenURI(1), "ipfs://example");
     }
 
     function test_tokenURI_formatsExpectedUri() public {
-        StandardRenderingContract renderingContract = _deploy(address(nft), "ipfs://example-base");
+        EditionRenderingContract renderingContract = _deploy(address(nft), "ipfs://example");
         nft.setRenderingContract(address(renderingContract));
 
-        assertEq(nft.tokenURI(1), "ipfs://example-base/1");
-        assertEq(nft.tokenURI(2), "ipfs://example-base/2");
-        assertEq(nft.tokenURI(3), "ipfs://example-base/3");
+        assertEq(nft.tokenURI(1), "ipfs://example");
+        assertEq(nft.tokenURI(2), "ipfs://example");
+        assertEq(nft.tokenURI(3), "ipfs://example");
     }
 
     function test_tokenURI_fails_when_not_called_by_nft_contract() public {
-        StandardRenderingContract renderingContract = _deploy(address(nft), "ipfs://example-base");
+        EditionRenderingContract renderingContract = _deploy(address(nft), "ipfs://example");
 
-        vm.expectRevert(StandardRenderingContract.NotNftContract.selector);
+        vm.expectRevert(EditionRenderingContract.NotNftContract.selector);
         renderingContract.tokenURI(1);
     }
 
     function test_supportsInterface() public {
-        StandardRenderingContract renderingContract = _deploy(address(nft), "ipfs://example-base");
+        EditionRenderingContract renderingContract = _deploy(address(nft), "ipfs://example");
 
         assertTrue(renderingContract.supportsInterface(0x01ffc9a7)); // ERC-165
         assertTrue(renderingContract.supportsInterface(0xc87b56dd)); // IRenderingContract

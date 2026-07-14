@@ -3,7 +3,6 @@ pragma solidity ^0.8.22;
 
 /// @title ITLNftDelegationRegistry.sol
 /// @notice Interface for the TL NFT Delegation Registry
-/// @author transientlabs.xyz
 interface ITLNftDelegationRegistry {
     /// @notice Function to check if an address is delegated for a vault for an ERC-721 token
     /// @dev This function does not ensure the vault is the current owner of the token
