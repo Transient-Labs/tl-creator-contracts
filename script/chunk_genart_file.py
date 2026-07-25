@@ -1,14 +1,13 @@
-#!/usr/bin/env python3
-"""Print a file as pasteable hex chunks."""
-
-from __future__ import annotations
-
 import argparse
 import hashlib
+import subprocess
+
 from pathlib import Path
 
 
 DEFAULT_CHUNK_SIZE = 48 * 1000
+STORE_SCRIPT_CHUNK_SIG = "storeScriptChunk(uint256,uint256,bytes)"
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def positive_int(value: str) -> int:
@@ -20,14 +19,14 @@ def positive_int(value: str) -> int:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Print a file one hex chunk at a time."
+        description="Send a file to a gen art rendering contract one chunk at a time."
     )
     parser.add_argument("file", type=Path, help="Path to the file to chunk.")
     parser.add_argument(
         "--chunk-size",
         type=positive_int,
         default=DEFAULT_CHUNK_SIZE,
-        help="Chunk size in bytes. Defaults to 204800 bytes (200 KiB).",
+        help=f"Chunk size in bytes. Defaults to {DEFAULT_CHUNK_SIZE} bytes.",
     )
     parser.add_argument(
         "--start",
@@ -36,9 +35,9 @@ def parse_args() -> argparse.Namespace:
         help="Zero-based chunk index to start from. Defaults to 0.",
     )
     parser.add_argument(
-        "--no-prefix",
-        action="store_true",
-        help="Print raw hex without the 0x prefix.",
+        "cast_args",
+        nargs="*",
+        help="Extra args for cast send, e.g. -- --account deployer. Defaults to --ledger.",
     )
     return parser.parse_args()
 
@@ -60,7 +59,6 @@ def main() -> int:
         data[i : i + args.chunk_size] for i in range(0, len(data), args.chunk_size)
     ] or [b""]
     digest = hashlib.sha256(data).hexdigest()
-    prefix = "" if args.no_prefix else "0x"
 
     if args.start >= len(chunks):
         print(f"error: --start must be less than total chunks ({len(chunks)})")
@@ -73,20 +71,45 @@ def main() -> int:
     print(f"chunks: {len(chunks)}")
     print()
 
+    rpc_url = input("chain (foundry.toml alias or rpc url): ").strip()
+    contract = input("rendering contract address: ").strip()
+    version = input("script version: ").strip()
+    cast_args = args.cast_args or ["--ledger"]
+    print()
+
     for chunk_index in range(args.start, len(chunks)):
         chunk = chunks[chunk_index]
         print(f"chunk {chunk_index + 1}/{len(chunks)}")
         print(f"chunkIndex: {chunk_index}")
         print(f"sizeBytes: {len(chunk)}")
-        print(f"{prefix}{chunk.hex()}")
-        print()
 
-        if chunk_index == len(chunks) - 1:
-            break
-
-        response = input("Press Enter for next chunk, or q then Enter to quit: ")
+        response = input("Press Enter to send, or q then Enter to quit: ")
         if response.lower() == "q":
             break
+
+        # Run from the repo root so foundry.toml rpc aliases and .env resolve, and
+        # without capturing output so ledger/keystore prompts stay interactive.
+        result = subprocess.run(
+            [
+                "cast",
+                "send",
+                contract,
+                STORE_SCRIPT_CHUNK_SIG,
+                version,
+                str(chunk_index),
+                f"0x{chunk.hex()}",
+                "--rpc-url",
+                rpc_url,
+                *cast_args,
+            ],
+            cwd=REPO_ROOT,
+            check=False,
+        )
+        if result.returncode != 0:
+            print(
+                f"error: chunk {chunk_index} failed, resume with --start {chunk_index}"
+            )
+            return 1
         print()
 
     return 0
