@@ -54,5 +54,4 @@ interface IGenArtRenderingContract is IRenderingContract {
 
     /// @notice Function to get the seed override
     function getSeed(uint256 tokenId) external view returns (Seed memory);
-    
 }

@@ -11,7 +11,7 @@ import {IRenderingContract} from "../interfaces/IRenderingContract.sol";
 /// @dev Base uri should NOT end in a slash and should point to a folder of files of the format `<tokenId>`
 /// @dev Deployable directly or as an ERC-1167 minimal proxy clone (call `initialize` after cloning)
 /// @author mpeyfuss
-/// @custom:version 4.1.1
+/// @custom:version 4.1.2
 contract StandardRenderingContract is Initializable, IRenderingContract {
     /////////////////////////////////////////////////////////////////////
     // TYPES
@@ -87,7 +87,6 @@ contract StandardRenderingContract is Initializable, IRenderingContract {
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
-        return interfaceId == type(IERC165).interfaceId
-            || interfaceId == type(IRenderingContract).interfaceId;
+        return interfaceId == type(IERC165).interfaceId || interfaceId == type(IRenderingContract).interfaceId;
     }
 }

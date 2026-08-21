@@ -46,8 +46,13 @@ contract Deploy is Script {
             vm.createSelectFork("shape_sepolia");
             vm.broadcast();
             create2Deployer.deploy(0, salt, bytecode);
+
+            // deploy to robinhood testnet
+            vm.createSelectFork("robinhood_testnet");
+            vm.broadcast();
+            create2Deployer.deploy(0, salt, bytecode);
         } else {
-            // deploy to eth
+            // deploy to mainnet
             vm.createSelectFork("mainnet");
             vm.broadcast();
             create2Deployer.deploy(0, salt, bytecode);
@@ -64,6 +69,11 @@ contract Deploy is Script {
 
             // deploy to shape
             vm.createSelectFork("shape");
+            vm.broadcast();
+            create2Deployer.deploy(0, salt, bytecode);
+
+            // deploy to robinhood
+            vm.createSelectFork("robinhood");
             vm.broadcast();
             create2Deployer.deploy(0, salt, bytecode);
         }

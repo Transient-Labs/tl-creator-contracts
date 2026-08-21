@@ -6,8 +6,10 @@ libs = ["dependencies"]
 auto_detect_solc = true
 optimizer = true
 optimizer_runs = 2000
+bytecode_hash = "none"
+cbor_metadata = false
 verbosity = 3
-gas_reports = ["ERC721TL", "ERC1155TL", "Doppelganger", "CollectorsChoice", "Shatter", "TRACE", "ERC7160TL"]
+gas_reports = ["ERC721TL", "ERC1155TL", "TRACE", "ERC7160TL", "ERC7160TLEditions"]
 fs_permissions = [{ access = "read-write", path = "./"}]
 show_progress = true
 
@@ -19,10 +21,12 @@ sepolia = "${SEPOLIA_RPC_URL}"
 arbitrum_sepolia = "${ARB_SEPOLIA_RPC_URL}"
 base_sepolia = "${BASE_SEPOLIA_RPC_URL}"
 shape_sepolia = "${SHAPE_SEPOLIA_RPC_URL}"
+robinhood_testnet = "${ROBINHOOD_TESTNET_RPC_URL}"
 mainnet = "${ETH_RPC_URL}"
 arbitrum = "${ARB_RPC_URL}"
 base = "${BASE_RPC_URL}"
 shape = "${SHAPE_RPC_URL}"
+robinhood = "${ROBINHOOD_RPC_URL}"
 
 [etherscan]
 sepolia = { key = "${ETHERSCAN_KEY}" }
