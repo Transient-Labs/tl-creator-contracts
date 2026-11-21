@@ -40,7 +40,7 @@ import {ERC721TL} from "../erc-721/ERC721TL.sol";
 /// @dev SEED OVERRIDE (curated drops): when a token has a `Seed` stored here with `enabled == true`, the
 ///      backend injects `seed=<value>` verbatim and it fully replaces the field composition above
 ///      (`tokenId`/`blockhash` are ignored for seeding). Use only for collector-curated drops; leave
-///      `Seed` disabled for normal algorithmic mints. 
+///      `Seed` disabled for normal algorithmic mints.
 ///
 /// @dev EXTRA PARAMS: `ExtraParams` are additional artist-defined query
 ///      params injected alongside the above.
@@ -53,7 +53,7 @@ import {ERC721TL} from "../erc-721/ERC721TL.sol";
 ///      (mint, royalties, etc.), not a rendering-scoped subset — grant it only to trusted, immutable contracts.
 ///
 /// @dev Deployable directly or as an ERC-1167 minimal proxy clone (call `initialize` after cloning).
-/// @custom:version 4.1.1
+/// @custom:version 4.1.2
 contract GenArtRenderingContract is Initializable, IGenArtRenderingContract {
     /////////////////////////////////////////////////////////////////////
     // TYPES
@@ -256,8 +256,7 @@ contract GenArtRenderingContract is Initializable, IGenArtRenderingContract {
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
-        return interfaceId == type(IERC165).interfaceId
-            || interfaceId == type(IRenderingContract).interfaceId
+        return interfaceId == type(IERC165).interfaceId || interfaceId == type(IRenderingContract).interfaceId
             || interfaceId == type(IGenArtRenderingContract).interfaceId;
     }
 

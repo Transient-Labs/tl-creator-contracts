@@ -22,7 +22,7 @@ import {IERC721TL} from "../IERC721TL.sol";
 /// @title ERC7160TL.sol
 /// @notice Sovereign ERC-7160 Creator Contract with Story Inscriptions
 /// @author mpeyfuss
-/// @custom:version 4.1.0
+/// @custom:version 4.1.2
 contract ERC7160TL is
     ERC721Upgradeable,
     ERC2981TLUpgradeable,
@@ -69,7 +69,7 @@ contract ERC7160TL is
     // State Variables
     /////////////////////////////////////////////////////////////////////
 
-    string public constant VERSION = "4.1.0";
+    string public constant VERSION = "4.1.2";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter; // token ids
@@ -518,7 +518,7 @@ contract ERC7160TL is
         // only check transfer validator if not a mint or burn, transfer validator is set, and royalty > 0
         address transferValidator = _transferValidator;
         address from = _ownerOf(tokenId);
-        (,uint256 royaltyPerc) = _getRoyalty(tokenId);
+        (, uint256 royaltyPerc) = _getRoyalty(tokenId);
         if (from != address(0) && to != address(0) && transferValidator != address(0) && royaltyPerc > 0) {
             ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, tokenId);
         }

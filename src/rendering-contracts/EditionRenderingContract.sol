@@ -9,9 +9,8 @@ import {IRenderingContract} from "../interfaces/IRenderingContract.sol";
 /// @notice A rendering contract that returns a single uri for ERC-721 editions
 /// @dev Deployable directly or as an ERC-1167 minimal proxy clone (call `initialize` after cloning)
 /// @author mpeyfuss
-/// @custom:version 4.1.1
+/// @custom:version 4.1.2
 contract EditionRenderingContract is Initializable, IRenderingContract {
-
     /////////////////////////////////////////////////////////////////////
     // STORAGE
     /////////////////////////////////////////////////////////////////////
@@ -60,7 +59,13 @@ contract EditionRenderingContract is Initializable, IRenderingContract {
     /////////////////////////////////////////////////////////////////////
 
     /// @inheritdoc IRenderingContract
-    function tokenURI(uint256 /* tokenId */) external view returns (string memory) {
+    function tokenURI(
+        uint256 /* tokenId */
+    )
+        external
+        view
+        returns (string memory)
+    {
         if (msg.sender != nftContract) revert NotNftContract();
         return _uri;
     }
@@ -80,7 +85,6 @@ contract EditionRenderingContract is Initializable, IRenderingContract {
 
     /// @inheritdoc IERC165
     function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
-        return interfaceId == type(IERC165).interfaceId
-            || interfaceId == type(IRenderingContract).interfaceId;
+        return interfaceId == type(IERC165).interfaceId || interfaceId == type(IRenderingContract).interfaceId;
     }
 }

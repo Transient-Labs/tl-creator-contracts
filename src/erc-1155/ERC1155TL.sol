@@ -21,7 +21,7 @@ import {IERC1155TL} from "./IERC1155TL.sol";
 /// @title ERC1155TL.sol
 /// @notice Sovereign ERC-1155 Creator Contract with Story Inscriptions
 /// @author mpeyfuss
-/// @custom:version 4.1.0
+/// @custom:version 4.1.2
 contract ERC1155TL is
     ERC1155Upgradeable,
     ERC2981TLUpgradeable,
@@ -42,7 +42,7 @@ contract ERC1155TL is
     // State Variables
     /////////////////////////////////////////////////////////////////////
 
-    string public constant VERSION = "4.1.0";
+    string public constant VERSION = "4.1.2";
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant APPROVED_MINT_CONTRACT = keccak256("APPROVED_MINT_CONTRACT");
     uint256 private _counter;
@@ -384,7 +384,7 @@ contract ERC1155TL is
         address transferValidator = _transferValidator;
         if (from != address(0) && to != address(0) && transferValidator != address(0)) {
             for (uint256 i = 0; i < ids.length; ++i) {
-                (,uint256 royaltyPerc) = _getRoyalty(ids[i]);
+                (, uint256 royaltyPerc) = _getRoyalty(ids[i]);
                 if (royaltyPerc > 0) {
                     // check transfer validator if royalty > 0%
                     ITransferValidator(transferValidator).validateTransfer(msg.sender, from, to, ids[i], values[i]);

@@ -30,18 +30,7 @@ contract GenArtRenderingContractTest is Test {
     function setUp() public {
         address[] memory admins = new address[](0);
         nft = new ERC721TL(false);
-        nft.initialize(
-            "Test721",
-            "T721",
-            address(this),
-            1000,
-            address(this),
-            admins,
-            true,
-            address(0),
-            0,
-            address(0)
-        );
+        nft.initialize("Test721", "T721", address(this), 1000, address(this), admins, true, address(0), 0, address(0));
 
         nft.mint(address(this), "test1");
         nft.mint(address(this), "test2");
